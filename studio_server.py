@@ -328,6 +328,15 @@ def api_transfer(req):
     return out
 
 
+def api_suggest_window(req):
+    after = _jd_from_date(req.get("after") or datetime.date.today().isoformat(), "Search start date")
+    s = interplanetary.suggest_window(req["dep"], req["arr"], after)
+    for k in ("jd_departure", "jd_arrival"):
+        s[k.replace("jd_", "") + "_iso"] = jd_to_iso(s[k])
+    s["window_iso"] = {k: jd_to_iso(v)[:10] for k, v in s["window"].items()}
+    return s
+
+
 def api_route_presets(_req=None):
     return {"presets": flyby.PRESETS, "planets": planets.PLANET_ORDER}
 
@@ -443,6 +452,7 @@ ROUTES = {
     "/api/moon": api_moon,
     "/api/maneuver": api_maneuver,
     "/api/route": api_route,
+    "/api/suggest_window": api_suggest_window,
     "/api/route_presets": api_route_presets,
     "/api/perturb": api_perturb,
     "/api/perturb_presets": api_perturb_presets,

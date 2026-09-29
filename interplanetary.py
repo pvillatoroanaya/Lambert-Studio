@@ -80,6 +80,25 @@ def _hyperbolic_dv(vinf, planet, alt):
     return math.sqrt(vinf ** 2 + 2 * mu / rp) - math.sqrt(mu / rp)
 
 
+GIANTS = ("Jupiter", "Saturn", "Uranus", "Neptune")
+
+
+def arrival_dv(vinf, planet):
+    """
+    Braking burn to be captured on arrival. Rocky planets: into a 400 km
+    circular orbit. Gas giants: into a long ellipse (periapsis 1.2 radii,
+    apoapsis 100 radii), the way Galileo, Cassini and Juno were captured;
+    a low circular orbit around a giant would cost several times more.
+    Works on a number or a numpy array.
+    """
+    mu, R = PLANET_MU[planet], PLANET_STYLE[planet]["radius"]
+    if planet in GIANTS:
+        rp, ra = 1.2 * R, 100 * R
+        return np.sqrt(vinf ** 2 + 2 * mu / rp) - math.sqrt(2 * mu / rp - 2 * mu / (rp + ra))
+    rp = R + PARKING_ALT_ARRIVAL
+    return np.sqrt(vinf ** 2 + 2 * mu / rp) - math.sqrt(mu / rp)
+
+
 def transfer(dep, arr, jd_dep, jd_arr, prograde=True):
     """Solve one planet-to-planet transfer and derive its mission numbers."""
     if jd_arr <= jd_dep:
@@ -110,7 +129,7 @@ def transfer(dep, arr, jd_dep, jd_arr, prograde=True):
         "vinf_arrival": vinf_arr,
         "c3": vinf_dep ** 2,
         "dv_departure": _hyperbolic_dv(vinf_dep, dep, PARKING_ALT_DEPARTURE),
-        "dv_arrival": _hyperbolic_dv(vinf_arr, arr, PARKING_ALT_ARRIVAL),
+        "dv_arrival": float(arrival_dv(vinf_arr, arr)),
         "elements": state_to_elements(r1, v1, mu=MU_SUN),
         "ephemeris": ephemeris_source(),
     }
@@ -145,6 +164,56 @@ def explain_transfer(t):
         "hohmann_dv_departure": _hyperbolic_dv(vinf_h, dep, PARKING_ALT_DEPARTURE),
         "synodic_days": synodic,
         "outward": a2 > a1,
+    }
+
+
+def suggest_window(dep, arr, after_jd):
+    """
+    The next good launch opportunity from `dep` to `arr` after a date.
+
+    Planets return to the same relative position once per synodic
+    period, so searching one synodic period of departure dates (with
+    flight times around the Hohmann time) is guaranteed to contain the
+    next window. Every combination is solved at once with the batch
+    Lambert solver; the cheapest total delta-v (leaving a 200 km orbit +
+    being captured, see arrival_dv) wins. Returns the dates and a porkchop
+    search window centred on them.
+    """
+    if dep == arr:
+        raise ValueError("Departure and arrival planets must be different.")
+    T1 = planets.orbital_period_days(dep, after_jd)
+    T2 = planets.orbital_period_days(arr, after_jd)
+    synodic = 1.0 / abs(1.0 / T1 - 1.0 / T2)
+    a1 = planets.planet_elements(dep, after_jd)["a_au"] * AU
+    a2 = planets.planet_elements(arr, after_jd)["a_au"] * AU
+    t_h = math.pi * math.sqrt(((a1 + a2) / 2) ** 3 / MU_SUN) / 86400.0
+
+    deps = after_jd + np.linspace(0.0, 1.1 * synodic, 180)
+    tofs = np.linspace(0.45 * t_h, 1.5 * t_h, 70)
+    R1, V1 = planet_states_array(dep, deps)
+    I, J = np.meshgrid(np.arange(len(deps)), np.arange(len(tofs)), indexing="ij")
+    I, J = I.ravel(), J.ravel()
+    jd_arr = np.round(deps[I] + tofs[J], 5)
+    ua, inv = np.unique(jd_arr, return_inverse=True)
+    R2, V2 = planet_states_array(arr, ua)
+    v1, v2, _, ok = lambert_batch(R1[I], R2[inv], tofs[J] * 86400.0, mu=MU_SUN)
+    vinf_d = np.linalg.norm(v1 - V1[I], axis=1)
+    vinf_a = np.linalg.norm(v2 - V2[inv], axis=1)
+    mu1, rp1 = PLANET_MU[dep], PLANET_STYLE[dep]["radius"] + PARKING_ALT_DEPARTURE
+    cost = np.sqrt(vinf_d ** 2 + 2 * mu1 / rp1) - math.sqrt(mu1 / rp1) + arrival_dv(vinf_a, arr)
+    cost = np.where(ok & np.isfinite(cost), cost, np.inf)
+    k = int(np.argmin(cost))
+    if not np.isfinite(cost[k]):
+        raise ValueError("No transfer found in the next synodic period.")
+    jd_d, tof = float(deps[I[k]]), float(tofs[J[k]])
+    span_d = max(45.0, 0.12 * synodic)
+    return {
+        "jd_departure": jd_d, "jd_arrival": jd_d + tof, "tof_days": tof,
+        "c3": float(vinf_d[k] ** 2), "total_dv": float(cost[k]),
+        "synodic_days": synodic, "hohmann_days": t_h,
+        "window": {"dep_start": jd_d - span_d, "dep_end": jd_d + span_d,
+                   "arr_start": jd_d + tof - 0.35 * tof, "arr_end": jd_d + tof + 0.35 * tof},
+        "searched": int(len(I)),
     }
 
 

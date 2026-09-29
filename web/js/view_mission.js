@@ -51,6 +51,9 @@
     view.show();
   }
 
+  /* Used by the "Suggest dates" helper after it fills in the dates. */
+  view.refresh = async function () { await computeTransfer(); await computePorkchop(); };
+
   view.show = function () {
     const el = $('ch-pork'); if (el.data && mode === 'direct') Plotly.Plots.resize(el);
     if (mode === 'route') LS.route.resize();
@@ -184,7 +187,7 @@
                  ['Flight time', `${f(t.tof_days, 0)} days`], ['Launch energy C₃', `${f(t.c3, 2)} km²/s²`],
                  ['Δv leaving Earth orbit', `${f(t.dv_departure, 3)} km/s`], ['Δv to enter orbit', `${f(t.dv_arrival, 3)} km/s`],
                  ['Arrival speed v∞', `${f(t.vinf_arrival, 3)} km/s`]])}
-        <p class="hint" style="margin-top:6px">Leaving from a 200 km parking orbit; captured into a 400 km circular orbit.
+        <p class="hint" style="margin-top:6px">Leaving from a 200 km parking orbit. Captured into a 400 km circular orbit (rocky planets) or a long ellipse like Juno and Cassini (gas giants).
           Planet positions: ${t.ephemeris}.</p>
         <button class="play-mission" id="m-play">▶ Play mission</button>
         <button class="ghost wide" id="m-3d" style="margin-top:8px">Show in the Solar tab</button>

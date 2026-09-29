@@ -293,6 +293,14 @@ button.play-mission { margin-top: 10px; width: 100%; background: linear-gradient
   border: 0; border-radius: 8px; padding: 10px 14px; font-weight: 700; cursor: pointer; font-size: 13px; }
 button.play-mission:hover { filter: brightness(1.08); }
 
+/* recommended values */
+.suggest { display: flex; flex-direction: column; gap: 6px; padding: 9px 10px; border: 1px dashed var(--line-2);
+  border-radius: 9px; background: rgba(90,200,250,.035); }
+.sg-title { font-size: 10.5px; text-transform: uppercase; letter-spacing: .9px; color: var(--muted); font-weight: 600; }
+.suggest .chips button { font-size: 11.5px; padding: 3px 9px; }
+.sg-note { margin: 0; font-size: 11.5px; line-height: 1.5; color: #c9d4ea; }
+.sg-note b { color: var(--text); }
+
 /* maneuver: comparison rows */
 #hud-maneuver { width: 290px; }
 .opt { padding: 6px 0; border-top: 1px solid var(--line); font-size: 12.5px; }

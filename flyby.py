@@ -40,7 +40,7 @@ from constants import MU_SUN, AU
 from lambert_solver import lambert_universal, lambert_batch
 from frames import propagate
 from planets import PLANET_MU, PLANET_STYLE, PLANET_ORDER, orbital_period_days, planet_elements
-from interplanetary import best_planet_state, planet_states_array, _hyperbolic_dv, ephemeris_source
+from interplanetary import best_planet_state, planet_states_array, _hyperbolic_dv, ephemeris_source, arrival_dv
 
 # Closest allowed flyby altitude (km). Gas giants: stay out of the densest
 # radiation / ring regions, like real missions do.
@@ -127,19 +127,9 @@ def _flyby_vec(planet, vin, vout):
 
 
 def capture_dv(vinf, planet):
-    """
-    Burn to be captured at the target. Rocky planets: into a 400 km
-    circular orbit. Gas giants: into a long ellipse (periapsis 1.2 R,
-    apoapsis 100 R) -- how Galileo, Cassini and Juno were captured.
-    Works on a number or an array.
-    """
-    mu, R = PLANET_MU[planet], PLANET_STYLE[planet]["radius"]
-    if planet in GIANTS:
-        rp, ra = 1.2 * R, 100 * R
-        v_orbit = math.sqrt(2 * mu / rp - 2 * mu / (rp + ra))
-        return np.sqrt(vinf ** 2 + 2 * mu / rp) - v_orbit
-    rp = R + 400.0
-    return np.sqrt(vinf ** 2 + 2 * mu / rp) - math.sqrt(mu / rp)
+    """Burn to be captured at the target (shared with direct transfers,
+    see interplanetary.arrival_dv)."""
+    return arrival_dv(vinf, planet)
 
 
 def _launch_dv(vinf, planet):
