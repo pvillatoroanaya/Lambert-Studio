@@ -1,0 +1,14 @@
+# Python caches
+__pycache__/
+*.pyc
+
+# Generated outputs (rebuild them with the scripts)
+lambert_dashboard.html
+orbit_plot.png
+lambert_results.txt
+
+# Editor / OS clutter
+.vscode/*
+!.vscode/settings.json
+Thumbs.db
+desktop.ini

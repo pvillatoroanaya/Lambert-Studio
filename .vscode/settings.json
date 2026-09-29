@@ -1,0 +1,3 @@
+{
+    "python.defaultInterpreterPath": "${userHome}/.venvs/lambert/Scripts/python.exe"
+}

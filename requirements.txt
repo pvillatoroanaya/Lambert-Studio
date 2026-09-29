@@ -1,0 +1,7 @@
+numpy
+plotly
+customtkinter
+PySide6
+sgp4
+skyfield
+scipy
