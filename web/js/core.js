@@ -28,10 +28,18 @@ LS.api = async function (path, body) {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
   };
   let res;
-  try {
-    res = await fetch(path, opt);
-  } catch (e) {
-    throw new Error('The Lambert Studio server is not responding. Restart the app.');
+  for (let attempt = 0; ; attempt++) {
+    try {
+      res = await fetch(path, opt);
+      break;
+    } catch (e) {
+      // A momentary connection hiccup: try once more before giving up.
+      if (attempt >= 1) {
+        if (LS.report) LS.report(`Request failed twice: ${path}: ${e}`);
+        throw new Error('The Lambert Studio server is not responding. Restart the app.');
+      }
+      await new Promise((r) => setTimeout(r, 800));
+    }
   }
   const js = await res.json();
   if (!js.ok) throw new Error(js.error || 'Request failed');

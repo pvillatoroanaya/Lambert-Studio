@@ -19,7 +19,7 @@ import threading
 
 import numpy as np
 
-EPH_DIR = pathlib.Path(os.environ.get("LOCALAPPDATA", pathlib.Path.home())) / "LambertStudio" / "ephemeris"
+from app_paths import EPHEMERIS_DIR as EPH_DIR
 EPH_FILE = "de440s.bsp"
 EPH_URL = "https://ssd.jpl.nasa.gov/ftp/eph/planets/bsp/de440s.bsp"
 
@@ -37,6 +37,10 @@ TARGETS = {
 _TT_MINUS_UTC_DAYS = (37.0 + 32.184) / 86400.0
 
 _lock = threading.Lock()
+# The web server answers requests on several threads at once. Skyfield /
+# jplephem read the ephemeris file lazily and do not promise to be safe
+# for simultaneous reads, so reads are serialised (each takes ~1 ms).
+_read_lock = threading.Lock()
 _state = {"loaded": False, "eph": None, "ts": None, "frame": None, "error": None}
 
 
@@ -85,9 +89,10 @@ def planet_states(name, jd):
     eph = _load()
     if eph is None:
         return None
-    t = _t(jd)
-    rel = (eph[TARGETS[name]] - eph["sun"]).at(t)
-    r, v = rel.frame_xyz_and_velocity(_state["frame"])
+    with _read_lock:
+        t = _t(jd)
+        rel = (eph[TARGETS[name]] - eph["sun"]).at(t)
+        r, v = rel.frame_xyz_and_velocity(_state["frame"])
     return r.au.T, v.au_per_d.T
 
 
@@ -106,8 +111,9 @@ def moon_geocentric(jd):
     eph = _load()
     if eph is None:
         return None
-    rel = (eph["moon"] - eph["earth"]).at(_t(jd))
-    return rel.position.km.T, rel.velocity.km_per_s.T
+    with _read_lock:
+        rel = (eph["moon"] - eph["earth"]).at(_t(jd))
+        return rel.position.km.T, rel.velocity.km_per_s.T
 
 
 def sun_geocentric(jd):
@@ -115,7 +121,8 @@ def sun_geocentric(jd):
     eph = _load()
     if eph is None:
         return None
-    return (eph["sun"] - eph["earth"]).at(_t(jd)).position.km.T
+    with _read_lock:
+        return (eph["sun"] - eph["earth"]).at(_t(jd)).position.km.T
 
 
 if __name__ == "__main__":

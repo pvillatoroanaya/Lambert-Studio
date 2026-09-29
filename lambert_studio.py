@@ -13,7 +13,8 @@ Windows, is the most stable of the three, and uses the dedicated graphics
 card when the page asks for it. If Edge is not installed, the Qt window
 is used; if that is not installed either, the default browser.
 
-Logs (including native crashes) go to %LOCALAPPDATA%\\LambertStudio\\logs.
+Logs (including native crashes) go to %USERPROFILE%\\.lambert_studio\\logs
+(see app_paths.py for why not AppData).
 """
 
 import argparse
@@ -33,8 +34,7 @@ import webbrowser
 import studio_server
 from studio_server import start_server
 
-APP_DIR = pathlib.Path(os.environ.get("LOCALAPPDATA", pathlib.Path.home())) / "LambertStudio"
-LOG_DIR = APP_DIR / "logs"
+from app_paths import LOG_DIR, EDGE_PROFILE_DIR
 
 log = logging.getLogger("studio")
 
@@ -84,7 +84,7 @@ def run_edge(edge, url):
     closes (and pings it while open), which is more reliable than waiting
     on the Edge process: Edge may hand the window to another process.
     """
-    profile = APP_DIR / "edge-profile"
+    profile = EDGE_PROFILE_DIR
     proc = subprocess.Popen([
         edge, f"--app={url}", f"--user-data-dir={profile}",
         "--window-size=1480,920", "--no-first-run", "--no-default-browser-check",

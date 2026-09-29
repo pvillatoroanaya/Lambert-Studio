@@ -336,8 +336,8 @@ def api_route(req):
     seq = [p for p in req.get("seq", []) if p]
     if len(seq) < 2:
         raise ValueError("Choose at least a start and a destination.")
-    if len(seq) > 4:
-        raise ValueError("At most two flybys are supported.")
+    if len(seq) > 2 + flyby.MAX_FLYBYS:
+        raise ValueError(f"At most {flyby.MAX_FLYBYS} flybys are supported.")
     w0 = _jd_from_date(req.get("from"), "Launch window start")
     w1 = _jd_from_date(req.get("to"), "Launch window end")
     if w1 - w0 > 15 * 365.25:
@@ -474,6 +474,9 @@ class _Handler(SimpleHTTPRequestHandler):
         except (ValueError, KeyError, RuntimeError) as exc:
             msg = str(exc) if not isinstance(exc, KeyError) else f"Missing field {exc}"
             payload, status = {"ok": False, "error": msg}, 200
+            # User-facing errors are normal, but log them so any unexpected
+            # one can be traced afterwards.
+            logging.getLogger("server").warning("%s -> %s (request: %s)", path, msg, str(req)[:300])
         except Exception as exc:                  # a bug, not a user error
             logging.getLogger("server").error("%s failed:\n%s", path, traceback.format_exc())
             payload, status = {"ok": False, "error": f"Internal error: {exc}"}, 500

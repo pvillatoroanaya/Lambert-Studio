@@ -71,7 +71,7 @@ The single file is **generated** from the modules by
 
 ### Validation
 
-`validation.py` (also `--selftest`) runs 64 core checks, all passing:
+`validation.py` (also `--selftest`) runs 74 core checks, all passing:
 
 - **Textbook reference cases.** Curtis Example 5.2 (Lambert) and
   Example 4.3 (elements from a state vector) match the published answers.
@@ -79,6 +79,10 @@ The single file is **generated** from the modules by
   momentum are equal at both points, and the elements agree from either
   point. The mean anomaly advances by exactly n·Δt, and propagating
   (r₁, v₁) forward by Δt lands on r₂ to within 10⁻¹¹ km.
+- **Multi-revolution Lambert.** For 1 and 2 laps, on both solution
+  branches, propagating the solution lands on r₂ (to within 10⁻⁸ km)
+  after exactly N laps. Too-short times are rejected, and the batch
+  solver equals the scalar one.
 - **Round trip.** Converting the solved orbit back into the station's
   sky recovers the original azimuth, elevation and range to machine
   precision.
@@ -87,8 +91,8 @@ The single file is **generated** from the modules by
 - **Planets and transfers.** Sidereal periods match accepted values, and
   an Earth→Mars 2026 transfer lands in the realistic range for C₃ and Δv.
 
-With the Lambert Studio packages installed, 21 more checks cover the
-extensions (85 in total; without them, those checks are listed as skipped):
+With the Lambert Studio packages installed, 29 more checks cover the
+extensions (103 in total; without them, those checks are listed as skipped):
 
 - the JPL DE440s ephemeris, compared with the approximate elements;
 - Hohmann LEO→GEO Δv = 3.893 km/s;
@@ -100,7 +104,11 @@ extensions (85 in total; without them, those checks are listed as skipped):
 - the gravity-assist optimiser against history. Searching from physics
   alone, it finds Mariner 10's Venus flyby within 2 days of the real date
   (5 Feb 1974) and Voyager's launch within 3 days (5 Sep 1977), with
-  Jupiter adding about 10 km/s.
+  Jupiter adding about 10 km/s;
+- routes that return to the same planet (multi-revolution legs), within
+  each mission's real launch period. Cassini's Earth flyby comes within a
+  day of the real date (18 Aug 1999) and its launch within 2 days. Galileo's
+  Venus and first Earth flybys come within 12 and 22 days.
 
 ---
 
@@ -117,17 +125,17 @@ Double-click **`run_studio.bat`** (or run `python lambert_studio.py`).
 | Satellites | Real satellites from CelesTrak at their current positions; search, details and orbits |
 | Flybys | Upcoming asteroid close approaches (NASA/JPL CNEOS), with precise geocentric paths from JPL Horizons |
 | Solar | Planets from the JPL DE440s ephemeris, and potentially hazardous asteroids from the JPL Small-Body Database |
-| Mission | **Direct transfer:** porkchop plot and a plain-language explanation of the route (Type I/II, how far ahead to aim, comparison with Hohmann, how often launch windows return). **Gravity-assist route:** multi-planet routes optimised with patched conics (`flyby.py`), shown in 3D with a speed-gain chart and a step-by-step story; includes Voyager, Mariner 10 and the Voyager 2 Grand Tour |
+| Mission | **Direct transfer:** porkchop plot and a plain-language explanation of the route (Type I/II, how far ahead to aim, comparison with Hohmann, how often launch windows return). **Gravity-assist route:** routes with up to 4 flybys, optimised with patched conics (`flyby.py`), where a leg may loop around the Sun (multi-revolution Lambert), so the same planet can be used twice. Shown in 3D with a speed-gain chart and a step-by-step story. Examples: Voyager, Mariner 10, Galileo (VEEGA), Cassini (VVEJGA) and the Voyager 2 Grand Tour |
 
 **Requirements:** `pip install -r requirements.txt`. The first run needs
 internet for satellite and asteroid data; afterwards saved copies are
-used offline. The DE440s ephemeris (31 MB) is kept in
-`%LOCALAPPDATA%\LambertStudio\ephemeris`; without it, the approximate
-planetary elements are used automatically.
+used offline. All app data lives in `%USERPROFILE%\.lambert_studio`:
+`cache\` (downloads), `logs\`, and `ephemeris\` (DE440s, 31 MB — without it,
+the approximate planetary elements are used automatically).
 
 Options: `run_studio.bat --qt` (embedded Qt window instead of Edge app
-mode), `--browser` (normal browser tab). Logs are written to
-`%LOCALAPPDATA%\LambertStudio\logs`; `run_studio_debug.bat` keeps a console open.
+mode), `--browser` (normal browser tab). `run_studio_debug.bat` keeps a
+console open.
 
 **Architecture:** the physics stays in Python; `studio_server.py` serves
 a JSON API on 127.0.0.1 only, and the interface in `web/` draws it with

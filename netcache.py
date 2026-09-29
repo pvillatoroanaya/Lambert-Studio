@@ -14,8 +14,7 @@ import pathlib
 import time
 import urllib.request
 
-CACHE_DIR = pathlib.Path(os.environ.get("LOCALAPPDATA", pathlib.Path.home())) \
-    / "LambertStudio" / "cache"
+from app_paths import CACHE_DIR
 
 _USER_AGENT = "LambertStudio/1.0 (educational orbital mechanics project)"
 

@@ -204,6 +204,9 @@ button.busy { opacity: .7; cursor: progress; }
 .ev { position: relative; margin-bottom: 14px; }
 .ev::before { content: ""; position: absolute; left: -25px; top: 3px; width: 10px; height: 10px; border-radius: 50%;
   background: var(--c, var(--accent)); box-shadow: 0 0 0 3px var(--panel); }
+.ev.leg::before { width: 6px; height: 6px; left: -23px; top: 5px; background: transparent;
+  border: 2px solid var(--c); box-shadow: none; }
+.ev.leg p { color: var(--muted); }
 .ev .when { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .ev .what { font-weight: 600; margin: 1px 0 3px; }
 .ev p { margin: 0; font-size: 12.5px; line-height: 1.5; color: #c9d4ea; }

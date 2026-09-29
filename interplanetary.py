@@ -14,7 +14,7 @@ import math
 import numpy as np
 
 from constants import MU_SUN
-from lambert_solver import lambert_universal
+from lambert_solver import lambert_universal, lambert_batch
 from orbital_elements import state_to_elements
 import planets
 from planets import PLANET_MU, PLANET_STYLE
@@ -47,6 +47,18 @@ def _planet_states(name, jds):
             r, v = out
             return [(r[k] * AU, v[k] * AU / 86400.0) for k in range(len(jds))]
     return [planets.planet_state(name, jd) for jd in jds]
+
+
+def planet_states_array(name, jds):
+    """Positions (n,3) km and velocities (n,3) km/s of a planet at many dates."""
+    jds = np.atleast_1d(np.asarray(jds, float))
+    if ephemeris is not None:
+        out = ephemeris.planet_states(name, jds)
+        if out is not None:
+            r, v = out
+            return np.atleast_2d(r) * AU, np.atleast_2d(v) * AU / 86400.0
+    st = [planets.planet_state(name, jd) for jd in jds]
+    return np.array([s[0] for s in st]), np.array([s[1] for s in st])
 
 
 def ephemeris_source():
@@ -155,22 +167,18 @@ def porkchop(dep, arr, dep_window, arr_window, n_dep=40, n_arr=40):
     arr_grid = np.linspace(arr_window[0], arr_window[1], n_arr)
     Z = np.full((n_arr, n_dep), np.nan)
 
-    # Planet states only depend on one date each, so compute them once.
-    dep_states = _planet_states(dep, dep_grid)
-    arr_states = _planet_states(arr, arr_grid)
-
-    for j, jd_a in enumerate(arr_grid):
-        r2, _ = arr_states[j]
-        for i, jd_d in enumerate(dep_grid):
-            if jd_a - jd_d < 30.0:          # too short to be meaningful
-                continue
-            r1, vp1 = dep_states[i]
-            try:
-                v1, _, _ = lambert_universal(r1, r2, (jd_a - jd_d) * 86400.0,
-                                             mu=MU_SUN)
-            except (ValueError, ZeroDivisionError, OverflowError):
-                continue
-            Z[j, i] = float(np.dot(v1 - vp1, v1 - vp1))
+    # Planet states only depend on one date each, so compute them once;
+    # then solve every (departure, arrival) pair in one batch.
+    R1, VP1 = planet_states_array(dep, dep_grid)
+    R2, _ = planet_states_array(arr, arr_grid)
+    J, I = np.meshgrid(np.arange(n_arr), np.arange(n_dep), indexing="ij")
+    J, I = J.ravel(), I.ravel()
+    tof = arr_grid[J] - dep_grid[I]
+    use = tof >= 30.0                        # too short to be meaningful
+    v1, _, _, ok = lambert_batch(R1[I[use]], R2[J[use]], tof[use] * 86400.0, mu=MU_SUN)
+    vinf = v1 - VP1[I[use]]
+    c3 = np.where(ok, np.einsum("ij,ij->i", vinf, vinf), np.nan)
+    Z[J[use], I[use]] = c3
     return dep_grid, arr_grid, Z
 
 

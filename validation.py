@@ -439,6 +439,59 @@ def test_gravity_assists():
                f"{y['total_dv']:.3f} vs {y['direct']['total_dv']:.3f} km/s")
 
 
+def test_multirev_lambert():
+    """
+    Multi-revolution Lambert: flying (r1, v1) forward by dt must land on
+    r2 after exactly N laps, on both solution branches; too short a time
+    must be rejected; the batch solver must equal the scalar one.
+    """
+    from lambert_solver import lambert_batch
+    r1 = np.array([5000.0, 10000.0, 2100.0])
+    r2 = np.array([-14600.0, 2500.0, 7000.0])
+    for N in (1, 2):
+        for br in (0, 1):
+            dt = (N + 0.9) * 2 * math.pi * math.sqrt(20000.0 ** 3 / MU_EARTH)
+            v1, v2, z = lambert_universal(r1, r2, dt, revs=N, branch=br)
+            miss = float(np.linalg.norm(propagate_kepler(r1, v1, dt) - r2))
+            check(f"{N}-rev Lambert, branch {br}: propagation lands on r2", miss, 0.0, 1e-5, " km")
+            laps = math.sqrt(z) / (2 * math.pi)
+            check_true(f"{N}-rev Lambert, branch {br}: completes {N} full lap(s)", N <= laps < N + 1,
+                       f"{laps:.3f} laps")
+    try:
+        lambert_universal(r1, r2, 3600.0, revs=1)
+        check_true("1-rev Lambert rejects a too-short time of flight", False, "no error raised")
+    except ValueError:
+        check_true("1-rev Lambert rejects a too-short time of flight", True, "ValueError raised")
+    v1b, v2b, _, ok = lambert_batch(r1[None, :], r2[None, :], np.array([3600.0]))
+    v1s, v2s, _ = lambert_universal(r1, r2, 3600.0)
+    check("Batch solver = scalar solver (Curtis 5.2)", float(np.abs(v1b[0] - v1s).max()), 0.0, 1e-9, " km/s")
+
+
+def test_repeat_flybys():
+    """
+    Routes that return to the same planet (multi-rev legs), against
+    history, using each mission's real launch period.
+    """
+    import flyby
+    jd = lambda y, m, d: julian_date(y, m, d, 0, 0, 0.0)
+    c = flyby.plan_route(["Earth", "Venus", "Venus", "Earth", "Jupiter", "Saturn"],
+                         (jd(1997, 10, 6), jd(1997, 11, 15)), capture=True, max_days=7.5 * 365.25)
+    check("Cassini: launch date (real: 15 Oct 1997)", c["jds"][0], jd(1997, 10, 15), 15.0, " JD")
+    check("Cassini: Earth flyby (real: 18 Aug 1999)", c["jds"][3], jd(1999, 8, 18), 15.0, " JD")
+    check("Cassini: second Venus flyby (real: 24 Jun 1999)", c["jds"][2], jd(1999, 6, 24), 30.0, " JD")
+    check_true("Cassini: flybys far cheaper than flying direct",
+               c["total_dv"] < c["direct"]["total_dv"] - 5.0,
+               f"{c['total_dv']:.2f} vs {c['direct']['total_dv']:.2f} km/s")
+    g = flyby.plan_route(["Earth", "Venus", "Earth", "Earth", "Jupiter"],
+                         (jd(1989, 10, 8), jd(1989, 11, 26)), capture=True, max_days=6.5 * 365.25)
+    check("Galileo: Venus flyby (real: 10 Feb 1990)", g["jds"][1], jd(1990, 2, 10), 30.0, " JD")
+    check("Galileo: first Earth flyby (real: 8 Dec 1990)", g["jds"][2], jd(1990, 12, 8), 40.0, " JD")
+    check_true("Galileo: Earth-Earth leg loops around the Sun",
+               g["legs"][2]["revs"] >= 1 or g["legs"][2]["days"] > 365, f"{g['legs'][2]['days']:.0f} days")
+    check_true("Galileo: cheaper than flying direct", g["total_dv"] < g["direct"]["total_dv"],
+               f"{g['total_dv']:.2f} vs {g['direct']['total_dv']:.2f} km/s")
+
+
 def test_satellite_model():
     """The fast Kepler+J2 model used to animate thousands of satellites
     must stay close to full SGP4 over a few hours (visual accuracy)."""
@@ -461,6 +514,7 @@ def run_validation():
     test_curtis_elements()
     test_curtis_lambert()
     test_invariants()
+    test_multirev_lambert()
     test_frames()
     test_planets()
     test_interplanetary()
@@ -468,6 +522,7 @@ def run_validation():
     _optional("Manoeuvres", test_maneuvers)
     _optional("Perturbations", test_perturbations)
     _optional("Gravity assists", test_gravity_assists)
+    _optional("Repeat flybys", test_repeat_flybys)
     _optional("Satellite model", test_satellite_model)
 
     width = 58

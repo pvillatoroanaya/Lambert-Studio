@@ -5,8 +5,9 @@
 
 (function () {
   const $ = (id) => document.getElementById(id);
-  const LEG_COLORS = [0x5ac8fa, 0xffb454, 0xc792ea];
-  const LEG_CSS = ['#5ac8fa', '#ffb454', '#c792ea'];
+  const LEG_CSS = ['#5ac8fa', '#ffb454', '#c792ea', '#6ee7a8', '#ff8a80'];
+  const LEG_COLORS = LEG_CSS.map((c) => new THREE.Color(c).getHex());
+  const FLYBYS = ['r-f1', 'r-f2', 'r-f3', 'r-f4'];
   const SIZE = { Mercury: 0.02, Venus: 0.03, Earth: 0.032, Mars: 0.024,
     Jupiter: 0.14, Saturn: 0.12, Uranus: 0.08, Neptune: 0.08 };
 
@@ -24,7 +25,7 @@
     const opts = (none) => (none ? '<option value="">— none —</option>' : '') +
       data.planets.map((p) => `<option>${p}</option>`).join('');
     $('r-p0').innerHTML = opts(false); $('r-p3').innerHTML = opts(false);
-    $('r-p1').innerHTML = opts(true); $('r-p2').innerHTML = opts(true);
+    FLYBYS.forEach((id) => { $(id).innerHTML = opts(true); });
     $('r-presets').innerHTML = presets.map((p, k) => `
       <button class="preset" data-k="${k}"><b>${LS.esc(p.label)}</b><span>${p.from.slice(0, 4)} launch · ${p.capture ? 'enter orbit' : 'fly past'}</span></button>`).join('');
     $('r-presets').querySelectorAll('.preset').forEach((b) => b.addEventListener('click', () => {
@@ -37,7 +38,11 @@
       R.preset = null;
       find();
     });
-    applyPreset(presets[0]);
+    // #mission/route/<preset key> opens that example directly.
+    const wanted = location.hash.split('/')[2];
+    const k = Math.max(0, presets.findIndex((p) => p.key === wanted));
+    applyPreset(presets[k]);
+    $('r-presets').querySelectorAll('.preset')[k].classList.add('on');
   };
 
   function applyPreset(p) {
@@ -45,8 +50,7 @@
     const s = p.seq;
     $('r-p0').value = s[0];
     $('r-p3').value = s[s.length - 1];
-    $('r-p1').value = s.length > 2 ? s[1] : '';
-    $('r-p2').value = s.length > 3 ? s[2] : '';
+    FLYBYS.forEach((id, k) => { $(id).value = k + 1 < s.length - 1 ? s[k + 1] : ''; });
     $('r-from').value = p.from; $('r-to').value = p.to;
     $('r-max').value = p.max_years;
     $('r-goal').value = p.capture ? 'orbit' : 'flyby';
@@ -88,16 +92,25 @@
     const el = $('ch-route-speed'); if (el.data) Plotly.Plots.resize(el);
   };
 
-  function err(msg) { $('route-err').textContent = msg || ''; $('route-err').hidden = !msg; }
+  function err(msg) {
+    $('route-err').textContent = msg || '';
+    $('route-err').hidden = !msg;
+    // Also show it in the middle of the view, where it can't be missed.
+    if (msg) {
+      $('empty-route').innerHTML = `<div><b>No route to show</b><br>${LS.esc(msg)}</div>`;
+      $('empty-route').hidden = false;
+    }
+  }
 
   async function find() {
     err();
-    const seq = [$('r-p0').value, $('r-p1').value, $('r-p2').value, $('r-p3').value].filter(Boolean);
+    const seq = [$('r-p0').value, ...FLYBYS.map((id) => $(id).value), $('r-p3').value].filter(Boolean);
     const req = { seq, from: $('r-from').value, to: $('r-to').value, max_years: $('r-max').value,
       capture: $('r-goal').value === 'orbit' };
     R.busy = true;
+    const wait = seq.length >= 5 ? 'up to ~30 s' : 'a few seconds';
     try {
-      const r = await LS.busy(`Searching ${seq.join(' → ')} routes (a few seconds)…`, $('btn-route'),
+      const r = await LS.busy(`Searching ${seq.join(' → ')} routes (${wait})…`, $('btn-route'),
         () => LS.api('/api/route', req));
       route = r;
       route.presetInfo = R.preset;
@@ -120,13 +133,13 @@
     routeGroup = new THREE.Group();
     s3.scene.add(routeGroup);
 
-    const n = route.events.length - 1;                 // legs
-    const per = route.track_au.length / n;
+    // Each leg is its own slice of the track (a leg that loops around the
+    // Sun has more samples than one that doesn't).
     const rmax = Math.max(...route.track_au.map((p) => Math.hypot(p[0], p[1], p[2])));
-    for (let k = 0; k < n; k++) {
-      const pts = route.track_au.slice(Math.round(k * per), Math.round((k + 1) * per)).map((p) => LS.v3(p));
-      routeGroup.add(LS.tube(pts, Math.max(rmax * 0.0022, 0.004), LEG_COLORS[k % 3]));
-    }
+    route.legs.forEach((L, k) => {
+      const pts = route.track_au.slice(L.start, L.end).map((p) => LS.v3(p));
+      routeGroup.add(LS.tube(pts, Math.max(rmax * 0.0022, 0.004), LEG_COLORS[k % LEG_COLORS.length]));
+    });
     if (route.direct) {
       const d = LS.line(route.direct.track_au.map((p) => LS.v3(p)), 0xffffff, 0.35, true);
       d.material.dashSize = rmax * 0.02; d.material.gapSize = rmax * 0.015; d.computeLineDistances();
@@ -134,7 +147,7 @@
     }
     // Where each event happens (the spacecraft meets the planet there).
     route.events.forEach((e, k) => {
-      const idx = k === 0 ? 0 : Math.min(Math.round(k * per) - 1, route.track_au.length - 1);
+      const idx = k === 0 ? 0 : route.legs[k - 1].end - 1;
       const p = LS.v3(route.track_au[idx]);
       const ring = new THREE.Mesh(new THREE.RingGeometry(rmax * 0.012, rmax * 0.016, 48),
         new THREE.MeshBasicMaterial({ color: e.kind === 'flyby' ? 0x6ee7a8 : 0xffffff, side: THREE.DoubleSide,
@@ -176,8 +189,9 @@
   }
 
   function renderLegend() {
-    const legs = route.events.slice(0, -1).map((e, k) =>
-      `<div><i style="background:${LEG_CSS[k % 3]}"></i>Leg ${k + 1}: ${e.planet} → ${route.events[k + 1].planet}</div>`);
+    const legs = route.legs.map((L, k) =>
+      `<div><i style="background:${LEG_CSS[k % LEG_CSS.length]}"></i>Leg ${k + 1}: ${L.from} → ${L.to}` +
+      `${L.revs ? ` <span class="muted">(+${L.revs} loop)</span>` : ''}</div>`);
     if (route.direct) legs.push('<div><i style="background:#fff;opacity:.5"></i>Direct route, for comparison</div>');
     $('legend-route').innerHTML = legs.join('');
   }
@@ -250,6 +264,24 @@
     <text x="10" y="80" fill="#c9d4ea" font-size="9" font-family="Segoe UI">in</text>
     <text x="126" y="42" fill="#c9d4ea" font-size="9" font-family="Segoe UI">out</text></svg>`;
 
+  /* One line for the cruise between two events; longer when it loops. */
+  function cruise(L, k) {
+    const f = LS.fmt, days = `${f(L.days, 0)} days`;
+    const loops = L.revs === 1 ? 'once' : `${L.revs} times`;
+    let text;
+    if (L.same_planet) {
+      text = `The flyby put the spacecraft on an orbit around the Sun that takes ${f(L.period_days, 0)} days.
+        ${L.revs ? `It loops ${loops} around the Sun and` : 'It'} comes back to ${L.to} ${days} later, so ${L.to}'s gravity
+        can be used a <b>second time</b>. This is the trick that let Galileo reach Jupiter.`;
+    } else if (L.revs) {
+      text = `On the way, the spacecraft loops ${loops} fully around the Sun before meeting ${L.to} (${days}).
+        For a looping trip, Lambert's problem has two solutions; the cheaper one was chosen.`;
+    } else {
+      text = `Cruise to ${L.to}: ${days}.`;
+    }
+    return `<div class="ev leg" style="--c:${LEG_CSS[k % LEG_CSS.length]}"><div class="when">Leg ${k + 1}</div><p>${text}</p></div>`;
+  }
+
   function story() {
     const f = LS.fmt, ev = route.events, d = (e) => e.iso.slice(0, 10);
     const items = ev.map((e, k) => {
@@ -284,8 +316,11 @@
             ? `Entering orbit takes a braking burn of <b>${f(e.capture_dv, 2)} km/s</b>.`
             : 'It flies past, so no fuel is needed to stop.'}`;
       }
-      const title = e.kind === 'launch' ? `Launch from ${e.planet}` : e.kind === 'flyby' ? `${e.planet} gravity assist` : `Arrival at ${e.planet}`;
-      return `<div class="ev" style="--c:${color}"><div class="when">${d(e)}</div><div class="what">${title}</div><p>${text}</p></div>`;
+      const again = e.kind === 'flyby' && k >= 2 && ev[k - 1].planet === e.planet;
+      const title = e.kind === 'launch' ? `Launch from ${e.planet}`
+        : e.kind === 'flyby' ? `${e.planet} gravity assist${again ? ' (second pass)' : ''}` : `Arrival at ${e.planet}`;
+      const event = `<div class="ev" style="--c:${color}"><div class="when">${d(e)}</div><div class="what">${title}</div><p>${text}</p></div>`;
+      return event + (k < route.legs.length ? cruise(route.legs[k], k) : '');
     }).join('');
 
     let lesson = '';

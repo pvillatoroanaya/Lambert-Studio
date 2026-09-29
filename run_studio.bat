@@ -2,7 +2,7 @@
 rem Double-click this file to start Lambert Studio.
 rem It uses the project's own Python environment (created during setup) and
 rem runs without a console window; problems are written to
-rem %LOCALAPPDATA%\LambertStudio\logs.  Use run_studio_debug.bat to see output.
+rem %USERPROFILE%\.lambert_studio\logs.  Use run_studio_debug.bat to see output.
 rem Options:  --qt  (Qt window instead of Edge)   --browser  (normal browser tab)
 set VENV_DIR=%USERPROFILE%\.venvs\lambert\Scripts
 if exist "%VENV_DIR%\pythonw.exe" (
