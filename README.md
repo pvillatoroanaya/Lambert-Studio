@@ -87,8 +87,8 @@ The single file is **generated** from the modules by
 - **Planets and transfers.** Sidereal periods match accepted values, and
   an Earth→Mars 2026 transfer lands in the realistic range for C₃ and Δv.
 
-With the Lambert Studio packages installed, 13 more checks cover the
-extensions (77 in total; without them, those checks are listed as skipped):
+With the Lambert Studio packages installed, 21 more checks cover the
+extensions (85 in total; without them, those checks are listed as skipped):
 
 - the JPL DE440s ephemeris, compared with the approximate elements;
 - Hohmann LEO→GEO Δv = 3.893 km/s;
@@ -96,7 +96,11 @@ extensions (77 in total; without them, those checks are listed as skipped):
 - bi-elliptic beating Hohmann when r₂/r₁ is large;
 - the numerically integrated J2 node drift, compared with the analytic
   rate (Sun-synchronous ≈ 0.9856°/day);
-- the fast satellite model, compared with SGP4.
+- the fast satellite model, compared with SGP4;
+- the gravity-assist optimiser against history. Searching from physics
+  alone, it finds Mariner 10's Venus flyby within 2 days of the real date
+  (5 Feb 1974) and Voyager's launch within 3 days (5 Sep 1977), with
+  Jupiter adding about 10 km/s.
 
 ---
 
@@ -113,7 +117,7 @@ Double-click **`run_studio.bat`** (or run `python lambert_studio.py`).
 | Satellites | Real satellites from CelesTrak at their current positions; search, details and orbits |
 | Flybys | Upcoming asteroid close approaches (NASA/JPL CNEOS), with precise geocentric paths from JPL Horizons |
 | Solar | Planets from the JPL DE440s ephemeris, and potentially hazardous asteroids from the JPL Small-Body Database |
-| Mission | Interplanetary transfers and porkchop plots |
+| Mission | **Direct transfer:** porkchop plot and a plain-language explanation of the route (Type I/II, how far ahead to aim, comparison with Hohmann, how often launch windows return). **Gravity-assist route:** multi-planet routes optimised with patched conics (`flyby.py`), shown in 3D with a speed-gain chart and a step-by-step story; includes Voyager, Mariner 10 and the Voyager 2 Grand Tour |
 
 **Requirements:** `pip install -r requirements.txt`. The first run needs
 internet for satellite and asteroid data; afterwards saved copies are
