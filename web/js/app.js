@@ -83,6 +83,12 @@
   function frame(now) {
     const dt = Math.min((now - last) / 1000, 0.1);
     last = now;
+    // While the full-screen mission playback is open, only it is drawn.
+    if (LS.player && LS.player.isOpen) {
+      try { LS.player.frame(dt); } catch (e) { console.error(e); if (LS.report) LS.report(`player: ${e.stack || e}`); }
+      requestAnimationFrame(frame);
+      return;
+    }
     if (LS.settings.fps) {
       fpsFrames++; fpsTime += dt;
       if (fpsTime >= 0.5) { $('fps').textContent = `${Math.round(fpsFrames / fpsTime)} fps`; fpsFrames = 0; fpsTime = 0; }

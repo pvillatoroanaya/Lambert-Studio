@@ -56,6 +56,8 @@
     $('r-goal').value = p.capture ? 'orbit' : 'flyby';
   }
 
+  const orbitPoints = (name) => LS.planetOrbit(name, LS.nowJd()).map((q) => LS.sv3(q));
+
   function ensureScene() {
     if (s3) return;
     s3 = new LS.Scene3D($('cv-route'), { near: 1e-4, far: 1e5 });
@@ -75,10 +77,15 @@
       m.add(pin);
       m.userData.label = LS.label(name);
       m.add(m.userData.label);
-      m.userData.orbit = LS.line(LS.planetOrbit(name, LS.nowJd()).map((q) => LS.v3(q)), st.color, 0.35);
+      m.userData.orbit = LS.line(orbitPoints(name), st.color, 0.35);
       s3.scene.add(m, m.userData.orbit);
       bodies[name] = m;
     }
+    // Switching between compressed and true-scale distances redraws everything.
+    LS.on('scale', () => {
+      LS.planetTable.order.forEach((n) => bodies[n].userData.orbit.geometry.setFromPoints(orbitPoints(n)));
+      if (route) draw();
+    });
     s3.camera.position.set(2, 6, 9);
     s3.controls.maxDistance = 600;
     s3.setFollowables([
@@ -90,7 +97,7 @@
 
   R.show = function () {
     ensureScene();
-    if (!route && !R.busy) find();
+    if (!route && !R.busy) find(false);          // automatic first example: no auto-play
   };
   R.resize = function () {
     if (s3) s3.resize();
@@ -107,7 +114,7 @@
     }
   }
 
-  async function find() {
+  async function find(play = true) {
     err();
     const seq = [$('r-p0').value, ...FLYBYS.map((id) => $(id).value), $('r-p3').value].filter(Boolean);
     const req = { seq, from: $('r-from').value, to: $('r-to').value, max_years: $('r-max').value,
@@ -124,6 +131,9 @@
       chart();
       story();
       $('empty-route').hidden = true;
+      // Open the full-screen playback straight away (unless an automated
+      // screenshot asked for the analysis view with #...?noplay).
+      if (play && !location.hash.includes('noplay')) R.play();
     } catch (e) { err(e.message); }
     finally { R.busy = false; }
   }
@@ -140,20 +150,20 @@
 
     // Each leg is its own slice of the track (a leg that loops around the
     // Sun has more samples than one that doesn't).
-    const rmax = Math.max(...route.track_au.map((p) => Math.hypot(p[0], p[1], p[2])));
+    const rmax = Math.max(...route.track_au.map((p) => LS.sv3(p).length()));
     route.legs.forEach((L, k) => {
-      const pts = route.track_au.slice(L.start, L.end).map((p) => LS.v3(p));
+      const pts = route.track_au.slice(L.start, L.end).map((p) => LS.sv3(p));
       routeGroup.add(LS.tube(pts, Math.max(rmax * 0.0022, 0.004), LEG_COLORS[k % LEG_COLORS.length]));
     });
     if (route.direct) {
-      const d = LS.line(route.direct.track_au.map((p) => LS.v3(p)), 0xffffff, 0.35, true);
+      const d = LS.line(route.direct.track_au.map((p) => LS.sv3(p)), 0xffffff, 0.35, true);
       d.material.dashSize = rmax * 0.02; d.material.gapSize = rmax * 0.015; d.computeLineDistances();
       routeGroup.add(d);
     }
     // Where each event happens (the spacecraft meets the planet there).
     route.events.forEach((e, k) => {
       const idx = k === 0 ? 0 : route.legs[k - 1].end - 1;
-      const p = LS.v3(route.track_au[idx]);
+      const p = LS.sv3(route.track_au[idx]);
       const ring = new THREE.Mesh(new THREE.RingGeometry(rmax * 0.012, rmax * 0.016, 48),
         new THREE.MeshBasicMaterial({ color: e.kind === 'flyby' ? 0x6ee7a8 : 0xffffff, side: THREE.DoubleSide,
           transparent: true, opacity: 0.9, depthWrite: false }));
@@ -171,16 +181,14 @@
     craft.add(LS.label('spacecraft', 'dim'));
     routeGroup.add(craft);
 
-    // Show the orbits of every planet out to the destination.
+    // All eight planets are always shown; the ones on the route are brighter.
     const used = new Set(route.seq);
-    const outer = Math.max(...route.seq.map((p) => LS.planetTable.order.indexOf(p)));
-    LS.planetTable.order.forEach((name, i) => {
-      const on = i <= outer;
-      bodies[name].visible = on;
-      bodies[name].userData.orbit.visible = on;
-      bodies[name].userData.orbit.material.opacity = used.has(name) ? 0.6 : 0.2;
-      // Only name the planets on the route; the others are context.
-      bodies[name].userData.label.element.style.display = used.has(name) ? '' : 'none';
+    LS.planetTable.order.forEach((name) => {
+      bodies[name].visible = true;
+      bodies[name].userData.orbit.visible = true;
+      bodies[name].userData.orbit.material.opacity = used.has(name) ? 0.65 : 0.22;
+      bodies[name].userData.label.userData.hide = false;
+      bodies[name].userData.label.element.firstChild.className = 'lbl ' + (used.has(name) ? '' : 'dim');
     });
 
     const c = R.clock;
@@ -221,8 +229,12 @@
                  ['Arrival speed v∞', `${f(route.events[route.events.length - 1].vinf, 2)} km/s`],
                  ...(d ? [['Direct route Δv', `${f(d.total_dv, 3)} km/s`]] : [])])}
         ${route.feasible ? '' : '<p class="hint" style="margin-top:6px">⚠ Some flyby would need more bending than the planet can give.</p>'}
+        <button class="play-mission" id="route-play">▶ Play mission</button>
       </div>`;
+    $('route-play').onclick = R.play;
   }
+
+  R.play = () => { if (route) LS.player.open(LS.player.fromRoute(route, route.presetInfo)); };
 
   /* ---------------- speed chart ---------------- */
 
@@ -358,7 +370,7 @@
     if (!s3 || !route) return;
     const jd = route.jds[0] + R.clock.t;
     for (const name of LS.planetTable.order) {
-      if (bodies[name].visible) bodies[name].position.copy(LS.v3(LS.planetPos(name, jd, buf)));
+      bodies[name].position.copy(LS.sv3(LS.planetPos(name, jd, buf)));
     }
     const f = R.clock.t / route.tof_days;
     craft.visible = f >= 0 && f <= 1;
@@ -369,7 +381,7 @@
       while (hi - lo > 1) { const m = (lo + hi) >> 1; if (td[m] <= R.clock.t) lo = m; else hi = m; }
       const u = Math.min(Math.max((R.clock.t - td[lo]) / ((td[hi] - td[lo]) || 1), 0), 1);
       const a = route.track_au[lo], b = route.track_au[hi];
-      craft.position.copy(LS.v3([a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u]));
+      craft.position.copy(LS.sv3([a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u]));
     }
   };
   R.render = () => s3 && s3.render();

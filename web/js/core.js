@@ -302,9 +302,23 @@ LS.moonPosition = function (jd) {
 LS.v3 = (p, s = 1) => new THREE.Vector3(p[0] * s, p[2] * s, -p[1] * s);
 LS.setXYZ = (arr, k, p, s = 1) => { arr[3 * k] = p[0] * s; arr[3 * k + 1] = p[2] * s; arr[3 * k + 2] = -p[1] * s; };
 
+/* Solar-system views: heliocentric position [AU] -> scene position.
+   Real distances span 0.4 AU (Mercury) to 30 AU (Neptune), so at true
+   scale the outer planets are off-screen whenever the inner ones are
+   visible. With compression on (the default), every point keeps its
+   direction but its distance r becomes sqrt(r): Earth stays at 1, and
+   Neptune comes in to 5.5, so all eight planets fit at once. */
+LS.helioScale = (p) => {
+  if (!LS.settings.compress) return 1;
+  const r = Math.hypot(p[0], p[1], p[2]);
+  return r > 0 ? Math.sqrt(r) / r : 0;
+};
+LS.sv3 = (p) => LS.v3(p, LS.helioScale(p));
+LS.setSXYZ = (arr, k, p) => LS.setXYZ(arr, k, p, LS.helioScale(p));
+
 /* User display settings, remembered between sessions on this computer. */
 LS.settings = (function () {
-  const defaults = { bloom: true, milkyway: true, fps: false };
+  const defaults = { bloom: true, milkyway: true, fps: false, compress: true };
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem('ls-settings') || '{}'); } catch (e) { /* ignore */ }
   return Object.assign({}, defaults, saved);
@@ -397,7 +411,21 @@ class Scene3D {
     this.stars.position.copy(this.camera.position);
     if (this.composer && LS.settings.bloom) this.composer.render();
     else this.renderer.render(this.scene, this.camera);
+    this._syncLabels();
     this.labels.render(this.scene, this.camera);
+  }
+  /* The label renderer only looks at a label's own `visible` flag, so a
+     label on a hidden object would still be drawn (hidden planets sit at
+     the origin, which put "Neptune" on top of the Sun). A label is shown
+     only if every ancestor is visible and it is not switched off
+     (userData.hide). */
+  _syncLabels() {
+    const walk = (o, parentShown) => {
+      const shown = parentShown && o.visible !== false;
+      if (o.isCSS2DObject) o.visible = parentShown && !o.userData.hide;
+      for (const c of o.children) walk(c, o.isCSS2DObject ? parentShown : shown);
+    };
+    walk(this.scene, true);
   }
   /* Frame a point from the current viewing direction. Views call this
      after drawing something new; it also becomes the "Reset" view. */

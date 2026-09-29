@@ -237,6 +237,62 @@ button.busy { opacity: .7; cursor: progress; }
   letter-spacing: 1px; margin-top: 4px; }
 .cam-helpbox span:nth-of-type(odd) { color: var(--muted); font-family: var(--mono); font-size: 11.5px; }
 
+/* ---------------- full-screen mission playback ---------------- */
+.player { position: fixed; inset: 0; z-index: 50; background: #03050b; }
+.player-canvas { position: absolute; inset: 0; }
+.player .camtools { top: 96px; left: 20px; }
+.p-top { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: flex-start;
+  padding: 18px 22px 30px; background: linear-gradient(180deg, rgba(3,5,11,.92) 0%, rgba(3,5,11,.55) 65%, rgba(3,5,11,0) 100%);
+  pointer-events: none; }
+.p-top > * { pointer-events: auto; }
+.p-kicker { font-size: 10.5px; letter-spacing: 1.6px; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+.p-title { font-size: 22px; font-weight: 600; margin-top: 2px; }
+.p-sub { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.p-actions { display: flex; gap: 10px; align-items: center; }
+.p-actions .seg.mini { background: var(--glass); }
+.p-actions .seg.mini button { padding: 6px 12px; font-size: 12.5px; }
+.p-actions .cam-btn { padding: 7px 14px; font-size: 12.5px; }
+.p-tele { position: absolute; right: 20px; top: 96px; width: 290px; display: flex; flex-direction: column; gap: 10px; }
+.p-tele .box { background: var(--glass); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; }
+.p-tele h4 { margin: 0 0 8px; font-size: 10.5px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); font-weight: 600; }
+.p-big { font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.p-big small { font-size: 13px; color: var(--muted); font-weight: 400; margin-left: 4px; }
+.p-meter { height: 5px; border-radius: 3px; background: var(--surface-2); margin: 8px 0 4px; overflow: hidden; }
+.p-meter i { display: block; height: 100%; background: linear-gradient(90deg, #5ac8fa, #6ee7a8); }
+.p-legs div { display: flex; align-items: center; gap: 7px; font-size: 12px; margin: 2px 0; }
+.p-legs i { width: 10px; height: 3px; border-radius: 2px; }
+.p-legs .now { color: var(--text); font-weight: 600; }
+.p-legs .done { color: var(--faint); }
+.p-event { position: absolute; left: 50%; top: 100px; transform: translateX(-50%); width: min(560px, 60vw);
+  background: rgba(12,19,34,.94); border: 1px solid var(--line-2); border-left: 3px solid var(--c, var(--accent));
+  border-radius: 12px; padding: 14px 18px; box-shadow: 0 18px 50px rgba(0,0,0,.45); animation: pin .35s ease-out; }
+.p-event .k { font-size: 10.5px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--c, var(--accent)); font-weight: 600; }
+.p-event .t { font-size: 17px; font-weight: 600; margin: 3px 0 6px; }
+.p-event p { margin: 0; font-size: 13px; line-height: 1.55; color: #c9d4ea; }
+.p-event p b { color: var(--text); }
+@keyframes pin { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+.p-bar { position: absolute; left: 20px; right: 20px; bottom: 18px; height: 58px; display: flex; align-items: center; gap: 14px;
+  padding: 0 16px; background: var(--glass); border: 1px solid var(--line); border-radius: 14px; }
+.p-bar .i-pause { display: none; }
+.p-bar.playing .i-play { display: none; }
+.p-bar.playing .i-pause { display: block; }
+.p-bar select { padding: 5px 8px; font-size: 12px; }
+.p-timeline { position: relative; flex: 1; height: 30px; cursor: pointer; }
+.p-timeline::before { content: ""; position: absolute; left: 0; right: 0; top: 13px; height: 4px; border-radius: 2px; background: var(--surface-2); }
+.p-fill { position: absolute; left: 0; top: 13px; height: 4px; border-radius: 2px; background: linear-gradient(90deg, #5ac8fa, #6ee7a8); }
+.p-head { position: absolute; top: 8px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: #fff;
+  box-shadow: 0 0 0 4px rgba(90,200,250,.3); }
+.p-mark { position: absolute; top: 9px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; border: 2px solid var(--c);
+  background: #0c1322; cursor: pointer; z-index: 1; }
+.p-mark span { position: absolute; top: -17px; left: 50%; transform: translateX(-50%); font-size: 10.5px; color: var(--muted);
+  white-space: nowrap; }
+.p-mark:hover span { color: var(--text); }
+.p-clock { font-family: var(--mono); font-size: 12.5px; min-width: 230px; text-align: right; }
+.p-clock b { color: var(--accent-2); font-weight: 600; }
+button.play-mission { margin-top: 10px; width: 100%; background: linear-gradient(90deg, #5ac8fa, #6ee7a8); color: #04121c;
+  border: 0; border-radius: 8px; padding: 10px 14px; font-weight: 700; cursor: pointer; font-size: 13px; }
+button.play-mission:hover { filter: brightness(1.08); }
+
 /* maneuver: comparison rows */
 #hud-maneuver { width: 290px; }
 .opt { padding: 6px 0; border-top: 1px solid var(--line); font-size: 12.5px; }

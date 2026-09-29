@@ -223,6 +223,9 @@
       <h3>Focus</h3>
       <div id="sol-focus" class="chips"></div>
       <h3>Show</h3>
+      <label class="switch"><input type="checkbox" id="sol-truescale"><span></span>True-scale distances</label>
+      <p class="hint">Off: distances are compressed (√ of the real distance) so all eight planets fit on screen, each in its
+        true direction. On: real distances — Neptune is 30× farther out than Earth.</p>
       <label class="switch"><input type="checkbox" id="sol-orbits" checked><span></span>Planet orbits</label>
       <label class="switch"><input type="checkbox" id="sol-labels" checked><span></span>Labels</label>
       <label class="switch"><input type="checkbox" id="sol-ast" checked><span></span>Near-Earth asteroids</label>
@@ -385,6 +388,38 @@
   </main>
 </div>
 
+<!-- full-screen mission playback -->
+<div class="player" id="player" hidden>
+  <div class="player-canvas" id="cv-player"></div>
+  <header class="p-top">
+    <div>
+      <div class="p-kicker">Mission playback</div>
+      <div class="p-title" id="p-title"></div>
+      <div class="p-sub" id="p-sub"></div>
+    </div>
+    <div class="p-actions">
+      <div class="seg mini" id="p-cam" title="Camera">
+        <button data-c="auto" class="on" title="Follows the spacecraft and swings to each planet as it is reached">Cinematic</button>
+        <button data-c="craft" title="Always follow the spacecraft">Chase</button>
+        <button data-c="overview" title="The whole route from above">Overview</button>
+        <button data-c="free" title="Your own camera: Orbit or Fly (W A S D)">Free</button>
+      </div>
+      <button class="cam-btn" id="p-close" title="Back to the mission analysis (Esc)">✕ Exit</button>
+    </div>
+  </header>
+  <aside class="p-tele" id="p-tele"></aside>
+  <div class="p-event" id="p-event" hidden></div>
+  <footer class="p-bar">
+    <button class="icon" id="p-play" title="Play / pause (space)">
+      <svg viewBox="0 0 24 24" class="i-play"><path d="M7 5l12 7-12 7z"/></svg>
+      <svg viewBox="0 0 24 24" class="i-pause"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>
+    </button>
+    <select id="p-rate" title="Playback speed"></select>
+    <div class="p-timeline" id="p-timeline"><div class="p-fill" id="p-fill"></div><div class="p-head" id="p-head"></div></div>
+    <div class="p-clock" id="p-clock"></div>
+  </footer>
+</div>
+
 <!-- report dialog -->
 <div class="modal" id="modal" hidden>
   <div class="dialog">
@@ -414,6 +449,7 @@
 <script src="js/view_near.js"></script>
 <script src="js/view_flybys.js"></script>
 <script src="js/view_solar.js"></script>
+<script src="js/player.js"></script>
 <script src="js/view_route.js"></script>
 <script src="js/view_mission.js"></script>
 <script src="js/app.js"></script>

@@ -22,7 +22,7 @@
     const opts = LS.planetTable.order.map((p) => `<option>${p}</option>`).join('');
     $('m-dep').innerHTML = opts; $('m-arr').innerHTML = opts;
     $('m-dep').value = 'Earth'; $('m-arr').value = 'Mars';
-    $('btn-transfer').addEventListener('click', computeTransfer);
+    $('btn-transfer').addEventListener('click', () => computeTransfer(true));
     $('btn-pork').addEventListener('click', computePorkchop);
     document.querySelectorAll('#m-mode button').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.m)));
     await LS.route.init();
@@ -66,7 +66,9 @@
     $('mission-err').hidden = !msg;
   }
 
-  async function computeTransfer() {
+  /* play=true opens the full-screen playback once computed (when the user
+     asked for this transfer, not on the automatic first calculation). */
+  async function computeTransfer(play = false) {
     err();
     try {
       const t = await LS.busy('Solving the interplanetary Lambert problem…', $('btn-transfer'), () => LS.api('/api/transfer', {
@@ -76,6 +78,7 @@
       LS.emit('transfer', t);
       renderHud(t);
       markSelection();
+      if (play === true) LS.player.open(LS.player.fromTransfer(t));
     } catch (e) { err(e.message); }
   }
 
@@ -141,7 +144,7 @@
       if (!pt) return;
       $('m-dd').value = String(pt.x).slice(0, 10);
       $('m-ad').value = String(pt.y).slice(0, 10);
-      computeTransfer();
+      computeTransfer(true);
     });
   }
 
@@ -183,8 +186,10 @@
                  ['Arrival speed v∞', `${f(t.vinf_arrival, 3)} km/s`]])}
         <p class="hint" style="margin-top:6px">Leaving from a 200 km parking orbit; captured into a 400 km circular orbit.
           Planet positions: ${t.ephemeris}.</p>
-        <button class="primary wide" id="m-3d" style="margin-top:8px">View in 3D</button>
+        <button class="play-mission" id="m-play">▶ Play mission</button>
+        <button class="ghost wide" id="m-3d" style="margin-top:8px">Show in the Solar tab</button>
       </div>`;
+    $('m-play').onclick = () => LS.player.open(LS.player.fromTransfer(t));
     $('m-3d').onclick = () => LS.setView('solar');
   }
 

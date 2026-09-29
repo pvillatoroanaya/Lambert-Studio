@@ -73,21 +73,31 @@
       labels.push(lb);
       planetsGroup.add(m);
       bodies[name] = m;
-
-      const orbit = LS.line(LS.planetOrbit(name, refJd).map((p) => LS.v3(p)), st.color, 0.45);
-      orbitsGroup.add(orbit);
     }
+    buildOrbits();
 
-    s3.camera.position.set(0.6, 1.9, 2.6);
     s3.controls.maxDistance = 400;
     s3.controls.minDistance = 0.02;
+    frameSystem();
+
+    $('sol-truescale').checked = !LS.settings.compress;
+    $('sol-truescale').addEventListener('change', () => {
+      LS.settings.compress = !$('sol-truescale').checked;
+      LS.applySettings();
+      LS.emit('scale');
+    });
+    LS.on('scale', () => {
+      buildOrbits();
+      if (LS.transfer) showTransfer(LS.transfer, true);
+      frameSystem();
+    });
 
     $('sol-focus').innerHTML = ['Sun', ...LS.planetTable.order].map((n) =>
       `<button data-f="${n}"><i style="background:${n === 'Sun' ? '#ffd98a' : LS.planetTable.elements[n].color}"></i>${n}</button>`).join('');
     $('sol-focus').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => setFocus(b.dataset.f)));
     $('sol-orbits').addEventListener('change', () => { orbitsGroup.visible = $('sol-orbits').checked; });
     $('sol-labels').addEventListener('change', () => {
-      labels.forEach((l) => { l.element.style.display = $('sol-labels').checked ? '' : 'none'; });
+      labels.forEach((l) => { l.userData.hide = !$('sol-labels').checked; });
     });
     $('sol-ast').addEventListener('change', () => { if (astCloud) astCloud.visible = $('sol-ast').checked; });
     document.querySelectorAll('#sol-astgroup button').forEach((b) => b.addEventListener('click', () => {
@@ -115,13 +125,30 @@
     loadAsteroids();
   };
 
+  function buildOrbits() {
+    orbitsGroup.children.slice().forEach((o) => { o.geometry.dispose(); orbitsGroup.remove(o); });
+    for (const name of LS.planetTable.order) {
+      const pts = LS.planetOrbit(name, refJd).map((p) => LS.sv3(p));
+      orbitsGroup.add(LS.line(pts, LS.planetTable.elements[name].color, 0.45));
+    }
+  }
+
+  /* Start with the whole system in view: all eight planets when distances
+     are compressed; the inner planets at true scale. */
+  function frameSystem() {
+    s3.controls.target.set(0, 0, 0);
+    if (LS.settings.compress) s3.camera.position.set(1.6, 7.2, 9.6);
+    else s3.camera.position.set(0.6, 1.9, 2.6);
+    s3.focusOn(new THREE.Vector3(), s3.camera.position.length());
+  }
+
   /* Focus chips: fly to the body and keep following it (the camera's own
      Follow system, so the toolbar and double-click stay in sync). */
   function setFocus(name) {
     document.querySelectorAll('#sol-focus button').forEach((b) => b.classList.toggle('on', b.dataset.f === name));
     if (name === 'Sun') {
       s3.setFollow(null);
-      s3.flyTo(new THREE.Vector3(), 3.2);
+      s3.flyTo(new THREE.Vector3(), LS.settings.compress ? 12 : 3.2);
       return;
     }
     s3.setFollow(s3.followables.find((f) => f.label === name));
@@ -169,7 +196,9 @@
 
   /* ---------------- transfer from the Mission tab ---------------- */
 
-  function showTransfer(t) {
+  /* redraw=true only rebuilds the drawing (after a scale change) and
+     keeps the clock where it is. */
+  function showTransfer(t, redraw = false) {
     if (!s3) return;
     if (transferGroup) {
       transferGroup.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.element) o.element.remove(); });
@@ -177,7 +206,7 @@
     }
     transferGroup = new THREE.Group();
     s3.scene.add(transferGroup);
-    const pts = t.track_au.map((p) => LS.v3(p));
+    const pts = t.track_au.map((p) => LS.sv3(p));
     transferGroup.add(LS.tube(pts, 0.006, 0x5ac8fa));
     const d = LS.dot(0.018, 0x6ee7a8); d.position.copy(pts[0]); transferGroup.add(d);
     const dl = LS.label(`${t.departure} · depart`, 'dim'); dl.position.copy(pts[0]); transferGroup.add(dl);
@@ -187,10 +216,12 @@
     craft.add(LS.label('spacecraft', 'accent'));
     transferGroup.add(craft);
 
-    refJd = t.jd_departure;
-    const c = view.clock;
-    c.min = -60; c.max = t.tof_days + 120; c.t = -20; c.rate = 20; c.playing = true;
-    LS.syncTimebar();
+    if (!redraw) {
+      refJd = t.jd_departure;
+      const c = view.clock;
+      c.min = -60; c.max = t.tof_days + 120; c.t = -20; c.rate = 20; c.playing = true;
+      LS.syncTimebar();
+    }
 
     $('sol-transfer').hidden = false;
     $('sol-transfer').innerHTML = `<b>${t.departure} → ${t.arrival}</b>
@@ -215,12 +246,12 @@
   view.update = function (dt) {
     const jd = refJd + view.clock.t;
     for (const name of LS.planetTable ? LS.planetTable.order : []) {
-      bodies[name].position.copy(LS.v3(LS.planetPos(name, jd, buf)));
+      bodies[name].position.copy(LS.sv3(LS.planetPos(name, jd, buf)));
       bodies[name].rotation.y += dt * 0.3;
     }
     if (astCloud && ast) {
       const pos = astCloud.geometry.attributes.position.array;
-      for (let k = 0; k < ast.rows.length; k++) LS.setXYZ(pos, k, astPosition(k, jd, buf));
+      for (let k = 0; k < ast.rows.length; k++) LS.setSXYZ(pos, k, astPosition(k, jd, buf));
       astCloud.geometry.attributes.position.needsUpdate = true;
     }
     if (craft && LS.transfer) {
@@ -230,7 +261,7 @@
       if (craft.visible) {
         const x = f * (n - 1), k = Math.min(Math.floor(x), n - 2), u = x - k;
         const a = t.track_au[k], b = t.track_au[k + 1];
-        craft.position.copy(LS.v3([a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u]));
+        craft.position.copy(LS.sv3([a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u]));
       }
     }
 
