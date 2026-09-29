@@ -327,7 +327,7 @@ def build():
     parts.append(MAIN_BLOCK)
     OUTPUT.write_text("\n".join(parts), encoding="utf-8")
     print(f"wrote {OUTPUT} ({OUTPUT.stat().st_size:,} bytes, "
-          f"{len(OUTPUT.read_text().splitlines()):,} lines)")
+          f"{len(OUTPUT.read_text(encoding='utf-8').splitlines()):,} lines)")
 
 
 if __name__ == "__main__":

@@ -27,7 +27,10 @@ except ImportError:                    # pragma: no cover
     ephemeris = None
 
 
-def planet_state(name, jd):
+# NOTE: deliberately not called `planet_state`. build_single_file.py merges
+# every module into one namespace and strips the `planets.` prefix, so a
+# function of that name here would end up calling itself.
+def best_planet_state(name, jd):
     """Heliocentric ecliptic r [km], v [km/s]: DE440s if present, else Standish."""
     if ephemeris is not None:
         out = ephemeris.planet_state(name, jd)
@@ -69,8 +72,8 @@ def transfer(dep, arr, jd_dep, jd_arr, prograde=True):
     """Solve one planet-to-planet transfer and derive its mission numbers."""
     if jd_arr <= jd_dep:
         raise ValueError("Arrival must be after departure.")
-    r1, vp1 = planet_state(dep, jd_dep)
-    r2, vp2 = planet_state(arr, jd_arr)
+    r1, vp1 = best_planet_state(dep, jd_dep)
+    r2, vp2 = best_planet_state(arr, jd_arr)
     dt = (jd_arr - jd_dep) * 86400.0
 
     v1, v2, z = lambert_universal(r1, r2, dt, prograde=prograde, mu=MU_SUN)

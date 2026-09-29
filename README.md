@@ -1,90 +1,140 @@
-# Lambert's Problem Solver
+# Lambert's Problem Solver — and Lambert Studio
 
-Solves Lambert's problem from two topocentric (Azimuth, Elevation, Range)
-observations of a satellite, including a GUI and 3D orbit plot.
+Orbit determination by solving **Lambert's problem**: two topocentric
+observations of a satellite (azimuth, elevation, range from a ground
+station at two known times) → two geocentric position vectors → the
+orbit connecting them → its classical orbital elements.
 
-## What it does
+The project has two parts:
 
-1. **Time handling** (`time_utils.py`) — converts calendar date/UTC time
-   to Julian Date and Greenwich Mean Sidereal Time (GMST).
-2. **Coordinate conversion** (`coord_utils.py`) — converts topocentric
-   Azimuth/Elevation/Range observations (plus the observing station's
-   ECEF position) into geocentric equatorial (ECI) position vectors.
-3. **Lambert's problem solver** (`lambert_solver.py`) — universal
-   variable formulation; given two ECI position vectors and the time of
-   flight between them, solves for the velocity vectors.
-4. **Orbital elements** (`orbital_elements.py`) — converts a Cartesian
-   state vector (r, v) into classical orbital elements
-   (a, e, i, RAAN, argument of perigee, true anomaly).
-5. **Plotting** (`plot_orbit.py`) — 3D plot of the resulting orbit,
-   Earth (to scale), and the two observation points.
-6. **GUI** (`gui_app.py`) — tkinter interface to enter both observations
-   and the station position, solve, and see the results + plot.
+1. **The assignment deliverable**: a single Python file,
+   `lambert_problem_solver.py`, with a GUI, a text report, an interactive
+   HTML dashboard and a validation suite.
+2. **Lambert Studio**: an extended desktop application built on the
+   same solver, with 3D visualisation, real satellite and asteroid data,
+   interplanetary mission design, an orbital manoeuvre planner and
+   perturbed-orbit prediction.
 
-## Requirements
+---
+
+## 1. Assignment deliverable
 
 ```
-pip install -r requirements.txt
+python lambert_problem_solver.py              # GUI (pre-filled with the assignment data)
+python lambert_problem_solver.py --report     # text report for the assignment data
+python lambert_problem_solver.py --selftest   # validation suite
+python lambert_problem_solver.py --dashboard  # interactive HTML dashboard
 ```
 
-On some Linux distributions, `tkinter` must be installed separately:
+**Requirements:** Python 3.10+ and `numpy`. Optional: `plotly` (dashboard)
+and `customtkinter` (modern GUI styling). If an optional package is
+missing, only the feature that needs it is disabled.
 
-```
-sudo apt install python3-tk
-```
+The single file is **generated** from the modules by
+`python build_single_file.py`. Edit the modules, not the generated file.
 
-## Running
+### Method
 
-**GUI (recommended):**
+| Step | Module | What it does |
+|---|---|---|
+| Time | `time_utils.py` | Calendar UTC → Julian Date; Greenwich Mean Sidereal Time (IAU 1982) |
+| Observations | `coord_utils.py` | Azimuth/elevation/range → SEZ → ECEF → ECI position vector |
+| Lambert | `lambert_solver.py` | Universal-variable formulation (Curtis, Algorithm 5.2), Stumpff functions, bracketed root finding |
+| Elements | `orbital_elements.py` | State vector → a, e, i, Ω, ω, ν and derived quantities |
+| Frames | `frames.py` | Two-body propagation; ECI, ECEF, perifocal, ground track and sky-view transforms |
+| Report | `report.py` | Formatted text results |
+| GUI / dashboard | `app.py`, `dashboard.py`, `viz.py` | Tkinter GUI and self-contained Plotly dashboard |
+| Interplanetary | `planets.py`, `interplanetary.py` | Same Lambert solver with μ☉: planet-to-planet transfers and porkchop plots |
 
-```
-python3 gui_app.py
+### Result for the assignment data
 
-```
+| Element | Value |
+|---|---|
+| Semi-major axis a | 28,184.19 km |
+| Eccentricity e | 0.768209 |
+| Inclination i | 20.339° |
+| RAAN Ω | 359.490° |
+| Argument of perigee ω | 179.231° |
+| True anomaly at r₁ | 126.010° |
+| Period | 13 h 04 min |
+| Perigee / apogee altitude | 155 km / 43,457 km |
 
-The GUI comes pre-filled with the assignment's example data (station
-position and both observations) — press "Solve" to see it work
-immediately, then edit the fields for other cases.
+### Assumptions
 
-**Individual modules** can also each be run directly to see their
-output for the example data, e.g.:
+- Dates are **DD/MM/YYYY** (the assignment's `02/04/2023` = 2 April 2023).
+- UTC is used in place of UT1 when computing GMST (difference < 1 s).
+- The station's latitude and longitude come from its ECEF position on a
+  **spherical Earth** (no ellipsoid was specified).
+- ECEF → ECI uses GMST only (no precession, nutation or polar motion).
+- The Lambert solver defaults to the **prograde, short-way**, single-revolution solution.
+- μ⊕ = 398,600.4418 km³/s², R⊕ = 6,378.137 km.
 
-```
-python3 time_utils.py
-python3 coord_utils.py
-python3 lambert_solver.py
-python3 orbital_elements.py
-python3 plot_orbit.py      # saves orbit_plot.png
-```
+### Validation
 
-## Assumptions / notes
+`validation.py` (also `--selftest`) runs 64 core checks, all passing:
 
-- Dates are interpreted as **DD/MM/YYYY** by default (matches the
-  assignment's `02/04/2023` = 2 April 2023). This can be switched to
-  MM/DD/YYYY in the GUI's Options panel.
-- UTC is treated as equal to UT1 (the UT1-UTC offset, generally under
-  ~1 second, is neglected) when computing GMST.
-- The station's latitude/longitude are derived from its given ECEF
-  coordinates assuming a **spherical Earth** (no ellipsoid/flattening
-  was specified in the assignment data).
-- Earth's rotation from ECEF to ECI uses GMST only (no precession,
-  nutation, or polar motion) — standard simplification for this scope.
-- The Lambert solver defaults to a **prograde, short-way** transfer.
-  This can be switched to retrograde/long-way via the `prograde`
-  parameter (exposed as a checkbox in the GUI) if the expected answer
-  requires the other branch.
-- Gravitational parameter used: mu = 398600.4418 km^3/s^2 (Earth).
+- **Textbook reference cases.** Curtis Example 5.2 (Lambert) and
+  Example 4.3 (elements from a state vector) match the published answers.
+- **Physics invariants on the assignment data.** Energy and angular
+  momentum are equal at both points, and the elements agree from either
+  point. The mean anomaly advances by exactly n·Δt, and propagating
+  (r₁, v₁) forward by Δt lands on r₂ to within 10⁻¹¹ km.
+- **Round trip.** Converting the solved orbit back into the station's
+  sky recovers the original azimuth, elevation and range to machine
+  precision.
+- **Frames.** The orbit closes after one period, the ground-track
+  latitude never exceeds the inclination, and the perifocal track is planar.
+- **Planets and transfers.** Sidereal periods match accepted values, and
+  an Earth→Mars 2026 transfer lands in the realistic range for C₃ and Δv.
 
-## Verification performed
+With the Lambert Studio packages installed, 13 more checks cover the
+extensions (77 in total; without them, those checks are listed as skipped):
 
-- Orbital elements computed independently from (r1, v1) and (r2, v2)
-  agree to machine precision (see `orbital_elements.py` output).
-- Specific mechanical energy (v^2/2 - mu/r) matches at both points
-  (~-7.07 km^2/s^2 for the example data), confirming a physically
-  consistent orbit.
-- Both observation points lie exactly on the plotted orbit ellipse.
-- Full pipeline (parsing -> conversion -> Lambert -> elements -> plot)
-  was exercised through the GUI end-to-end with the example data and
-  matches the standalone module outputs exactly.
+- the JPL DE440s ephemeris, compared with the approximate elements;
+- Hohmann LEO→GEO Δv = 3.893 km/s;
+- the plane-change formula;
+- bi-elliptic beating Hohmann when r₂/r₁ is large;
+- the numerically integrated J2 node drift, compared with the analytic
+  rate (Sun-synchronous ≈ 0.9856°/day);
+- the fast satellite model, compared with SGP4.
 
+---
 
+## 2. Lambert Studio (extended application)
+
+Double-click **`run_studio.bat`** (or run `python lambert_studio.py`).
+
+| Tab | Contents |
+|---|---|
+| Orbit | Lambert solution in 3D around a rotating, textured Earth; live altitude, speed and visibility from the station |
+| Track | Ground track on a world map and the station's sky view, on the same timeline |
+| Maneuver | Hohmann, bi-elliptic, plane change and circularisation: Δv per burn, propellant (rocket equation), animated transfer, comparison of options |
+| Perturb | Numerical integration with J2 and atmospheric drag (SciPy DOP853): drift of the node and perigee against the analytic J2 rates, orbital decay and re-entry |
+| Satellites | Real satellites from CelesTrak at their current positions; search, details and orbits |
+| Flybys | Upcoming asteroid close approaches (NASA/JPL CNEOS), with precise geocentric paths from JPL Horizons |
+| Solar | Planets from the JPL DE440s ephemeris, and potentially hazardous asteroids from the JPL Small-Body Database |
+| Mission | Interplanetary transfers and porkchop plots |
+
+**Requirements:** `pip install -r requirements.txt`. The first run needs
+internet for satellite and asteroid data; afterwards saved copies are
+used offline. The DE440s ephemeris (31 MB) is kept in
+`%LOCALAPPDATA%\LambertStudio\ephemeris`; without it, the approximate
+planetary elements are used automatically.
+
+Options: `run_studio.bat --qt` (embedded Qt window instead of Edge app
+mode), `--browser` (normal browser tab). Logs are written to
+`%LOCALAPPDATA%\LambertStudio\logs`; `run_studio_debug.bat` keeps a console open.
+
+**Architecture:** the physics stays in Python; `studio_server.py` serves
+a JSON API on 127.0.0.1 only, and the interface in `web/` draws it with
+Three.js (3D) and Plotly (charts).
+
+### Data and credits
+
+- Earth imagery: NASA Blue Marble and Black Marble (public domain)
+- Planet textures: Solar System Scope (CC BY 4.0)
+- Planet and Moon positions: NASA/JPL DE440s, via Skyfield
+- Satellites: CelesTrak GP data, with SGP4 used for validation
+- Asteroids: NASA/JPL SBDB, CNEOS close-approach data and Horizons
+- Atmosphere model: Vallado, *Fundamentals of Astrodynamics and Applications*, Table 8-4
+- Reference method: H. D. Curtis, *Orbital Mechanics for Engineering Students*
