@@ -72,7 +72,7 @@
   });
 
   window.addEventListener('keydown', (e) => {
-    if (e.target.matches('input, select, textarea')) return;
+    if (e.target.matches && e.target.matches('input, select, textarea')) return;
     if (e.code === 'Space' && active && active.clock) { e.preventDefault(); active.clock.playing = !active.clock.playing; }
     if (e.key === 'Escape') $('modal').hidden = true;
   });

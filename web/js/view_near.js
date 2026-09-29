@@ -56,6 +56,11 @@
     s3.camera.position.set(7, 4.5, 10);
     s3.controls.minDistance = 1.2;
     s3.controls.maxDistance = 900;
+    s3.setFollowables([
+      { label: 'Selected satellite', obj: () => (selected >= 0 ? selMarker : null) },
+      { label: 'Moon', obj: () => moon },
+      { label: 'Earth', obj: () => earth.surface },
+    ]);
     raycaster.params.Points.threshold = 0.05;
 
     wire();

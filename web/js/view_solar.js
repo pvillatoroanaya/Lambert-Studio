@@ -19,7 +19,7 @@
   LS.views.solar = view;
 
   let s3, planetsGroup, orbitsGroup, labels = [], bodies = {}, astCloud = null, ast = null, astGroup = 'pha';
-  let transferGroup = null, craft = null, focus = null, refJd = LS.nowJd();
+  let transferGroup = null, craft = null, refJd = LS.nowJd();
   const raycaster = new THREE.Raycaster();
   const mouse = new THREE.Vector2();
   let hover = null, hoverTimer = 0;
@@ -104,18 +104,28 @@
     });
     cv.addEventListener('pointerleave', () => { hover = null; $('tooltip').hidden = true; });
 
+    s3.setFollowables([
+      { label: 'Sun', obj: () => bodies.Sun },
+      ...LS.planetTable.order.map((n) => ({ label: n, obj: () => bodies[n] })),
+      { label: 'Spacecraft', obj: () => (craft && craft.visible ? craft : null) },
+    ]);
     LS.on('transfer', showTransfer);
     if (LS.transfer) showTransfer(LS.transfer);
     renderHud();
     loadAsteroids();
   };
 
+  /* Focus chips: fly to the body and keep following it (the camera's own
+     Follow system, so the toolbar and double-click stay in sync). */
   function setFocus(name) {
-    focus = name === 'Sun' ? null : name;
     document.querySelectorAll('#sol-focus button').forEach((b) => b.classList.toggle('on', b.dataset.f === name));
-    const target = bodies[name].position.clone();
-    const dist = name === 'Sun' ? 3.2 : Math.max(SIZE[name] * 14, 0.25);
-    s3.focusOn(target, dist);
+    if (name === 'Sun') {
+      s3.setFollow(null);
+      s3.flyTo(new THREE.Vector3(), 3.2);
+      return;
+    }
+    s3.setFollow(s3.followables.find((f) => f.label === name));
+    s3.flyTo(bodies[name].position.clone(), Math.max(SIZE[name] * 14, 0.25), bodies[name]);
   }
 
   async function loadAsteroids() {
@@ -207,12 +217,6 @@
     for (const name of LS.planetTable ? LS.planetTable.order : []) {
       bodies[name].position.copy(LS.v3(LS.planetPos(name, jd, buf)));
       bodies[name].rotation.y += dt * 0.3;
-    }
-    if (focus) {
-      const p = bodies[focus].position;
-      const delta = p.clone().sub(s3.controls.target);
-      s3.controls.target.add(delta);
-      s3.camera.position.add(delta);
     }
     if (astCloud && ast) {
       const pos = astCloud.geometry.attributes.position.array;

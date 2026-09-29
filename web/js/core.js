@@ -361,10 +361,12 @@ class Scene3D {
         depthWrite: false, color: 0x8a8f9c }));
     this.sky.renderOrder = -10;
     this.stars = LS.stars(skyR * 0.9);
+    this.sky.userData.noPick = this.stars.userData.noPick = true;
     this.scene.add(this.sky, this.stars);
 
     LS.scenes.push(this);
     this.applySettings();
+    this._initFreeCamera();
     new ResizeObserver(() => this.resize()).observe(container);
     this.resize();
   }
@@ -385,20 +387,281 @@ class Scene3D {
     this.camera.updateProjectionMatrix();
   }
   render() {
-    this.controls.update();
+    const now = performance.now();
+    const dt = Math.min((now - this._lastT) / 1000, 0.1);
+    this._lastT = now;
+    if (!this.home) this._saveHome();
+    this._stepCamera(dt);
+    if (this.mode === 'orbit' && !this.anim) this.controls.update();
     this.sky.position.copy(this.camera.position);      // the sky is always "at infinity"
     this.stars.position.copy(this.camera.position);
     if (this.composer && LS.settings.bloom) this.composer.render();
     else this.renderer.render(this.scene, this.camera);
     this.labels.render(this.scene, this.camera);
   }
-  /* Smoothly move the orbit-controls target (and camera with it). */
+  /* Frame a point from the current viewing direction. Views call this
+     after drawing something new; it also becomes the "Reset" view. */
   focusOn(target, distance) {
+    if (this.mode === 'fly') this.setMode('orbit');
+    if (this.follow) this.setFollow(null);
     const dir = this.camera.position.clone().sub(this.controls.target).normalize();
     this.controls.target.copy(target);
     this.camera.position.copy(target).add(dir.multiplyScalar(distance));
+    this.anim = null;
+    this._saveHome();
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Free camera: orbit / fly modes, double-click to fly to anything,   */
+  /* follow a moving object, reset. Shared by every 3D view.            */
+  /* ------------------------------------------------------------------ */
+
+  _initFreeCamera() {
+    this.mode = 'orbit';
+    this.follow = null;            // {label, obj: () => Object3D | null}
+    this._followPos = null;
+    this.followables = [];
+    this.anim = null;
+    this.home = null;
+    this.keys = new Set();
+    this.flySpeed = 1;
+    this._euler = new THREE.Euler(0, 0, 0, 'YXZ');
+    this._lastT = performance.now();
+    this._ray = new THREE.Raycaster();
+    this._buildCameraBar();
+
+    const el = this.renderer.domElement;
+    const visible = () => this.container.offsetParent !== null;
+    const typing = (e) => e.target.matches && e.target.matches('input, select, textarea');
+    const FLY_KEYS = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+    window.addEventListener('keydown', (e) => {
+      if (!visible() || typing(e)) return;
+      if (e.code === 'Escape' && this.mode === 'fly') { this.setMode('orbit'); return; }
+      if (e.code === 'KeyF' && !e.ctrlKey) { this.setMode(this.mode === 'fly' ? 'orbit' : 'fly'); return; }
+      if (this.mode === 'fly' && FLY_KEYS.includes(e.code)) { this.keys.add(e.code); e.preventDefault(); }
+    });
+    window.addEventListener('keyup', (e) => this.keys.delete(e.code));
+    window.addEventListener('blur', () => this.keys.clear());
+
+    // Fly mode: drag to look around.
+    let drag = null;
+    el.addEventListener('pointerdown', (e) => {
+      if (this.mode !== 'fly' || e.button !== 0) return;
+      drag = { x: e.clientX, y: e.clientY };
+      el.setPointerCapture(e.pointerId);
+    });
+    el.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+      drag = { x: e.clientX, y: e.clientY };
+      this._euler.y -= dx * 0.0035;
+      this._euler.x = Math.max(-1.52, Math.min(1.52, this._euler.x - dy * 0.0035));
+      this.camera.quaternion.setFromEuler(this._euler);
+    });
+    el.addEventListener('pointerup', () => { drag = null; });
+    // Fly mode: the scroll wheel sets the speed.
+    el.addEventListener('wheel', (e) => {
+      if (this.mode !== 'fly') return;
+      e.preventDefault();
+      this.flySpeed *= e.deltaY > 0 ? 1 / 1.25 : 1.25;
+      this._showSpeed();
+    }, { passive: false });
+    // Double-click: fly to whatever is under the pointer.
+    el.addEventListener('dblclick', (e) => this._flyToPointer(e));
+  }
+
+  _buildCameraBar() {
+    const bar = document.createElement('div');
+    bar.className = 'camtools';
+    bar.innerHTML = `
+      <div class="seg mini">
+        <button data-m="orbit" class="on" title="Rotate around a point: drag to rotate, right-drag to pan, scroll to zoom">Orbit</button>
+        <button data-m="fly" title="Move freely: W A S D to move, Q / E down / up, drag to look (key F)">Fly</button>
+      </div>
+      <select class="cam-follow" title="Keep the camera with a moving object"><option value="">Follow: nothing</option></select>
+      <button class="cam-btn cam-reset" title="Back to the starting view">Reset</button>
+      <button class="cam-btn cam-help" title="Camera controls">?</button>
+      <span class="cam-speed" hidden></span>
+      <div class="cam-helpbox" hidden>
+        <b>Orbit mode</b><span>drag</span><span>rotate</span><span>right-drag</span><span>pan</span>
+        <span>scroll</span><span>zoom</span>
+        <b>Fly mode (F)</b><span>W A S D / arrows</span><span>move</span><span>Q / E</span><span>down / up</span>
+        <span>drag</span><span>look around</span><span>Shift</span><span>5× faster</span><span>scroll</span><span>change speed</span>
+        <span>Esc</span><span>back to orbit</span>
+        <b>Anywhere</b><span>double-click</span><span>fly to that object</span><span>Follow</span><span>ride along with it</span>
+      </div>`;
+    this.container.appendChild(bar);
+    this._bar = bar;
+    bar.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => this.setMode(b.dataset.m)));
+    bar.querySelector('.cam-reset').addEventListener('click', () => this.resetView());
+    bar.querySelector('.cam-help').addEventListener('click', () => {
+      const h = bar.querySelector('.cam-helpbox'); h.hidden = !h.hidden;
+    });
+    bar.querySelector('.cam-follow').addEventListener('change', (e) => {
+      const item = this.followables[+e.target.value - 1];
+      this.setFollow(e.target.value ? item : null, true);
+    });
+    // Keep keyboard focus off the controls, so W/A/S/D reach the camera.
+    bar.querySelectorAll('button').forEach((b) => b.addEventListener('mouseup', () => b.blur()));
+  }
+
+  /* Objects the camera can follow: [{label, obj: () => Object3D | null}] */
+  setFollowables(list) {
+    this.followables = list;
+    const sel = this._bar.querySelector('.cam-follow');
+    const current = this.follow && this.follow.label;
+    sel.innerHTML = '<option value="">Follow: nothing</option>' +
+      list.map((f, k) => `<option value="${k + 1}">Follow: ${LS.esc(f.label)}</option>`).join('');
+    const k = list.findIndex((f) => f.label === current);
+    sel.value = k >= 0 ? String(k + 1) : '';
+  }
+
+  setMode(mode) {
+    if (mode === this.mode) return;
+    const fwd = new THREE.Vector3();
+    this.camera.getWorldDirection(fwd);
+    if (mode === 'fly') {
+      this.anim = null;
+      this._euler.setFromQuaternion(this.camera.quaternion, 'YXZ');
+      this.flySpeed = Math.max(this.camera.position.distanceTo(this.controls.target) * 0.4, 1e-4);
+      this.controls.enabled = false;
+    } else {
+      // Put the orbit centre straight ahead, so the view does not jump.
+      const d = Math.max(this.flySpeed * 2.5, this.controls.minDistance * 1.5);
+      this.controls.target.copy(this.camera.position).add(fwd.multiplyScalar(d));
+      this.controls.enabled = true;
+      this.keys.clear();
+    }
+    this.mode = mode;
+    this._bar.querySelectorAll('.seg button').forEach((b) => b.classList.toggle('on', b.dataset.m === mode));
+    this._showSpeed();
+  }
+
+  setFollow(item, fly = false) {
+    this.follow = item;
+    this._followPos = null;
+    this._bar.querySelector('.cam-follow').value =
+      item && this.followables.includes(item) ? String(this.followables.indexOf(item) + 1) : '';
+    if (!item) return;
+    const obj = item.obj();
+    if (!obj) {
+      LS.status(`${item.label} is not in the scene yet`, 'error');
+      this.follow = null;
+      this._bar.querySelector('.cam-follow').value = '';
+      return;
+    }
+    if (fly) this.flyTo(obj.getWorldPosition(new THREE.Vector3()), this._viewDistance(obj), obj);
+  }
+
+  /* Smooth camera move to look at `target` from `dist` away. If `obj`
+     is given, the destination tracks it while the camera travels. */
+  flyTo(target, dist, obj = null) {
+    if (this.mode === 'fly') this.setMode('orbit');
+    const dir = this.camera.position.clone().sub(this.controls.target).normalize();
+    this.anim = { t: 0, dur: 1.2, fromT: this.controls.target.clone(), fromP: this.camera.position.clone(),
+      toT: target.clone(), dir, dist, obj };
+  }
+
+  resetView() {
+    this.setMode('orbit');
+    this.setFollow(null);
+    if (this.home) {
+      this.anim = { t: 0, dur: 1.0, fromT: this.controls.target.clone(), fromP: this.camera.position.clone(),
+        toT: this.home.t.clone(), toP: this.home.p.clone() };
+    }
+  }
+
+  _saveHome() {
+    this.home = { t: this.controls.target.clone(), p: this.camera.position.clone() };
+  }
+
+  /* A comfortable distance to look at an object from. */
+  _viewDistance(obj) {
+    const cur = this.camera.position.distanceTo(this.controls.target);
+    let r = 0;
+    try {
+      const sphere = new THREE.Box3().setFromObject(obj).getBoundingSphere(new THREE.Sphere());
+      r = isFinite(sphere.radius) ? sphere.radius : 0;
+    } catch (e) { r = 0; }
+    return Math.min(Math.max(r * 5, cur * 0.03, this.controls.minDistance * 1.2), cur);
+  }
+
+  _flyToPointer(e) {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const ndc = new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1,
+      -((e.clientY - rect.top) / rect.height) * 2 + 1);
+    this._ray.setFromCamera(ndc, this.camera);
+    const d = this.camera.position.distanceTo(this.controls.target);
+    this._ray.params.Points.threshold = d * 0.01;
+    this._ray.params.Line.threshold = d * 0.008;
+    const shown = (o) => { for (; o; o = o.parent) if (!o.visible || o.userData.noPick) return false; return true; };
+    const hit = this._ray.intersectObjects(this.scene.children, true).find((h) => shown(h.object));
+    if (!hit) return;
+    // A planet, moon or marker: go to its centre and follow it. Anything
+    // else (a point on an orbit line): go to the point that was clicked.
+    let body = hit.object;
+    while (body && !(body.isMesh && body.geometry && body.geometry.type === 'SphereGeometry') && body.parent) body = body.parent;
+    if (body && body.isMesh && body.geometry.type === 'SphereGeometry') {
+      const item = this.followables.find((f) => f.obj() === body) || { label: 'selected object', obj: () => body };
+      this.setFollow(item);
+      this.flyTo(body.getWorldPosition(new THREE.Vector3()), this._viewDistance(body), body);
+    } else {
+      this.setFollow(null);
+      this.flyTo(hit.point, d * 0.35);
+    }
+  }
+
+  _showSpeed() {
+    const s = this._bar.querySelector('.cam-speed');
+    s.hidden = this.mode !== 'fly';
+    if (this.mode === 'fly') s.textContent = `speed ${this.flySpeed.toPrecision(2)} units/s · scroll to change`;
+  }
+
+  _stepCamera(dt) {
+    const followPos = this.follow && this.follow.obj() ? this.follow.obj().getWorldPosition(new THREE.Vector3()) : null;
+
+    if (this.anim) {
+      const a = this.anim;
+      a.t += dt;
+      const u = Math.min(a.t / a.dur, 1), s = u * u * (3 - 2 * u);          // smoothstep
+      const toT = a.obj ? a.obj.getWorldPosition(new THREE.Vector3()) : a.toT;
+      const toP = a.toP || toT.clone().add(a.dir.clone().multiplyScalar(a.dist));
+      this.controls.target.lerpVectors(a.fromT, toT, s);
+      this.camera.position.lerpVectors(a.fromP, toP, s);
+      this.camera.lookAt(this.controls.target);
+      if (u >= 1) { this.anim = null; this._followPos = followPos; }
+      return;
+    }
+
+    // Following: move the camera by however much the object moved.
+    if (followPos) {
+      if (this._followPos) {
+        const delta = followPos.clone().sub(this._followPos);
+        this.camera.position.add(delta);
+        this.controls.target.add(delta);
+      }
+      this._followPos = followPos;
+    }
+
+    if (this.mode === 'fly') {
+      const k = this.keys;
+      const f = (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0) - (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0);
+      const r = (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0);
+      const u = (k.has('KeyE') ? 1 : 0) - (k.has('KeyQ') ? 1 : 0);
+      if (f || r || u) {
+        const fwd = new THREE.Vector3(), right = new THREE.Vector3();
+        this.camera.getWorldDirection(fwd);
+        right.crossVectors(fwd, this.camera.up).normalize();
+        const move = fwd.multiplyScalar(f).add(right.multiplyScalar(r)).add(this.camera.up.clone().multiplyScalar(u));
+        move.normalize().multiplyScalar(this.flySpeed * dt * (this._shift ? 5 : 1));
+        this.camera.position.add(move);
+        this.controls.target.add(move);
+      }
+    }
   }
 }
+window.addEventListener('keydown', (e) => { if (e.key === 'Shift') LS.scenes.forEach((s) => { s._shift = true; }); });
+window.addEventListener('keyup', (e) => { if (e.key === 'Shift') LS.scenes.forEach((s) => { s._shift = false; }); });
 LS.Scene3D = Scene3D;
 
 const _tex = {};
@@ -448,7 +711,9 @@ LS.glow = function (radius, color, power = 3.0, strength = 1.0) {
         float f = pow(1.0 - abs(dot(vN, vV)), p) * s; gl_FragColor = vec4(c, f); }`,
     side: THREE.FrontSide, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
   });
-  return new THREE.Mesh(new THREE.SphereGeometry(radius, 64, 48), mat);
+  const m = new THREE.Mesh(new THREE.SphereGeometry(radius, 64, 48), mat);
+  m.userData.noPick = true;          // decoration: clicks go to the body underneath
+  return m;
 };
 
 /* Earth: NASA Blue Marble by day, NASA Black Marble city lights by
@@ -501,6 +766,7 @@ LS.earth = function () {
   const clouds = new THREE.Mesh(
     new THREE.SphereGeometry(1.008, 96, 72),
     new THREE.MeshLambertMaterial({ map: LS.texture('textures/earth_clouds.png'), transparent: true, opacity: 0.5, depthWrite: false }));
+  clouds.userData.noPick = true;
   spin.add(clouds);
   group.add(LS.glow(1.025, 0x4da6ff, 2.6, 1.0));
   const setSun = (dir) => uniforms.sunDir.value.copy(dir).normalize();

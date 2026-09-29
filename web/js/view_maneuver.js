@@ -39,6 +39,10 @@
     s3.camera.position.set(6, 5, 10);
     s3.controls.minDistance = 1.3;
     s3.controls.maxDistance = 5000;
+    s3.setFollowables([
+      { label: 'Spacecraft', obj: () => craft || null },
+      { label: 'Earth', obj: () => earth.surface },
+    ]);
 
     document.querySelectorAll('#mv-kind button').forEach((b) => b.addEventListener('click', () => setKind(b.dataset.k)));
     document.querySelectorAll('#mv-where button').forEach((b) => b.addEventListener('click', () => {

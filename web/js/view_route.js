@@ -81,6 +81,11 @@
     }
     s3.camera.position.set(2, 6, 9);
     s3.controls.maxDistance = 600;
+    s3.setFollowables([
+      { label: 'Spacecraft', obj: () => (craft && craft.visible ? craft : null) },
+      { label: 'Sun', obj: () => sun },
+      ...LS.planetTable.order.map((n) => ({ label: n, obj: () => (bodies[n].visible ? bodies[n] : null) })),
+    ]);
   }
 
   R.show = function () {

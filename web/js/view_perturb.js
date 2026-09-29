@@ -28,6 +28,10 @@
     s3.camera.position.set(3.5, 2.5, 5);
     s3.controls.minDistance = 1.2;
     s3.controls.maxDistance = 400;
+    s3.setFollowables([
+      { label: 'Satellite', obj: () => craft || null },
+      { label: 'Earth', obj: () => earth.surface },
+    ]);
 
     document.querySelectorAll('#pt-source button').forEach((b) => b.addEventListener('click', () => {
       document.querySelectorAll('#pt-source button').forEach((x) => x.classList.toggle('on', x === b));

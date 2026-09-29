@@ -53,6 +53,11 @@
 
     s3.camera.position.set(90, 60, 140);
     s3.controls.maxDistance = 1e5;
+    s3.setFollowables([
+      { label: 'Asteroid', obj: () => rock || null },
+      { label: 'Earth', obj: () => earth.surface },
+      { label: 'Moon', obj: () => moon },
+    ]);
 
     document.querySelectorAll('#fly-seg button').forEach((b) => b.addEventListener('click', () => {
       document.querySelectorAll('#fly-seg button').forEach((x) => x.classList.toggle('on', x === b));

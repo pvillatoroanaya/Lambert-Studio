@@ -127,6 +127,12 @@ Double-click **`run_studio.bat`** (or run `python lambert_studio.py`).
 | Solar | Planets from the JPL DE440s ephemeris, and potentially hazardous asteroids from the JPL Small-Body Database |
 | Mission | **Direct transfer:** porkchop plot and a plain-language explanation of the route (Type I/II, how far ahead to aim, comparison with Hohmann, how often launch windows return). **Gravity-assist route:** routes with up to 4 flybys, optimised with patched conics (`flyby.py`), where a leg may loop around the Sun (multi-revolution Lambert), so the same planet can be used twice. Shown in 3D with a speed-gain chart and a step-by-step story. Examples: Voyager, Mariner 10, Galileo (VEEGA), Cassini (VVEJGA) and the Voyager 2 Grand Tour |
 
+**Camera (every 3D view):** *Orbit* mode (drag to rotate, right-drag to pan,
+scroll to zoom) or *Fly* mode (key F; W/A/S/D to move, Q/E down/up, drag to look,
+Shift for 5× speed, scroll to change speed, Esc to return). Double-click any
+object to fly to it; *Follow* keeps the camera with a moving object (spacecraft,
+planet, Moon…); *Reset* returns to the starting view.
+
 **Requirements:** `pip install -r requirements.txt`. The first run needs
 internet for satellite and asteroid data; afterwards saved copies are
 used offline. All app data lives in `%USERPROFILE%\.lambert_studio`:

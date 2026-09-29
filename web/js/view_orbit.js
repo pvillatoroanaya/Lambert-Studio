@@ -44,6 +44,11 @@
     s3.camera.position.set(9, 5, 12);
     s3.controls.minDistance = 1.3;
     s3.controls.maxDistance = 400;
+    s3.setFollowables([
+      { label: 'Satellite', obj: () => sat || null },
+      { label: 'Earth', obj: () => earth.surface },
+      { label: 'Ground station', obj: () => (station ? station.children[0] : null) },
+    ]);
   };
 
   /* ---------------- inputs ---------------- */
