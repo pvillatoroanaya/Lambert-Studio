@@ -41,6 +41,7 @@ import asteroids
 import ephemeris
 import maneuvers
 import perturb
+import flyby
 
 WEB_DIR = pathlib.Path(__file__).resolve().parent / "web"
 
@@ -323,6 +324,35 @@ def api_transfer(req):
     out["track_au"] = np.asarray(track) / AU
     out["dep_iso"] = jd_to_iso(jd_d)
     out["arr_iso"] = jd_to_iso(jd_a)
+    out["explain"] = interplanetary.explain_transfer(t)
+    return out
+
+
+def api_route_presets(_req=None):
+    return {"presets": flyby.PRESETS, "planets": planets.PLANET_ORDER}
+
+
+def api_route(req):
+    seq = [p for p in req.get("seq", []) if p]
+    if len(seq) < 2:
+        raise ValueError("Choose at least a start and a destination.")
+    if len(seq) > 4:
+        raise ValueError("At most two flybys are supported.")
+    w0 = _jd_from_date(req.get("from"), "Launch window start")
+    w1 = _jd_from_date(req.get("to"), "Launch window end")
+    if w1 - w0 > 15 * 365.25:
+        raise ValueError("Keep the launch window under 15 years (the search would take too long).")
+    max_years = _float_arg(req, "max_years", "Maximum trip time (years)", 0.1, 40)
+    out = flyby.plan_route(seq, (w0, w1), bool(req.get("capture", True)), max_years * 365.25)
+
+    def iso(r):
+        if r is None:
+            return None
+        for e in r["events"]:
+            e["iso"] = jd_to_iso(e["jd"])
+        return r
+    iso(out)
+    iso(out["direct"])
     return out
 
 
@@ -412,6 +442,8 @@ ROUTES = {
     "/api/ephemeris": api_ephemeris,
     "/api/moon": api_moon,
     "/api/maneuver": api_maneuver,
+    "/api/route": api_route,
+    "/api/route_presets": api_route_presets,
     "/api/perturb": api_perturb,
     "/api/perturb_presets": api_perturb_presets,
     "/api/ping": api_ping,

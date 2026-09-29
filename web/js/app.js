@@ -180,7 +180,12 @@
     // Solve the example straight away, so the first thing on screen is an orbit.
     $('btn-solve').click();
     // Opening the page as .../#near (etc.) goes straight to that view.
-    const wanted = location.hash.slice(1);
-    if (wanted && LS.views[wanted]) LS.setView(wanted);
+    // A sub-mode can follow a slash, e.g. #mission/route.
+    const [wanted, sub] = location.hash.slice(1).split('/');
+    if (wanted && LS.views[wanted]) {
+      await LS.setView(wanted);
+      const btn = sub && document.querySelector(`.ctl[data-for="${wanted}"] .seg button[data-m="${sub}"]`);
+      if (btn) btn.click();
+    }
   })();
 })();

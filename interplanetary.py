@@ -104,6 +104,38 @@ def transfer(dep, arr, jd_dep, jd_arr, prograde=True):
     }
 
 
+def explain_transfer(t):
+    """
+    The numbers behind a plain-language explanation of a direct transfer:
+    where the target was at launch, the ideal (Hohmann) comparison, and
+    how often a launch window comes back.
+    """
+    dep, arr = t["departure"], t["arrival"]
+    jd = t["jd_departure"]
+    # Heliocentric longitude of each planet at launch (ecliptic).
+    lon = lambda r: math.degrees(math.atan2(r[1], r[0]))
+    r_arr_at_launch, _ = best_planet_state(arr, jd)
+    phase = (lon(r_arr_at_launch) - lon(t["r1"]) + 180.0) % 360.0 - 180.0
+
+    T1 = planets.orbital_period_days(dep, jd)
+    T2 = planets.orbital_period_days(arr, jd)
+    synodic = 1.0 / abs(1.0 / T1 - 1.0 / T2)
+    a1 = planets.planet_elements(dep, jd)["a_au"] * AU
+    a2 = planets.planet_elements(arr, jd)["a_au"] * AU
+    t_h = math.pi * math.sqrt(((a1 + a2) / 2) ** 3 / MU_SUN) / 86400.0
+    phase_h = (180.0 - 360.0 * t_h / T2 + 180.0) % 360.0 - 180.0      # target lead angle for Hohmann
+    vinf_h = abs(math.sqrt(MU_SUN / a1) * (math.sqrt(2 * a2 / (a1 + a2)) - 1))
+    return {
+        "phase_deg": phase,
+        "target_moves_deg": 360.0 * t["tof_days"] / T2,
+        "hohmann_days": t_h, "hohmann_phase_deg": phase_h,
+        "hohmann_c3": vinf_h ** 2,
+        "hohmann_dv_departure": _hyperbolic_dv(vinf_h, dep, PARKING_ALT_DEPARTURE),
+        "synodic_days": synodic,
+        "outward": a2 > a1,
+    }
+
+
 def transfer_path(t, n=300):
     """Heliocentric positions [km] along the transfer arc, shape (n, 3)."""
     dt = t["tof_days"] * 86400.0

@@ -1227,6 +1227,38 @@ def transfer(dep, arr, jd_dep, jd_arr, prograde=True):
     }
 
 
+def explain_transfer(t):
+    """
+    The numbers behind a plain-language explanation of a direct transfer:
+    where the target was at launch, the ideal (Hohmann) comparison, and
+    how often a launch window comes back.
+    """
+    dep, arr = t["departure"], t["arrival"]
+    jd = t["jd_departure"]
+    # Heliocentric longitude of each planet at launch (ecliptic).
+    lon = lambda r: math.degrees(math.atan2(r[1], r[0]))
+    r_arr_at_launch, _ = best_planet_state(arr, jd)
+    phase = (lon(r_arr_at_launch) - lon(t["r1"]) + 180.0) % 360.0 - 180.0
+
+    T1 = orbital_period_days(dep, jd)
+    T2 = orbital_period_days(arr, jd)
+    synodic = 1.0 / abs(1.0 / T1 - 1.0 / T2)
+    a1 = planet_elements(dep, jd)["a_au"] * AU
+    a2 = planet_elements(arr, jd)["a_au"] * AU
+    t_h = math.pi * math.sqrt(((a1 + a2) / 2) ** 3 / MU_SUN) / 86400.0
+    phase_h = (180.0 - 360.0 * t_h / T2 + 180.0) % 360.0 - 180.0      # target lead angle for Hohmann
+    vinf_h = abs(math.sqrt(MU_SUN / a1) * (math.sqrt(2 * a2 / (a1 + a2)) - 1))
+    return {
+        "phase_deg": phase,
+        "target_moves_deg": 360.0 * t["tof_days"] / T2,
+        "hohmann_days": t_h, "hohmann_phase_deg": phase_h,
+        "hohmann_c3": vinf_h ** 2,
+        "hohmann_dv_departure": _hyperbolic_dv(vinf_h, dep, PARKING_ALT_DEPARTURE),
+        "synodic_days": synodic,
+        "outward": a2 > a1,
+    }
+
+
 def transfer_path(t, n=300):
     """Heliocentric positions [km] along the transfer arc, shape (n, 3)."""
     dt = t["tof_days"] * 86400.0
@@ -2376,6 +2408,36 @@ def test_perturbations():
     check("Integrator with no perturbations = Kepler", plain["summary"]["max_diff"], 0.0, 1e-3, " km")
 
 
+def test_gravity_assists():
+    """
+    Patched-conic route optimiser against history: searching only from
+    the physics, it must rediscover the dates of real missions.
+    """
+    import flyby
+    jd = lambda y, m, d: julian_date(y, m, d, 0, 0, 0.0)
+
+    # A flyby whose in/out speeds match needs no engine burn.
+    fb = flyby.flyby_analysis("Jupiter", np.array([6.0, 0.0, 0.0]), np.array([0.0, 6.0, 0.0]))
+    check("Unpowered flyby: no burn when |v_inf| is unchanged", fb["dv"], 0.0, 1e-9, " km/s")
+    check_true("Jupiter can turn a 6 km/s flyby by 90 deg", fb["feasible"],
+               f"max turn {fb['max_turn_deg']:.1f} deg")
+
+    v = flyby.plan_route(["Earth", "Venus", "Mercury"], (jd(1973, 6, 1), jd(1974, 3, 1)),
+                         capture=False, max_days=0.6 * 365.25)
+    check("Mariner 10: Venus flyby date (real: 5 Feb 1974)", v["jds"][1], jd(1974, 2, 5), 20.0, " JD")
+    check("Mariner 10: launch date (real: 3 Nov 1973)", v["jds"][0], jd(1973, 11, 3), 20.0, " JD")
+
+    y = flyby.plan_route(["Earth", "Jupiter", "Saturn"], (jd(1977, 1, 1), jd(1978, 6, 30)),
+                         capture=False, max_days=3.5 * 365.25)
+    check("Voyager: launch date (real: 5 Sep 1977)", y["jds"][0], jd(1977, 9, 5), 30.0, " JD")
+    check("Voyager: Jupiter flyby (real: Mar-Jul 1979)", y["jds"][1], jd(1979, 5, 5), 90.0, " JD")
+    gain = y["events"][1]["gain"]
+    check_true("Voyager: Jupiter adds more than 5 km/s", gain > 5.0, f"gain {gain:.2f} km/s")
+    check_true("Voyager route cheaper than flying direct",
+               y["total_dv"] < y["direct"]["total_dv"],
+               f"{y['total_dv']:.3f} vs {y['direct']['total_dv']:.3f} km/s")
+
+
 def test_satellite_model():
     """The fast Kepler+J2 model used to animate thousands of satellites
     must stay close to full SGP4 over a few hours (visual accuracy)."""
@@ -2404,6 +2466,7 @@ def run_validation():
     _optional("DE440s ephemeris", test_ephemeris)
     _optional("Manoeuvres", test_maneuvers)
     _optional("Perturbations", test_perturbations)
+    _optional("Gravity assists", test_gravity_assists)
     _optional("Satellite model", test_satellite_model)
 
     width = 58
