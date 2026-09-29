@@ -169,9 +169,22 @@ def run_qt(url):
     return code
 
 
-def run_in_browser(url):
-    print(f"Lambert Studio is running at {url}")
-    print("Close this window (or press Ctrl+C) to stop it.")
+def say(*args):
+    """print() that is safe in a windowed .exe, where there is no console."""
+    if sys.stdout is not None:
+        print(*args, flush=True)
+    log.info(" ".join(str(a) for a in args))
+
+
+def run_in_browser(url, open_browser=True):
+    say(f"Lambert Studio is running at {url}")
+    say("Close this window (or press Ctrl+C) to stop it.")
+    if not open_browser:
+        try:
+            threading.Event().wait()
+        except KeyboardInterrupt:
+            pass
+        return 0
     webbrowser.open(url)
     try:
         threading.Event().wait()
@@ -185,6 +198,8 @@ def main(argv=None):
     g = parser.add_mutually_exclusive_group()
     g.add_argument("--qt", action="store_true", help="use the embedded Qt window")
     g.add_argument("--browser", action="store_true", help="open in the default web browser")
+    g.add_argument("--no-window", action="store_true",
+                   help="only start the server (open the printed address yourself)")
     parser.add_argument("--port", type=int, default=0, help="server port (default: any free)")
     args = parser.parse_args(argv)
 
@@ -196,6 +211,8 @@ def main(argv=None):
         show_error(f"Could not start the Lambert Studio server:\n{exc}")
         return 1
 
+    if args.no_window:
+        return run_in_browser(url, open_browser=False)
     if args.browser:
         return run_in_browser(url)
     if not args.qt:

@@ -127,6 +127,23 @@ Double-click **`run_studio.bat`** (or run `python lambert_studio.py`).
 | Solar | Planets from the JPL DE440s ephemeris, and potentially hazardous asteroids from the JPL Small-Body Database |
 | Mission | **Direct transfer:** porkchop plot and a plain-language explanation of the route (Type I/II, how far ahead to aim, comparison with Hohmann, how often launch windows return). **Gravity-assist route:** routes with up to 4 flybys, optimised with patched conics (`flyby.py`), where a leg may loop around the Sun (multi-revolution Lambert), so the same planet can be used twice. Shown in 3D with a speed-gain chart and a step-by-step story. Examples: Voyager, Mariner 10, Galileo (VEEGA), Cassini (VVEJGA) and the Voyager 2 Grand Tour |
 
+**Mission playback:** every route or transfer can be played full-screen
+(▶ Play mission): a cinematic camera follows the spacecraft and swings to
+each planet as it is reached, time slows down around each event, cards
+explain each flyby, and a telemetry panel shows date, distance from the
+Sun, speed and Δv used, with a clickable timeline.
+
+**Recommended values:** the input panels suggest real-world values with a
+short sourced note: NASA Deep Space Network / ESA / KSC ground stations
+(converted from WGS-84 to Earth-fixed coordinates), reference orbits,
+launch-site inclinations, flown engines (Isp), real spacecraft masses and
+drag areas, and a *Suggest the next launch window* search for any pair of
+planets.
+
+**Scale:** solar-system views compress distances (√r) by default so all
+eight planets fit on screen; a *True-scale distances* switch shows real
+distances.
+
 **Camera (every 3D view):** *Orbit* mode (drag to rotate, right-drag to pan,
 scroll to zoom) or *Fly* mode (key F; W/A/S/D to move, Q/E down/up, drag to look,
 Shift for 5× speed, scroll to change speed, Esc to return). Double-click any
@@ -156,3 +173,28 @@ Three.js (3D) and Plotly (charts).
 - Asteroids: NASA/JPL SBDB, CNEOS close-approach data and Horizons
 - Atmosphere model: Vallado, *Fundamentals of Astrodynamics and Applications*, Table 8-4
 - Reference method: H. D. Curtis, *Orbital Mechanics for Engineering Students*
+
+---
+
+## 3. Development
+
+| Task | Command |
+|---|---|
+| Run the whole test suite (physics groups + server API) | `python -m pytest` |
+| Run the classic validation report | `python validation.py` |
+| Rebuild the single-file hand-in | `python build_single_file.py` |
+| Build the stand-alone Windows app (no Python needed) | `python build_exe.py` → `%USERPROFILE%\LambertStudioBuild` |
+| Start only the server (open the address yourself) | `python lambert_studio.py --no-window` |
+
+Each 3D view also has a 📷 button that saves the current view as a PNG.
+
+### Project layout
+
+| Part | Files |
+|---|---|
+| Core astrodynamics | `constants.py`, `time_utils.py`, `coord_utils.py`, `lambert_solver.py`, `orbital_elements.py`, `frames.py` |
+| Planets & missions | `planets.py`, `ephemeris.py`, `interplanetary.py`, `flyby.py`, `maneuvers.py`, `perturb.py` |
+| Live data | `satellites.py`, `asteroids.py`, `netcache.py` |
+| Application | `studio_server.py` (JSON API), `lambert_studio.py` (window), `web/` (Three.js + Plotly interface) |
+| Course deliverable | `app.py`, `dashboard.py`, `viz.py`, `report.py`, `build_single_file.py` → `lambert_problem_solver.py` |
+| Quality | `validation.py`, `tests/`, `pyproject.toml`, `build_exe.py` |

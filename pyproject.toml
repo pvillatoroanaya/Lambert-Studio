@@ -1,0 +1,13 @@
+[project]
+name = "lambert-studio"
+version = "1.0.0"
+description = "Orbit determination with Lambert's problem, grown into an interactive mission-design studio"
+requires-python = ">=3.10"
+dependencies = ["numpy", "plotly", "customtkinter", "PySide6", "sgp4", "skyfield", "scipy"]
+
+[project.optional-dependencies]
+dev = ["pytest", "pyinstaller"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

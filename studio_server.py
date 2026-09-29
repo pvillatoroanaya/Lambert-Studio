@@ -43,7 +43,9 @@ import maneuvers
 import perturb
 import flyby
 
-WEB_DIR = pathlib.Path(__file__).resolve().parent / "web"
+# Inside a packaged .exe (PyInstaller) the files live in sys._MEIPASS.
+import sys as _sys
+WEB_DIR = pathlib.Path(getattr(_sys, "_MEIPASS", pathlib.Path(__file__).resolve().parent)) / "web"
 
 
 # ----------------------------------------------------------------------

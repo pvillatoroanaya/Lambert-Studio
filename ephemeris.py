@@ -51,11 +51,15 @@ def _load(download=False):
         try:
             from skyfield.api import Loader
             from skyfield.framelib import ecliptic_J2000_frame
-            path = EPH_DIR / EPH_FILE
-            if not path.exists() and not download:
-                raise FileNotFoundError(f"{path} not found")
-            EPH_DIR.mkdir(parents=True, exist_ok=True)
-            loader = Loader(str(EPH_DIR), verbose=False)
+            import sys
+            folder = EPH_DIR
+            bundled = pathlib.Path(getattr(sys, "_MEIPASS", "")) / "ephemeris"
+            if not (folder / EPH_FILE).exists() and (bundled / EPH_FILE).exists():
+                folder = bundled                     # copy packaged inside the .exe
+            if not (folder / EPH_FILE).exists() and not download:
+                raise FileNotFoundError(f"{folder / EPH_FILE} not found")
+            folder.mkdir(parents=True, exist_ok=True)
+            loader = Loader(str(folder), verbose=False)
             _state["eph"] = loader(EPH_FILE)
             _state["ts"] = loader.timescale(builtin=True)
             _state["frame"] = ecliptic_J2000_frame

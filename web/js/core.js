@@ -508,6 +508,7 @@ class Scene3D {
       </div>
       <select class="cam-follow" title="Keep the camera with a moving object"><option value="">Follow: nothing</option></select>
       <button class="cam-btn cam-reset" title="Back to the starting view">Reset</button>
+      <button class="cam-btn cam-shot" title="Save a picture of this view (PNG)">📷</button>
       <button class="cam-btn cam-help" title="Camera controls">?</button>
       <span class="cam-speed" hidden></span>
       <div class="cam-helpbox" hidden>
@@ -522,6 +523,7 @@ class Scene3D {
     this._bar = bar;
     bar.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => this.setMode(b.dataset.m)));
     bar.querySelector('.cam-reset').addEventListener('click', () => this.resetView());
+    bar.querySelector('.cam-shot').addEventListener('click', () => this.saveImage());
     bar.querySelector('.cam-help').addEventListener('click', () => {
       const h = bar.querySelector('.cam-helpbox'); h.hidden = !h.hidden;
     });
@@ -531,6 +533,18 @@ class Scene3D {
     });
     // Keep keyboard focus off the controls, so W/A/S/D reach the camera.
     bar.querySelectorAll('button').forEach((b) => b.addEventListener('mouseup', () => b.blur()));
+  }
+
+  /* Save the current view as a PNG. The canvas is only readable right
+     after drawing, so draw once and read it in the same step. */
+  saveImage() {
+    this.render();
+    const a = document.createElement('a');
+    a.href = this.renderer.domElement.toDataURL('image/png');
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    a.download = `lambert-studio-${stamp}.png`;
+    a.click();
+    LS.status('Image saved to your Downloads folder');
   }
 
   /* Objects the camera can follow: [{label, obj: () => Object3D | null}] */
