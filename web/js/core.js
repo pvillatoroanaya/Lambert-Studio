@@ -929,7 +929,9 @@ LS.markerRing = function (color = 0x5ac8fa, screenSize = 0.026) {
 LS.spacecraft = function (size, { color = 0x5ac8fa, label = null } = {}) {
   const craft = new THREE.Group();
   const model = new THREE.Group();
-  const foil = new THREE.MeshStandardMaterial({ color: 0xc9a24a, metalness: 0.55, roughness: 0.45 });
+  // Gold multi-layer insulation. Low metalness: a metal needs an
+  // environment to reflect, and without one it renders almost black.
+  const foil = new THREE.MeshStandardMaterial({ color: 0xd4a94f, metalness: 0.15, roughness: 0.5, emissive: 0x2a1c06 });
   const white = new THREE.MeshStandardMaterial({ color: 0xdfe6ee, metalness: 0.1, roughness: 0.6, side: THREE.DoubleSide });
   const panel = new THREE.MeshStandardMaterial({ color: 0x1d3f7a, metalness: 0.3, roughness: 0.5, emissive: 0x06142b });
   const bus = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 1), foil);
