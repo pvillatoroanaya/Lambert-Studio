@@ -83,6 +83,26 @@ def test_route_voyager(api):
     assert len(d["track_au"]) == d["legs"][-1]["end"]
 
 
+def test_route_suggestions_mars(api):
+    """The suggestion search must find the late-2026 Mars window, with the
+    optimum inside the recommended launch window."""
+    js = api("/api/route_suggest", {"dep": "Earth", "arr": "Mars", "capture": True, "from_year": 2026, "years": 6})
+    assert js["ok"]
+    best = js["data"]["options"][0]
+    assert best["seq"] == ["Earth", "Mars"]
+    assert best["iso"][0].startswith("2026-1")
+    assert best["window_iso"][0] <= best["iso"][0] <= best["window_iso"][1]
+
+
+def test_route_suggestions_jupiter_prefer_flybys(api):
+    """For Jupiter, a Venus/Earth flyby route must beat the direct flight."""
+    js = api("/api/route_suggest", {"dep": "Earth", "arr": "Jupiter", "capture": True, "from_year": 2026, "years": 12})
+    assert js["ok"]
+    opts = js["data"]["options"]
+    direct = min(o["total_dv"] for o in opts if len(o["seq"]) == 2)
+    assert opts[0]["total_dv"] < direct and "Venus" in opts[0]["seq"]
+
+
 @pytest.mark.parametrize("seq", [["Earth"], ["Earth", "Pluto"]])
 def test_route_rejects_bad_input(api, seq):
     js = api("/api/route", {"seq": seq, "from": "2030-01-01", "to": "2031-01-01", "max_years": 5})

@@ -38,12 +38,165 @@
       R.preset = null;
       find();
     });
+    $('r-year').value = new Date().getUTCFullYear();
+    $('btn-suggest').addEventListener('click', suggest);
+
     // #mission/route/<preset key> opens that example directly.
     const wanted = location.hash.split('/')[2];
     const k = Math.max(0, presets.findIndex((p) => p.key === wanted));
     applyPreset(presets[k]);
     $('r-presets').querySelectorAll('.preset')[k].classList.add('on');
   };
+
+  /* ---------------- route suggestions ---------------- */
+
+  // How much a year of extra cruise is "worth" when balancing cost and
+  // time: longer missions cost more to operate and carry more risk.
+  const DV_PER_YEAR = 0.25;
+  const years = (d) => d / 365.25;
+  const fmtDate = (iso) => new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB',
+    { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+
+  async function suggest() {
+    err();
+    const dep = $('r-p0').value, arr = $('r-p3').value;
+    const box = $('r-suggest');
+    try {
+      const data = await LS.busy(`Comparing routes from ${dep} to ${arr} (about 5–40 s)…`, $('btn-suggest'),
+        () => LS.api('/api/route_suggest', { dep, arr, capture: $('r-goal').value === 'orbit',
+          from_year: $('r-year').value, years: $('r-years').value }));
+      renderSuggestions(data, dep, arr);
+      box.hidden = false;
+      box.scrollIntoView({ behavior: 'smooth', block: 'start' });   // results sit below the form
+    } catch (e) {
+      box.hidden = true;
+      err(e.message);
+    }
+  }
+
+  function chain(seq) {
+    return seq.map((p) => `<span><i style="background:${LS.planetTable.elements[p].color}"></i>${p}</span>`)
+      .join('<span class="arr">→</span>');
+  }
+
+  function renderSuggestions(data, dep, arr) {
+    const f = LS.fmt;
+    // A route that needs a big engine burn during a flyby is not a real
+    // gravity assist: leave it out of the recommendations (it is still
+    // explained under "Why not the other routes?").
+    const maxBurn = (o) => Math.max(0, ...o.flybys.map((fb) => fb.dv));
+    const practical = data.options.filter((o) => maxBurn(o) <= 1.0);
+    const opts = practical.length ? practical : data.options;
+    const score = (o) => o.total_dv + DV_PER_YEAR * years(o.tof_days);
+    const byScore = [...opts].sort((a, b) => score(a) - score(b));
+    const cheapest = [...opts].sort((a, b) => a.total_dv - b.total_dv)[0];
+    const fastest = [...opts].sort((a, b) => a.tof_days - b.tof_days)[0];
+    const balanced = byScore[0];
+    const direct = opts.filter((o) => o.seq.length === 2).sort((a, b) => a.total_dv - b.total_dv)[0];
+
+    // Cards: the recommendation, then the best of each other route family,
+    // then further launch opportunities; at most 2 per family and 6 in total.
+    const family = (o) => o.seq.join('-');
+    const order = [];
+    const perFamily = {};
+    const add = (o) => {
+      if (!o || order.includes(o) || order.length >= 6 || (perFamily[family(o)] || 0) >= 2) return;
+      order.push(o);
+      perFamily[family(o)] = (perFamily[family(o)] || 0) + 1;
+    };
+    add(balanced);
+    [cheapest, fastest, direct].forEach(add);
+    [...new Set(byScore.map(family))].forEach((fam) => add(byScore.find((o) => family(o) === fam)));
+    byScore.forEach(add);
+    const why = explain(balanced, cheapest, fastest, direct, data);
+    const cards = order.map((o, k) => {
+      const badges = [];
+      if (o === balanced) badges.push('<span class="best">Recommended · best balance</span>');
+      if (o === cheapest) badges.push('<span>Cheapest</span>');
+      if (o === fastest) badges.push('<span class="fast">Fastest</span>');
+      if (o.seq.length === 2) badges.push('<span>Direct</span>');
+      const loops = o.legs.some((L) => L.revs) ? ' · includes a loop around the Sun' : '';
+      return `<button class="sg-card" data-k="${k}">
+        <div class="sg-chain">${chain(o.seq)}</div>
+        ${badges.length ? `<div class="sg-badges">${badges.join('')}</div>` : ''}
+        <div class="sg-win">Launch window <b>${fmtDate(o.window_iso[0])} – ${fmtDate(o.window_iso[1])}</b>
+          (best ${fmtDate(o.iso[0])})${loops}</div>
+        <div class="sg-stats"><div>Total Δv<b>${f(o.total_dv, 2)} km/s</b></div>
+          <div>Trip time<b>${f(years(o.tof_days), 1)} years</b></div><div>Launch C₃<b>${f(o.c3, 0)} km²/s²</b></div></div>
+      </button>`;
+    }).join('');
+    const whyNot = data.tried.map((t) => {
+      const name = t.seq.join(' → ');
+      if (!t.found) return `<div><b>${name}:</b> no workable trajectory within ${f(data.max_years, 0)} years in this period.</div>`;
+      if (t.max_burn > 1.0) {
+        return `<div><b>${name}:</b> needs a ${f(t.max_burn, 1)} km/s engine burn during a flyby — the planet cannot bend the path enough for free.</div>`;
+      }
+      const extra = t.best_dv - balanced.total_dv;
+      return extra > 0.05
+        ? `<div><b>${name}:</b> best ${f(t.best_dv, 2)} km/s, ${f(extra, 2)} km/s more than the recommendation${t.tof_days ? `, ${f(years(t.tof_days), 1)} years` : ''}.</div>`
+        : '';
+    }).join('');
+    $('r-suggest').innerHTML = `${why}${cards}
+      <details class="advanced"><summary>Why not the other routes?</summary><div class="whynot">${whyNot || 'All route families are shown above.'}</div></details>
+      <p class="hint">Searched ${data.tried.length} route families from ${fmtDate(data.start_iso)} for ${f(data.years, 0)} years,
+        with trips of up to ${f(data.max_years, 0)} years (typical for ${arr}), in ${f(data.seconds, 0)} s.
+        “Best balance” weighs each extra year of travel as ${DV_PER_YEAR} km/s. Click a route to load it and play it.</p>`;
+    $('r-suggest').querySelectorAll('.sg-card').forEach((b) => b.addEventListener('click', () => {
+      $('r-suggest').querySelectorAll('.sg-card').forEach((x) => x.classList.toggle('on', x === b));
+      applyOption(order[+b.dataset.k], data);
+    }));
+  }
+
+  /* Plain-language reasons for the recommendation. */
+  function explain(best, cheapest, fastest, direct, data) {
+    const f = LS.fmt;
+    const route = best.seq.join(' → ');
+    const flybyPlanets = best.seq.slice(1, -1);
+    let text = `<b>${route}</b>, launching between <b>${fmtDate(best.window_iso[0])}</b> and <b>${fmtDate(best.window_iso[1])}</b>,
+      needs <b>${f(best.total_dv, 2)} km/s</b> in total and takes <b>${f(years(best.tof_days), 1)} years</b>.`;
+    if (flybyPlanets.length && direct) {
+      const saved = direct.total_dv - best.total_dv;
+      if (saved > 0.05) {
+        text += ` That is <b>${f(saved, 2)} km/s less</b> (${f(100 * saved / direct.total_dv, 0)}%) than the best direct flight
+          (${f(direct.total_dv, 2)} km/s, launching ${fmtDate(direct.iso[0])}), because the ${[...new Set(flybyPlanets)].join(' and ')}
+          flyby${flybyPlanets.length > 1 ? 's' : ''} supply energy the rocket would otherwise have to provide.`;
+      }
+      if (best.c3 < direct.c3 * 0.6) {
+        text += ` The launch energy drops from C₃ ${f(direct.c3, 0)} to ${f(best.c3, 0)} km²/s², so a much smaller rocket can launch it.`;
+      }
+      const extraTime = years(best.tof_days - direct.tof_days);
+      if (extraTime > 0.2) text += ` The price is time: ${f(extraTime, 1)} years longer than flying direct.`;
+    } else if (!flybyPlanets.length) {
+      text += ' For this trip no flyby pays off in this period: flying direct is both cheaper and simpler.';
+    }
+    if (best !== cheapest) {
+      text += ` The absolute cheapest option (${cheapest.seq.join(' → ')}, ${f(cheapest.total_dv, 2)} km/s) takes
+        ${f(years(cheapest.tof_days), 1)} years — the extra time is not worth the saving.`;
+    }
+    if (best !== fastest) {
+      text += ` The fastest (${fastest.seq.join(' → ')}, ${f(years(fastest.tof_days), 1)} years) costs ${f(fastest.total_dv, 2)} km/s.`;
+    }
+    return `<div class="why"><div class="t">Why this route is recommended</div>${text}</div>`;
+  }
+
+  /* Load a suggestion into the builder (with a launch window a little
+     wider than recommended, so the optimiser has room) and play it. */
+  function applyOption(o, data) {
+    const pad = 10;
+    const shift = (iso, d) => LS.fmtDate(new Date(new Date(iso + 'T00:00:00Z').getTime() + d * 86400000));
+    $('r-p0').value = o.seq[0];
+    $('r-p3').value = o.seq[o.seq.length - 1];
+    FLYBYS.forEach((id, k) => { $(id).value = k + 1 < o.seq.length - 1 ? o.seq[k + 1] : ''; });
+    $('r-from').value = shift(o.window_iso[0], -pad);
+    $('r-to').value = shift(o.window_iso[1], pad);
+    $('r-max').value = (Math.ceil(years(o.tof_days) * 1.1 * 10) / 10).toFixed(1);
+    $('r-advanced').open = true;
+    R.preset = { label: `Suggested: ${o.seq.join(' → ')}`, history:
+      `Recommended by the route search: launch window ${fmtDate(o.window_iso[0])} – ${fmtDate(o.window_iso[1])}, ` +
+      `${LS.fmt(o.total_dv, 2)} km/s, ${LS.fmt(years(o.tof_days), 1)} years.` };
+    $('r-presets').querySelectorAll('.preset').forEach((x) => x.classList.remove('on'));
+    find(true);
+  }
 
   function applyPreset(p) {
     R.preset = p;
@@ -258,9 +411,9 @@
       bgcolor: 'rgba(12,19,34,0.85)',
     }));
     Plotly.react('ch-route-speed', traces, LS.plotLayout({
-      title: { text: 'Speed around the Sun (km/s)', x: 0.02, y: 0.97, font: { size: 13 } },
-      margin: { l: 46, r: 16, t: 52, b: 36 }, annotations: ann,
-      legend: { orientation: 'h', y: 1.16, x: 0, bgcolor: 'rgba(0,0,0,0)', font: { size: 10.5 } },
+      title: { text: 'Speed around the Sun (km/s)', x: 0.02, y: 0.975, font: { size: 13 } },
+      margin: { l: 46, r: 16, t: 70, b: 36 }, annotations: ann,
+      legend: { orientation: 'h', y: 1.1, x: 0, yanchor: 'bottom', bgcolor: 'rgba(0,0,0,0)', font: { size: 10.5 } },
       yaxis: { gridcolor: 'rgba(148,170,210,0.12)', color: '#8b9bbd', rangemode: 'tozero' },
       xaxis: { gridcolor: 'rgba(148,170,210,0.12)', color: '#8b9bbd' },
     }), LS.plotConfig);

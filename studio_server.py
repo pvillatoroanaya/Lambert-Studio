@@ -339,6 +339,25 @@ def api_suggest_window(req):
     return s
 
 
+def api_route_suggest(req):
+    """Recommended routes, launch windows and trip times for a trip."""
+    dep, arr = req.get("dep"), req.get("arr")
+    if dep not in planets.PLANET_ORDER or arr not in planets.PLANET_ORDER:
+        raise ValueError("Choose a start and a destination planet.")
+    year = int(_float_arg(req, "from_year", "Search from year", 1900, 2130))
+    years = _float_arg(req, "years", "Search length (years)", 2, 20)
+    start = julian_date(year, 1, 1, 0, 0, 0.0)
+    today = julian_date(*datetime.date.today().timetuple()[:3], 0, 0, 0.0)
+    if year == datetime.date.today().year:
+        start = max(start, today)             # no launches in the past this year
+    out = flyby.suggest_routes(dep, arr, start, years=years, capture=bool(req.get("capture", True)))
+    for o in out["options"]:
+        o["iso"] = [jd_to_iso(j)[:10] for j in o["jds"]]
+        o["window_iso"] = [jd_to_iso(o["window"][0])[:10], jd_to_iso(o["window"][1])[:10]]
+    out["start_iso"] = jd_to_iso(start)[:10]
+    return out
+
+
 def api_route_presets(_req=None):
     return {"presets": flyby.PRESETS, "planets": planets.PLANET_ORDER}
 
@@ -454,6 +473,7 @@ ROUTES = {
     "/api/moon": api_moon,
     "/api/maneuver": api_maneuver,
     "/api/route": api_route,
+    "/api/route_suggest": api_route_suggest,
     "/api/suggest_window": api_suggest_window,
     "/api/route_presets": api_route_presets,
     "/api/perturb": api_perturb,

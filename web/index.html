@@ -253,18 +253,29 @@
         <div class="grid2">
           <label>Start<select id="r-p0"></select></label>
           <label>Destination<select id="r-p3"></select></label>
-          <label>1st flyby<select id="r-f1" class="r-flyby"></select></label>
-          <label>2nd flyby<select id="r-f2" class="r-flyby"></select></label>
-          <label>3rd flyby<select id="r-f3" class="r-flyby"></select></label>
-          <label>4th flyby<select id="r-f4" class="r-flyby"></select></label>
-          <label>Launch from<input id="r-from" type="date" value="1977-01-01"></label>
-          <label>Launch until<input id="r-to" type="date" value="1978-06-30"></label>
-          <label>Max. trip (years)<input id="r-max" value="3.5"></label>
           <label>Goal<select id="r-goal"><option value="flyby">Fly past target</option><option value="orbit">Enter orbit</option></select></label>
+          <label>Search from (year)<input id="r-year" type="number" min="1900" max="2130" step="1"></label>
+          <label>Search length<select id="r-years"><option value="6">6 years</option><option value="12" selected>12 years</option><option value="18">18 years</option></select></label>
         </div>
-        <button class="primary" id="btn-route">Find the best route</button>
-        <p class="hint">Tries thousands of launch dates, flight times and loops around the Sun, keeps the physically
-          possible routes, and refines the cheapest. The same planet can be used twice in a row. Routes with 3–4 flybys take up to ~30 s.</p>
+        <button class="primary" id="btn-suggest">✨ Suggest routes for me</button>
+        <p class="hint">Compares the route families mission designers use for this trip (direct, Venus–Earth flybys,
+          Jupiter flybys…), finds their launch windows and trip times, and recommends one. Takes about 5–40 s.</p>
+        <div id="r-suggest" hidden></div>
+        <details class="advanced" id="r-advanced">
+          <summary>Advanced: choose the flybys and dates yourself</summary>
+          <div class="grid2">
+            <label>1st flyby<select id="r-f1" class="r-flyby"></select></label>
+            <label>2nd flyby<select id="r-f2" class="r-flyby"></select></label>
+            <label>3rd flyby<select id="r-f3" class="r-flyby"></select></label>
+            <label>4th flyby<select id="r-f4" class="r-flyby"></select></label>
+            <label>Launch from<input id="r-from" type="date" value="1977-01-01"></label>
+            <label>Launch until<input id="r-to" type="date" value="1978-06-30"></label>
+            <label>Max. trip (years)<input id="r-max" value="3.5"></label>
+          </div>
+          <button class="primary" id="btn-route">Find the best route</button>
+          <p class="hint">Tries thousands of launch dates, flight times and loops around the Sun, keeps the physically
+            possible routes, and refines the cheapest. The same planet can be used twice in a row. Routes with 3–4 flybys take up to ~30 s.</p>
+        </details>
         <div class="err" id="route-err" hidden></div>
       </div>
 

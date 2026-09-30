@@ -295,6 +295,34 @@ button.play-mission { margin-top: 10px; width: 100%; background: linear-gradient
   border: 0; border-radius: 8px; padding: 10px 14px; font-weight: 700; cursor: pointer; font-size: 13px; }
 button.play-mission:hover { filter: brightness(1.08); }
 
+/* route suggestions */
+details.advanced { border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; }
+details.advanced summary { cursor: pointer; color: var(--muted); font-size: 12.5px; }
+details.advanced[open] { display: flex; flex-direction: column; gap: 10px; }
+details.advanced[open] summary { color: var(--text); }
+#r-suggest { display: flex; flex-direction: column; gap: 8px; }
+.why { background: rgba(110,231,168,.07); border: 1px solid rgba(110,231,168,.35); border-radius: 10px; padding: 10px 12px;
+  font-size: 12.5px; line-height: 1.55; color: #c9d4ea; }
+.why b { color: var(--text); }
+.why .t { font-size: 10.5px; letter-spacing: 1px; text-transform: uppercase; color: var(--ok); font-weight: 600; margin-bottom: 4px; }
+.sg-card { text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 9px 11px;
+  cursor: pointer; display: grid; gap: 5px; transition: border-color .15s; }
+.sg-card:hover { border-color: var(--line-2); }
+.sg-card.on { border-color: var(--accent); background: var(--surface-2); }
+.sg-chain { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; font-weight: 600; font-size: 12.5px; }
+.sg-chain i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 3px; }
+.sg-chain .arr { color: var(--faint); font-weight: 400; margin: 0 2px; }
+.sg-badges { display: flex; gap: 5px; flex-wrap: wrap; }
+.sg-badges span { font-size: 10.5px; padding: 1px 7px; border-radius: 10px; background: rgba(90,200,250,.14); color: var(--accent); }
+.sg-badges span.best { background: rgba(110,231,168,.16); color: var(--ok); }
+.sg-badges span.fast { background: rgba(255,180,84,.15); color: var(--accent-2); }
+.sg-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; font-size: 11.5px; color: var(--muted); }
+.sg-stats b { display: block; color: var(--text); font-size: 13px; font-variant-numeric: tabular-nums; }
+.sg-win { font-size: 11.5px; color: #c9d4ea; }
+.sg-win b { color: var(--text); }
+.whynot { font-size: 11.5px; color: var(--muted); display: grid; gap: 3px; }
+.whynot b { color: var(--text); font-weight: 600; }
+
 /* recommended values */
 .suggest { display: flex; flex-direction: column; gap: 6px; padding: 9px 10px; border: 1px dashed var(--line-2);
   border-radius: 9px; background: rgba(90,200,250,.035); }

@@ -262,7 +262,7 @@ def _keep_best(cost, key_a, key_b, beam):
     return np.array(keep, int)
 
 
-def _beam_search(seq, window, capture, max_days, plan, n_launch, n_tof, beam):
+def _beam_search(seq, window, capture, max_days, plan, n_launch, n_tof, beam, n_cands=12):
     n_legs = len(seq) - 1
     evaluated = 0
 
@@ -295,7 +295,7 @@ def _beam_search(seq, window, capture, max_days, plan, n_launch, n_tof, beam):
             S["cost"] = np.where(S["jd"] - S["t0"] > max_days, np.inf, S["cost"])
         keep = _keep_best(S["cost"], np.round(S["t0"] / 8), np.round(S["jd"] / 8), beam)
         if len(keep) == 0:
-            return [], evaluated
+            return [], evaluated, None
         S = {key: val[keep] for key, val in S.items()}
 
         lo, hi, opts = plan[k]
@@ -328,19 +328,26 @@ def _beam_search(seq, window, capture, max_days, plan, n_launch, n_tof, beam):
         S["cost"] = S["cost"] + np.nan_to_num(capture_dv(vinf, seq[-1]), nan=np.inf)
     if max_days is not None:
         S["cost"] = np.where(S["jd"] - S["t0"] > max_days, np.inf, S["cost"])
-    keep = _keep_best(S["cost"], np.round(S["t0"] / 15), np.round(S["jd"] / 15), 12)
+    keep = _keep_best(S["cost"], np.round(S["t0"] / 15), np.round(S["jd"] / 15), n_cands)
     cands = []
     for i in keep:
         opts_used = [plan[k][2][int(S["hist_opt"][i, k])] for k in range(n_legs)]
         cands.append((float(S["cost"][i]), list(map(float, S["hist_jd"][i])), opts_used))
-    return cands, evaluated
+    # How the best cost varies with launch date: this is what defines a
+    # launch window (see launch_window below).
+    return cands, evaluated, (S["t0"], S["cost"])
 
 
-def optimise(seq, window, capture=True, max_days=None, n_launch=None, n_tof=None, beam=None):
+def optimise(seq, window, capture=True, max_days=None, n_launch=None, n_tof=None, beam=None,
+             n_results=None, min_sep=None):
     """
     Cheapest dates (and lap choices) for a route. window = (earliest,
     latest) launch JD; max_days optionally limits the total trip time.
     Returns the detailed best solution, or None if nothing works.
+
+    With n_results = k it instead returns a list of up to k solutions whose
+    launch dates are at least `min_sep` days apart (distinct launch
+    opportunities), each with its launch window (see launch_window).
     """
     from scipy.optimize import minimize
 
@@ -365,9 +372,14 @@ def optimise(seq, window, capture=True, max_days=None, n_launch=None, n_tof=None
     # gave 9.7 km/s, beam 3000 gave 6.9 km/s with the historical dates).
     beam = beam or {1: 300, 2: 800, 3: 1200, 4: 2000, 5: 3000}[n_legs]
     start = time.perf_counter()
-    cands, evaluated = _beam_search(seq, window, capture, max_days, plan, n_launch, n_tof, beam)
+    many = n_results is not None
+    cands, evaluated, profile = _beam_search(seq, window, capture, max_days, plan, n_launch, n_tof, beam,
+                                             n_cands=60 if many else 12)
     if not cands:
-        return None
+        return [] if many else None
+    if many:
+        return _distinct_opportunities(seq, window, capture, max_days, plan, cands, profile,
+                                       n_results, min_sep, evaluated, start)
 
     cache = _StateCache()
     best = (INF, None, None)
@@ -398,6 +410,166 @@ def optimise(seq, window, capture=True, max_days=None, n_launch=None, n_tof=None
     det.update(jds=jds, seq=list(seq), capture=capture,
                search={"evaluated": int(evaluated), "seconds": time.perf_counter() - start})
     return det
+
+
+def _refine(seq, window, capture, max_days, plan, jds0, opts, cache):
+    """Nelder-Mead polish of one candidate; returns (cost, jds)."""
+    from scipy.optimize import minimize
+    n_legs = len(seq) - 1
+
+    def to_jds(x):
+        jds = [min(max(x[0], window[0]), window[1])]
+        for k in range(n_legs):
+            lo, hi, _ = plan[k]
+            jds.append(jds[-1] + min(max(x[k + 1], lo * 0.9), hi * 1.1))
+        return jds
+    x0 = [jds0[0]] + [jds0[k + 1] - jds0[k] for k in range(n_legs)]
+    res = minimize(lambda x: evaluate(seq, to_jds(x), capture, cache, opts, max_days=max_days), x0,
+                   method="Nelder-Mead", options={"xatol": 0.05, "fatol": 1e-5, "maxiter": 250 * (n_legs + 1)})
+    return res.fun, to_jds(res.x)
+
+
+def launch_window(profile, t0_best, span, margin=0.3):
+    """
+    The recommended launch window around a launch date: the continuous run
+    of launch dates (from the search grid) whose cheapest route costs at
+    most `margin` km/s more than the best one nearby. Returns (start, end) JD.
+    """
+    t0s, costs = profile
+    ok = np.isfinite(costs)
+    t0s, costs = t0s[ok], costs[ok]
+    if len(t0s) == 0:
+        return t0_best, t0_best
+    grid = np.unique(t0s)
+    best_per = np.full(len(grid), np.inf)
+    np.minimum.at(best_per, np.searchsorted(grid, t0s), costs)
+    near = np.abs(grid - t0_best) <= span
+    if not near.any() or not np.isfinite(best_per[near]).any():
+        return t0_best, t0_best
+    thr = np.min(best_per[near]) + margin
+    i = int(np.argmin(np.abs(grid - t0_best)))
+    lo = hi = i
+    while lo > 0 and best_per[lo - 1] <= thr:
+        lo -= 1
+    while hi < len(grid) - 1 and best_per[hi + 1] <= thr:
+        hi += 1
+    # The grid only resolves launch dates to its spacing: pad by half a
+    # step, and make sure the optimised date itself is inside.
+    step = float(np.median(np.diff(grid))) if len(grid) > 1 else 0.0
+    return min(float(grid[lo]) - step / 2, t0_best), max(float(grid[hi]) + step / 2, t0_best)
+
+
+def _distinct_opportunities(seq, window, capture, max_days, plan, cands, profile, k, min_sep, evaluated, start):
+    """Refine the best candidate of up to k launch opportunities that are at
+    least min_sep days apart, and attach each one's launch window."""
+    seeds = []
+    for c in cands:                                  # cands are sorted by cost
+        if all(abs(c[1][0] - s[1][0]) >= min_sep for s in seeds):
+            seeds.append(c)
+        if len(seeds) >= k:
+            break
+    cache = _StateCache()
+    out = []
+    for cost0, jds0, opts in seeds:
+        cost, jds = _refine(seq, window, capture, max_days, plan, jds0, opts, cache)
+        if not np.isfinite(cost):
+            continue
+        c2, det = evaluate(seq, jds, capture, cache, opts, detail=True)
+        if det is None or not det["feasible"]:
+            continue
+        det.update(jds=jds, seq=list(seq), capture=capture,
+                   launch_window=launch_window(profile, jds[0], min_sep / 2),
+                   search={"evaluated": int(evaluated), "seconds": time.perf_counter() - start})
+        out.append(det)
+    out.sort(key=lambda d: d["total_dv"])
+    return out
+
+
+# ----------------------------------------------------------------------
+# route suggestions: which route, when to launch, how long it takes
+# ----------------------------------------------------------------------
+
+# Longest trip the suggestions will consider, per destination [years].
+# Based on real missions: Mars 7-10 months (Perseverance 7 months),
+# Jupiter 5-6 y (Juno, Galileo), Saturn 6.7 y (Cassini), Uranus 8.4 y and
+# Neptune 12 y (Voyager 2), Mercury: MESSENGER 6.6 y with six flybys.
+TRIP_LIMIT_YEARS = {"Mercury": 3.0, "Venus": 1.2, "Earth": 2.0, "Mars": 1.6,
+                    "Jupiter": 7.0, "Saturn": 8.0, "Uranus": 12.0, "Neptune": 14.0}
+
+
+def candidate_routes(dep, arr):
+    """
+    The route families mission designers actually consider for a trip.
+    From Earth these follow real missions; from elsewhere, one flyby of
+    each planet whose orbit lies between the start and the destination.
+    """
+    routes = [[dep, arr]]
+    if dep == "Earth":
+        routes += {
+            "Mercury": [["Earth", "Venus", "Mercury"], ["Earth", "Venus", "Venus", "Mercury"]],
+            "Mars": [["Earth", "Venus", "Mars"]],
+            "Jupiter": [["Earth", "Mars", "Jupiter"], ["Earth", "Venus", "Earth", "Jupiter"],
+                        ["Earth", "Venus", "Earth", "Earth", "Jupiter"]],
+            "Saturn": [["Earth", "Jupiter", "Saturn"], ["Earth", "Venus", "Earth", "Saturn"]],
+            "Uranus": [["Earth", "Jupiter", "Uranus"], ["Earth", "Saturn", "Uranus"],
+                       ["Earth", "Jupiter", "Saturn", "Uranus"]],
+            "Neptune": [["Earth", "Jupiter", "Neptune"], ["Earth", "Saturn", "Neptune"],
+                        ["Earth", "Jupiter", "Saturn", "Neptune"]],
+        }.get(arr, [])
+    else:
+        i, j = PLANET_ORDER.index(dep), PLANET_ORDER.index(arr)
+        lo, hi = min(i, j), max(i, j)
+        routes += [[dep, q, arr] for q in PLANET_ORDER[lo + 1:hi]]
+    return routes
+
+
+def _synodic_days(a, b, jd):
+    if a == b:
+        return orbital_period_days(a, jd)
+    return 1.0 / abs(1.0 / orbital_period_days(a, jd) - 1.0 / orbital_period_days(b, jd))
+
+
+def suggest_routes(dep, arr, start_jd, years=12.0, capture=True, max_years=None, per_route=3):
+    """
+    Search every candidate route family over the next `years` years and
+    return the launch opportunities found, cheapest first, each with its
+    launch window, trip time and flyby details.
+    """
+    if dep == arr:
+        raise ValueError("Start and destination must be different planets.")
+    max_years = max_years or TRIP_LIMIT_YEARS[arr]
+    max_days = max_years * 365.25
+    window = (start_jd, start_jd + years * 365.25)
+    t_start = time.perf_counter()
+    options, tried = [], []
+    for seq in candidate_routes(dep, arr):
+        # Launch opportunities repeat with the synodic period of the first leg.
+        syn = _synodic_days(seq[0], seq[1], start_jd)
+        n_launch = int(min(max(years * 365.25 / 7.0, 90), 650))
+        try:
+            found = optimise(seq, window, capture, max_days=max_days, n_launch=n_launch,
+                             n_results=per_route, min_sep=max(0.6 * syn, 60.0))
+        except ValueError as exc:
+            tried.append({"seq": seq, "found": 0, "note": str(exc)})
+            continue
+        tried.append({"seq": seq, "found": len(found),
+                      "best_dv": min((f["total_dv"] for f in found), default=None),
+                      "tof_days": (found[0]["jds"][-1] - found[0]["jds"][0]) if found else None,
+                      "max_burn": max((fb["dv"] for fb in found[0]["flybys"]), default=0.0) if found else None})
+        for det in found:
+            options.append({
+                "seq": seq, "jds": det["jds"], "total_dv": det["total_dv"],
+                "tof_days": det["jds"][-1] - det["jds"][0],
+                "c3": det["vinf_launch"] ** 2, "vinf_arrive": det["vinf_arrive"],
+                "window": det["launch_window"],
+                "flybys": [{"planet": f["planet"], "dv": f["dv"]} for f in det["flybys"]],
+                "legs": [{"revs": L["revs"]} for L in det["legs"]],
+            })
+    if not options:
+        raise ValueError("No workable route was found in this period. Try a later start year or a longer search.")
+    options.sort(key=lambda o: o["total_dv"])
+    return {"options": options, "tried": tried, "max_years": max_years, "years": years,
+            "capture": capture, "seconds": time.perf_counter() - t_start}
 
 
 # ----------------------------------------------------------------------
