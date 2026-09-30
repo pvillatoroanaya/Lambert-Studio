@@ -1,0 +1,345 @@
+<title>Lambert Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@112,600;112,800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a flight report — one reading column with wide figure plates, a
+   mission-elapsed style rail of section markers, telemetry-style figures. */
+:root {
+  --paper: #f2f4f7;        /* page */
+  --sheet: #ffffff;        /* plates, tables */
+  --ink: #0f1a2b;          /* text */
+  --ink-2: #4a586e;        /* secondary text */
+  --rule: #d5dbe4;         /* hairlines */
+  --cyan: #0e7fb3;         /* first trajectory leg, links */
+  --orange: #c55a12;       /* transfer arcs, highlights */
+  --green: #1d8a5b;        /* validation passes */
+  --plate: #070b16;        /* screenshot mats (the app is dark) */
+  --display: "Archivo", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0a111e; --sheet: #111b2d; --ink: #e6ecf5; --ink-2: #9aa9c2; --rule: #24324b;
+    --cyan: #5ac8fa; --orange: #ffb454; --green: #6ee7a8; --plate: #050810; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0a111e; --sheet: #111b2d; --ink: #e6ecf5; --ink-2: #9aa9c2; --rule: #24324b;
+  --cyan: #5ac8fa; --orange: #ffb454; --green: #6ee7a8; --plate: #050810; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font: 16px/1.65 var(--body); margin: 0; }
+.wrap { max-width: 1040px; margin: 0 auto; padding-inline: 20px; padding-block: 0 72px; }
+a { color: var(--cyan); }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+h1, h2, h3 { font-family: var(--display); font-stretch: 112%; text-wrap: balance; line-height: 1.08; margin: 0; }
+p { margin: 0; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+/* ---------- hero ---------- */
+.hero { padding-block: 56px 28px; display: grid; gap: 18px; }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--orange); }
+.hero h1 { font-size: clamp(44px, 9vw, 92px); font-weight: 800; letter-spacing: -.01em; }
+.hero .lede { font-size: clamp(18px, 2.3vw, 22px); color: var(--ink-2); max-width: 36em; line-height: 1.5; }
+.plate { background: var(--plate); border-radius: 14px; overflow: hidden; border: 1px solid var(--rule); }
+.plate img { display: block; width: 100%; height: auto; }
+figure { margin: 0; display: grid; gap: 8px; }
+figcaption { font-size: 13.5px; color: var(--ink-2); max-width: 70ch; }
+figcaption b { color: var(--ink); font-weight: 600; }
+
+/* ---------- figures row ---------- */
+.stats { display: flex; flex-wrap: wrap; gap: 1px; background: var(--rule);
+  border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; margin-block: 28px 8px; }
+.stat { flex: 1 1 170px; background: var(--sheet); padding: 18px 18px 16px; display: grid; gap: 4px; align-content: start; }
+.stat .v { font-family: var(--display); font-stretch: 112%; font-weight: 800; font-size: 34px; line-height: 1; }
+.stat .k { font-size: 13px; color: var(--ink-2); line-height: 1.4; }
+
+/* ---------- sections with a rail marker ---------- */
+section { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 8px 32px; padding-block: 48px 8px;
+  border-top: 1px solid var(--rule); margin-top: 40px; }
+.rail { font-family: var(--mono); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-2);
+  padding-top: 8px; }
+.rail b { display: block; color: var(--orange); font-weight: 500; font-size: 13px; }
+.body { display: grid; gap: 18px; min-width: 0; }
+section h2 { font-size: clamp(28px, 4vw, 40px); font-weight: 800; }
+.body > p { max-width: 68ch; }
+.body > p.big { font-size: 19px; line-height: 1.55; }
+.wide { grid-column: 1 / -1; }
+
+/* ---------- Lambert diagram ---------- */
+.lambert { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 24px; align-items: center; }
+.lambert svg { width: 100%; height: auto; background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; }
+.lambert .steps { display: grid; gap: 12px; counter-reset: s; padding: 0; margin: 0; list-style: none; }
+.lambert .steps li { display: grid; grid-template-columns: 28px 1fr; gap: 10px; font-size: 15px; }
+.lambert .steps li::before { counter-increment: s; content: counter(s); font-family: var(--mono); font-size: 12px;
+  width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--cyan); color: var(--cyan);
+  display: grid; place-items: center; margin-top: 1px; }
+
+/* ---------- gallery ---------- */
+.gallery { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 24px; }
+.gallery figcaption { font-size: 14px; }
+.gallery h3 { font-size: 19px; font-weight: 600; margin-bottom: 2px; }
+
+/* ---------- build log (a real sequence, so it is numbered) ---------- */
+.log { display: grid; gap: 0; border-left: 2px solid var(--rule); margin-left: 6px; }
+.log li { list-style: none; position: relative; padding: 0 0 22px 26px; }
+.log li::before { content: ""; position: absolute; left: -7px; top: 6px; width: 12px; height: 12px; border-radius: 50%;
+  background: var(--paper); border: 2px solid var(--cyan); }
+.log .ph { font-family: var(--mono); font-size: 12px; color: var(--orange); letter-spacing: .08em; text-transform: uppercase; }
+.log h3 { font-size: 20px; font-weight: 600; margin: 2px 0 4px; }
+.log p { color: var(--ink-2); font-size: 15px; max-width: 64ch; }
+ol.log { padding: 0; margin: 0; }
+
+/* ---------- tables ---------- */
+.tablewrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 12px; background: var(--sheet); }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; min-width: 620px; }
+th, td { padding: 11px 16px; text-align: left; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-family: var(--mono); font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); font-weight: 500; }
+tr:last-child td { border-bottom: 0; }
+td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.ok { color: var(--green); font-family: var(--mono); white-space: nowrap; }
+.group td { background: var(--paper); font-family: var(--mono); font-size: 11.5px; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--orange); padding-block: 7px; }
+
+/* ---------- architecture ---------- */
+.arch { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; align-items: stretch; }
+.tier { background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; padding: 14px; display: grid;
+  gap: 6px; align-content: start; font-size: 13.5px; }
+.tier h3 { font-size: 15px; font-weight: 600; font-family: var(--body); font-stretch: 100%; }
+.tier .tag { font-family: var(--mono); font-size: 11px; color: var(--cyan); letter-spacing: .08em; text-transform: uppercase; }
+.tier ul { margin: 0; padding-left: 16px; color: var(--ink-2); }
+.flow { font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); }
+
+/* ---------- lessons ---------- */
+.lessons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.lesson { background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; padding: 16px 18px; display: grid; gap: 6px; }
+.lesson h3 { font-family: var(--body); font-stretch: 100%; font-size: 16.5px; font-weight: 600; }
+.lesson p { font-size: 14.5px; color: var(--ink-2); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { font-family: var(--mono); font-size: 12.5px; padding: 5px 10px; border: 1px solid var(--rule); border-radius: 999px;
+  background: var(--sheet); }
+.cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.cols ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 15px; }
+footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--rule); font-size: 13px; color: var(--ink-2);
+  display: grid; gap: 6px; }
+
+@media (max-width: 760px) {
+  section { grid-template-columns: minmax(0, 1fr); padding-block: 36px 4px; }
+  .lambert, .gallery, .lessons, .cols { grid-template-columns: minmax(0, 1fr); }
+  .arch { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .plate img { transition: transform .5s ease; }
+  .plate:hover img { transform: scale(1.012); }
+}
+</style>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">Aerospace engineering · student project · 2026</div>
+  <h1>Lambert Studio</h1>
+  <p class="lede">A university assignment on orbit determination, grown into an interactive mission-design studio:
+    real satellites and asteroids, NASA-grade planet positions, orbital manoeuvres, perturbed orbits and
+    gravity-assist routes that rediscover the dates of Voyager, Cassini and Galileo from physics alone.</p>
+  <figure>
+    <div class="plate"><img src="{{IMG:cassini_overview}}" alt="Mission playback of Cassini's route: Earth, Venus, Venus, Earth, Jupiter, Saturn, with telemetry panel and timeline" width="1600" height="900"></div>
+    <figcaption><b>Mission playback, Cassini (1997).</b> The route found by the optimiser: two Venus flybys, one Earth flyby,
+      Jupiter, then Saturn. The telemetry panel tracks distance from the Sun, speed and Δv used; the timeline marks each event.</figcaption>
+  </figure>
+  <div class="stats">
+    <div class="stat"><span class="v mono">≈11,000</span><span class="k">lines of original Python, JavaScript and CSS</span></div>
+    <div class="stat"><span class="v mono">103</span><span class="k">automated validation checks, all passing</span></div>
+    <div class="stat"><span class="v mono">5</span><span class="k">historical missions reproduced from physics alone</span></div>
+    <div class="stat"><span class="v mono">8</span><span class="k">interactive 3D and analysis modules</span></div>
+    <div class="stat"><span class="v mono">6</span><span class="k">NASA/JPL and CelesTrak data sources</span></div>
+  </div>
+</header>
+
+<section>
+  <div class="rail"><b>T+0</b>Starting point</div>
+  <div class="body">
+    <h2>One assignment: find an orbit from two sightings</h2>
+    <p class="big">A ground station measures a satellite twice: azimuth, elevation and range, two and a half hours apart.
+      From those six numbers, find the complete orbit. This is <b>Lambert's problem</b>, the same mathematics used to plan
+      every interplanetary mission.</p>
+    <div class="lambert">
+      <svg viewBox="0 0 420 300" role="img" aria-label="Diagram of Lambert's problem: two position vectors r1 and r2 from Earth, joined by an orbit arc flown in a time delta t">
+        <ellipse cx="200" cy="160" rx="170" ry="92" fill="none" stroke="var(--rule)" stroke-width="1.5" stroke-dasharray="5 5"/>
+        <path d="M 100 238 A 170 92 0 0 1 332 94" fill="none" stroke="var(--orange)" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="160" cy="160" r="26" fill="var(--cyan)" opacity=".85"/>
+        <text x="160" y="165" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" fill="var(--sheet)">Earth</text>
+        <line x1="160" y1="160" x2="100" y2="238" stroke="var(--ink)" stroke-width="1.8"/>
+        <line x1="160" y1="160" x2="332" y2="94" stroke="var(--ink)" stroke-width="1.8"/>
+        <circle cx="100" cy="238" r="6" fill="var(--ink)"/><circle cx="332" cy="94" r="6" fill="var(--ink)"/>
+        <text x="112" y="206" font-family="IBM Plex Mono, monospace" font-size="15" fill="var(--ink)">r₁</text>
+        <text x="250" y="118" font-family="IBM Plex Mono, monospace" font-size="15" fill="var(--ink)">r₂</text>
+        <text x="64" y="262" font-family="IBM Plex Mono, monospace" font-size="12" fill="var(--ink-2)">obs 1 · 00:30 UTC</text>
+        <text x="246" y="76" font-family="IBM Plex Mono, monospace" font-size="12" fill="var(--ink-2)">obs 2 · 03:00 UTC</text>
+        <text x="236" y="248" font-family="IBM Plex Mono, monospace" font-size="14" fill="var(--orange)">Δt = 9,000 s</text>
+        <text x="20" y="28" font-family="IBM Plex Mono, monospace" font-size="12" fill="var(--ink-2)">Given r₁, r₂, Δt → find v₁, v₂</text>
+      </svg>
+      <ol class="steps">
+        <li><span>Convert each sighting (azimuth, elevation, range) from the station's horizon frame into Earth-centred inertial coordinates, using sidereal time.</span></li>
+        <li><span>Solve Lambert's problem with the universal-variable method (Curtis, Algorithm 5.2) to get the velocities.</span></li>
+        <li><span>Turn position and velocity into the six classical orbital elements.</span></li>
+        <li><span>Result for the assignment: an elliptical orbit with a = 28,184 km, e = 0.768, i = 20.34°, period 13 h 04 min.</span></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="rail"><b>T+1</b>What it does</div>
+  <div class="body">
+    <h2>Eight modules, one desktop app</h2>
+    <p>Everything runs in one window, with a shared timeline, a free-flying camera in every 3D view, and recommended
+      values drawn from real missions and facilities next to every input.</p>
+    <div class="gallery">
+      <figure><div class="plate"><img src="{{IMG:orbit}}" alt="Orbit determination view: the solved orbit around a textured Earth with the observed arc highlighted" loading="lazy"></div>
+        <figcaption><h3>Orbit determination</h3>The assignment, solved and drawn in 3D: day/night Earth from NASA imagery, the observed arc, apsides and the ground station's line of sight.</figcaption></figure>
+      <figure><div class="plate"><img src="{{IMG:near}}" alt="Satellites view: hundreds of real satellites around Earth including the geostationary ring" loading="lazy"></div>
+        <figcaption><h3>Real satellites</h3>Live CelesTrak element sets: the ISS, GPS, Galileo, the geostationary ring, with search and per-satellite detail.</figcaption></figure>
+      <figure><div class="plate"><img src="{{IMG:maneuver}}" alt="Maneuver planner showing a Hohmann transfer with burn arrows and option comparison" loading="lazy"></div>
+        <figcaption><h3>Manoeuvre planner</h3>Hohmann, bi-elliptic and plane-change transfers built from state vectors, with Δv per burn, propellant from the rocket equation and a cost comparison.</figcaption></figure>
+      <figure><div class="plate"><img src="{{IMG:perturb}}" alt="Perturbation view: an ISS-like orbit precessing over ten days, with altitude and drift charts" loading="lazy"></div>
+        <figcaption><h3>Realistic orbit prediction</h3>An 8th-order Runge–Kutta integration with Earth's J2 bulge and atmospheric drag, compared with the ideal Kepler orbit and the analytic drift rates.</figcaption></figure>
+      <figure><div class="plate"><img src="{{IMG:flybys}}" alt="Asteroid flyby view: an upcoming close approach path past Earth and the Moon" loading="lazy"></div>
+        <figcaption><h3>Asteroid flybys</h3>Upcoming close approaches from NASA/JPL, each drawn with its precise path from JPL Horizons, to scale with Earth and the Moon.</figcaption></figure>
+      <figure><div class="plate"><img src="{{IMG:solar}}" alt="Solar system view with all eight planets and 2,549 potentially hazardous asteroids" loading="lazy"></div>
+        <figcaption><h3>Solar system</h3>Planets from the JPL DE440s ephemeris and 2,549 potentially hazardous asteroids, with compressed distances so all eight planets fit on screen.</figcaption></figure>
+      <figure><div class="plate"><img src="{{IMG:mission}}" alt="Mission design view: Earth to Mars porkchop plot with a route explanation diagram" loading="lazy"></div>
+        <figcaption><h3>Mission design</h3>Porkchop plots from thousands of Lambert solutions, a plain-language route explanation and a search for the next launch window.</figcaption></figure>
+      <figure><div class="plate"><img src="{{IMG:mission_route_cassini_noplay}}" alt="Gravity-assist analysis of the Cassini route with a speed chart and step-by-step story" loading="lazy"></div>
+        <figcaption><h3>Gravity-assist routes</h3>Up to four flybys, including repeat visits to the same planet, optimised automatically and explained step by step, with the speed gained at each flyby.</figcaption></figure>
+    </div>
+    <figure class="wide">
+      <div class="plate"><img src="{{IMG:player_flyby}}" alt="Mission playback at Voyager's Jupiter flyby, with an event card explaining the 10.48 km/s gain" loading="lazy"></div>
+      <figcaption><b>Mission playback, Voyager at Jupiter (May 1979).</b> The cinematic camera swings to Jupiter and time slows down. Passing 7.1 Jupiter radii from its centre bends the path by 98° and adds 10.48 km/s, enough to leave the Solar System.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section>
+  <div class="rail"><b>T+2</b>How it was built</div>
+  <div class="body">
+    <h2>From a script to a studio, one verified step at a time</h2>
+    <p>The project grew in stages. Each stage had to pass the tests from every earlier stage before the next began.</p>
+    <ol class="log">
+      <li><div class="ph">Phase 1 · foundation</div><h3>Rebuild and verify the solver</h3>
+        <p>Time systems, coordinate frames, a universal-variable Lambert solver and orbital elements, checked against textbook
+          worked examples and physical invariants: energy and angular momentum conserved to 10⁻¹⁵, and propagation landing on the second observation to within 10⁻¹¹ km.</p></li>
+      <li><div class="ph">Phase 2 · application</div><h3>A desktop app with a web-grade 3D engine</h3>
+        <p>Python keeps the physics and serves a small JSON API on the local machine; the interface is drawn with Three.js
+          (WebGL) and Plotly. After the embedded Qt browser crashed on this machine, the window moved to Microsoft Edge's app
+          mode, with crash logging and automatic recovery.</p></li>
+      <li><div class="ph">Phase 3 · real data</div><h3>Satellites, asteroids and the planets</h3>
+        <p>CelesTrak element sets for thousands of satellites, NASA/JPL close approaches and Horizons trajectories, and the
+          DE440s ephemeris via Skyfield, with offline caching so the app keeps working without a connection.</p></li>
+      <li><div class="ph">Phase 4 · engineering tools</div><h3>Manoeuvres and perturbations</h3>
+        <p>A manoeuvre planner that derives every burn from state vectors, and a numerical integrator (SciPy DOP853) with
+          J2 and an exponential atmosphere, checked against the analytic J2 drift rates.</p></li>
+      <li><div class="ph">Phase 5 · mission design</div><h3>Gravity assists and multi-revolution Lambert</h3>
+        <p>A vectorised Lambert solver (10× faster, identical to 10⁻¹¹ km/s) with multi-revolution solutions, a beam search
+          over launch dates and flight times, and patched-conic flyby physics. Widening the search took Cassini's route from
+          9.7 to 6.9 km/s and onto its historical dates.</p></li>
+      <li><div class="ph">Phase 6 · experience</div><h3>Mission playback, free camera, guided inputs</h3>
+        <p>A full-screen, cinematic playback of any mission; a fly-anywhere camera; and recommended values with sources: NASA
+          Deep Space Network stations, flown engines, real spacecraft masses and a launch-window finder.</p></li>
+      <li><div class="ph">Phase 7 · delivery</div><h3>Tests, packaging and the course hand-in</h3>
+        <p>A pytest suite covering the physics and the API, browser-driven interface tests, a stand-alone Windows build with
+          PyInstaller, and a generated single-file version of the solver that meets the assignment's format.</p></li>
+    </ol>
+  </div>
+</section>
+
+<section>
+  <div class="rail"><b>T+3</b>Architecture</div>
+  <div class="body">
+    <h2>Physics in Python, pictures in the browser</h2>
+    <div class="arch">
+      <div class="tier"><span class="tag">Data</span><h3>Sources</h3><ul><li>NASA/JPL DE440s ephemeris</li><li>JPL Horizons, SBDB, CNEOS</li><li>CelesTrak GP element sets</li><li>NASA Blue &amp; Black Marble</li></ul></div>
+      <div class="tier"><span class="tag">Python</span><h3>Astrodynamics core</h3><ul><li>Lambert (single &amp; multi-rev, batch)</li><li>Frames, time, elements</li><li>Manoeuvres, J2 + drag integrator</li><li>Patched-conic route optimiser</li></ul></div>
+      <div class="tier"><span class="tag">Local API</span><h3>studio_server</h3><ul><li>JSON endpoints on 127.0.0.1</li><li>Input validation, clear errors</li><li>Request logging, caching</li></ul></div>
+      <div class="tier"><span class="tag">Interface</span><h3>Web UI in a desktop window</h3><ul><li>Three.js WebGL, bloom, shaders</li><li>Plotly charts</li><li>Edge app mode (Qt fallback)</li></ul></div>
+    </div>
+    <p class="flow">data → Python core → JSON API → Three.js / Plotly → desktop window</p>
+  </div>
+</section>
+
+<section>
+  <div class="rail"><b>T+4</b>Validation</div>
+  <div class="body">
+    <h2>Checked against textbooks and against history</h2>
+    <p>The route optimiser is never told the real dates. Given only the planets, a launch period and a trip-time limit, it
+      finds the cheapest trajectory, and the answers land on the historical missions.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Check</th><th>Lambert Studio</th><th>Reference</th><th>Difference</th></tr></thead>
+        <tbody>
+          <tr class="group"><td colspan="4">Textbook and physics</td></tr>
+          <tr><td>Curtis Example 5.2, Lambert velocities</td><td class="num">v₁ = (−5.9925, 1.9254, 3.2456) km/s</td><td class="num">published</td><td class="ok">&lt; 4×10⁻⁵ km/s</td></tr>
+          <tr><td>Hohmann transfer, 300 km LEO to GEO</td><td class="num">3.8926 km/s</td><td class="num">3.893 km/s</td><td class="ok">&lt; 0.001 km/s</td></tr>
+          <tr><td>Sun-synchronous orbit, node drift (integrated)</td><td class="num">0.990 °/day</td><td class="num">0.9856 °/day</td><td class="ok">0.4 %</td></tr>
+          <tr class="group"><td colspan="4">Historical missions, dates found by the optimiser</td></tr>
+          <tr><td>Mariner 10, Venus flyby</td><td class="num">6 Feb 1974</td><td class="num">5 Feb 1974</td><td class="ok">1.6 days</td></tr>
+          <tr><td>Voyager, launch</td><td class="num">2 Sep 1977</td><td class="num">5 Sep 1977</td><td class="ok">2.2 days</td></tr>
+          <tr><td>Galileo, Venus flyby</td><td class="num">22 Feb 1990</td><td class="num">10 Feb 1990</td><td class="ok">12 days</td></tr>
+          <tr><td>Cassini, launch</td><td class="num">16 Oct 1997</td><td class="num">15 Oct 1997</td><td class="ok">1.4 days</td></tr>
+          <tr><td>Cassini, Earth flyby</td><td class="num">17 Aug 1999</td><td class="num">18 Aug 1999</td><td class="ok">4 hours</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>In total: 103 automated checks and 27 pytest tests, plus browser-driven tests that press keys, drag the camera and
+      play missions to confirm the interface behaves as designed.</p>
+  </div>
+</section>
+
+<section>
+  <div class="rail"><b>T+5</b>Lessons</div>
+  <div class="body">
+    <h2>What building it taught</h2>
+    <div class="lessons">
+      <div class="lesson"><h3>Test the behaviour, not the screenshot</h3><p>A page can look right and still be wrong. Driving a real browser to press keys, double-click and play missions caught bugs that screenshots never showed.</p></div>
+      <div class="lesson"><h3>Search width changes the answer</h3><p>Judged leg by leg, a route that looks expensive early can win later. A 10× wider beam search turned Cassini from worse-than-direct into the historical route.</p></div>
+      <div class="lesson"><h3>Know where the maths breaks</h3><p>Galileo's Earth-to-Earth loop took exactly two years, so start and end points coincide and Lambert's problem is undefined. The app flies a nearby loop and says so.</p></div>
+      <div class="lesson"><h3>The platform is part of the system</h3><p>An embedded browser crashing in native code, and Windows silently redirecting where Python saves files, were fixed by measuring first and changing architecture second.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="rail"><b>T+6</b>Stack &amp; limits</div>
+  <div class="body">
+    <h2>Tools, and what the model leaves out</h2>
+    <div class="chips">
+      <span class="chip">Python 3.13</span><span class="chip">NumPy</span><span class="chip">SciPy · DOP853</span>
+      <span class="chip">Skyfield · JPL DE440s</span><span class="chip">sgp4</span><span class="chip">Three.js · WebGL</span>
+      <span class="chip">Plotly.js</span><span class="chip">Microsoft Edge app mode</span><span class="chip">PySide6</span>
+      <span class="chip">pytest</span><span class="chip">PyInstaller</span><span class="chip">git</span>
+    </div>
+    <div class="cols">
+      <div><h3 style="font-size:17px;margin-bottom:8px">Model limits</h3><ul>
+        <li>Patched conics: each planet's gravity acts alone; no deep-space burns.</li>
+        <li>Perturbations: J2 and an exponential atmosphere; no Sun or Moon pull.</li>
+        <li>Exact resonant loops (start = end) are approximated.</li>
+        <li>The assignment's station uses a spherical Earth, as specified.</li></ul></div>
+      <div><h3 style="font-size:17px;margin-bottom:8px">Next steps</h3><ul>
+        <li>Deep-space manoeuvres between flybys.</li>
+        <li>Orbit determination from many noisy observations (least squares).</li>
+        <li>Satellite pass predictions for any location.</li>
+        <li>Continuous integration for the test suite.</li></ul></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <span><b>Data:</b> NASA/JPL (DE440s, Horizons, SBDB, CNEOS) · CelesTrak · NASA Blue Marble &amp; Black Marble · Solar System Scope textures (CC BY 4.0).
+    <b>Method:</b> H. D. Curtis, <i>Orbital Mechanics for Engineering Students</i>; D. A. Vallado, <i>Fundamentals of Astrodynamics and Applications</i>.</span>
+  <span>Developed with Claude Code (Anthropic) as an AI pair-programming assistant, with every step directed, run and checked by the author.</span>
+</footer>
+</div>

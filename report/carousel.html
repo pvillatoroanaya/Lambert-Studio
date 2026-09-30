@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Lambert Studio carousel</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@112,600;112,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* LinkedIn document carousel: 8 portrait slides, 1080 x 1350 px each,
+   single dark look matching the app. Print to PDF with Edge headless. */
+@page { size: 1080px 1350px; margin: 0; }
+:root { --bg: #070b16; --panel: #0f1829; --ink: #e8eef8; --ink2: #93a3bf; --rule: #22304a;
+  --cyan: #5ac8fa; --orange: #ffb454; --green: #6ee7a8;
+  --display: "Archivo", "Arial Narrow", Arial, sans-serif; --body: "IBM Plex Sans", "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", Consolas, monospace; color-scheme: dark; }
+* { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); }
+.slide { width: 1080px; height: 1350px; padding: 76px 80px 128px; display: flex; flex-direction: column; gap: 30px;
+  position: relative; overflow: hidden; break-after: page; background: var(--bg); }
+.slide::after { content: attr(data-n); position: absolute; right: 80px; bottom: 52px; font: 500 22px var(--mono); color: var(--ink2); }
+.slide::before { content: "LAMBERT STUDIO"; position: absolute; left: 80px; bottom: 52px; font: 500 20px var(--mono);
+  letter-spacing: .18em; color: var(--ink2); }
+.kick { font: 500 24px var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--orange); }
+h1, h2 { font-family: var(--display); font-stretch: 112%; font-weight: 800; margin: 0; line-height: 1.02; letter-spacing: -.01em; }
+h1 { font-size: 132px; }
+h2 { font-size: 78px; }
+p { margin: 0; font-size: 34px; line-height: 1.42; color: var(--ink2); }
+p b { color: var(--ink); font-weight: 600; }
+.shot { border-radius: 18px; overflow: hidden; border: 2px solid var(--rule); }
+.shot img { display: block; width: 100%; }
+.big { font: 800 118px/1 var(--display); white-space: nowrap; font-stretch: 112%; color: var(--green); }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 22px; }
+.grid figure { margin: 0; display: grid; gap: 10px; }
+.grid figcaption { font: 600 25px var(--body); }
+table { width: 100%; border-collapse: collapse; font-size: 29px; }
+td { padding: 17px 8px; border-bottom: 2px solid var(--rule); }
+td.m { font-family: var(--mono); color: var(--ink2); }
+td.d { font-family: var(--mono); color: var(--green); text-align: right; white-space: nowrap; }
+.phases { display: grid; gap: 20px; margin: 0; padding: 0; list-style: none; }
+.phases li { display: grid; grid-template-columns: 70px 1fr; gap: 18px; align-items: baseline; font-size: 33px; line-height: 1.3; }
+.phases span { font: 500 26px var(--mono); color: var(--cyan); }
+.chips { display: flex; flex-wrap: wrap; gap: 14px; }
+.chips span { font: 500 27px var(--mono); padding: 10px 20px; border: 2px solid var(--rule); border-radius: 999px; }
+.accent { color: var(--cyan); }
+</style></head><body>
+
+<section class="slide" data-n="1 / 8">
+  <div class="kick">Aerospace engineering · student project</div>
+  <h1>Lambert<br>Studio</h1>
+  <p>I turned a university assignment on orbit determination into an <b>interactive mission-design studio</b>
+    that rediscovers the routes of Voyager, Cassini and Galileo from physics alone.</p>
+  <div class="shot" style="margin-top:auto"><img src="img/cassini_overview.jpg" alt=""></div>
+</section>
+
+<section class="slide" data-n="2 / 8">
+  <div class="kick">The starting point</div>
+  <h2>Two sightings of a satellite. <span class="accent">Find its orbit.</span></h2>
+  <p>A ground station measures azimuth, elevation and range twice, 2.5 hours apart. Solving <b>Lambert's problem</b>
+    (the maths behind every interplanetary mission) turns those six numbers into the complete orbit.</p>
+  <div class="shot"><img src="img/orbit.jpg" alt=""></div>
+  <p><b>a = 28,184 km · e = 0.768 · i = 20.34° · period 13 h 04 min</b></p>
+</section>
+
+<section class="slide" data-n="3 / 8">
+  <div class="kick">What it does</div>
+  <h2>Eight modules, one desktop app</h2>
+  <div class="grid">
+    <figure><div class="shot"><img src="img/near.jpg" alt=""></div><figcaption>Real satellites (CelesTrak)</figcaption></figure>
+    <figure><div class="shot"><img src="img/maneuver.jpg" alt=""></div><figcaption>Manoeuvre planner</figcaption></figure>
+    <figure><div class="shot"><img src="img/perturb.jpg" alt=""></div><figcaption>J2 + drag orbit prediction</figcaption></figure>
+    <figure><div class="shot"><img src="img/flybys.jpg" alt=""></div><figcaption>Asteroid flybys (NASA/JPL)</figcaption></figure>
+    <figure><div class="shot"><img src="img/solar.jpg" alt=""></div><figcaption>Solar system (JPL DE440s)</figcaption></figure>
+    <figure><div class="shot"><img src="img/mission.jpg" alt=""></div><figcaption>Porkchop & launch windows</figcaption></figure>
+  </div>
+</section>
+
+<section class="slide" data-n="4 / 8">
+  <div class="kick">Gravity assists</div>
+  <h2>Let the planets do the work</h2>
+  <p>Routes with up to four flybys, including repeat visits to the same planet (multi-revolution Lambert), optimised over
+    thousands of launch dates and flight times, then <b>explained step by step</b>.</p>
+  <div class="shot"><img src="img/mission_route_cassini_noplay.jpg" alt=""></div>
+  <p>Cassini's launch period: flying direct to Saturn costs <b>20.7 km/s</b>; the flyby route needs <b class="accent">7.8 km/s</b>.</p>
+</section>
+
+<section class="slide" data-n="5 / 8">
+  <div class="kick">Mission playback</div>
+  <div class="big">+10.48 km/s</div>
+  <h2 style="font-size:64px">Voyager at Jupiter, May 1979. No fuel.</h2>
+  <div class="shot"><img src="img/player_flyby.jpg" alt=""></div>
+  <p>A full-screen, cinematic replay of any mission: the camera swings to each planet, time slows at every flyby,
+    and live telemetry shows the spacecraft passing solar escape speed.</p>
+</section>
+
+<section class="slide" data-n="6 / 8">
+  <div class="kick">Validated</div>
+  <h2>It rediscovered history</h2>
+  <p>The optimiser is never told the real dates, only the planets and a launch period.</p>
+  <table>
+    <tr><td>Mariner 10 · Venus flyby</td><td class="m">6 Feb 1974</td><td class="d">1.6 days off</td></tr>
+    <tr><td>Voyager · launch</td><td class="m">2 Sep 1977</td><td class="d">2.2 days off</td></tr>
+    <tr><td>Galileo · Venus flyby</td><td class="m">22 Feb 1990</td><td class="d">12 days off</td></tr>
+    <tr><td>Cassini · launch</td><td class="m">16 Oct 1997</td><td class="d">1.4 days off</td></tr>
+    <tr><td>Cassini · Earth flyby</td><td class="m">17 Aug 1999</td><td class="d">4 hours off</td></tr>
+    <tr><td>Hohmann LEO → GEO</td><td class="m">3.8926 km/s</td><td class="d">textbook 3.893</td></tr>
+  </table>
+  <p><b>103</b> automated validation checks · <b>27</b> pytest tests · browser-driven UI tests</p>
+</section>
+
+<section class="slide" data-n="7 / 8">
+  <div class="kick">How it was built</div>
+  <h2>Seven phases, each verified before the next</h2>
+  <ol class="phases">
+    <li><span>01</span>Rebuilt the Lambert solver and checked it against textbook examples</li>
+    <li><span>02</span>Desktop app: Python physics + local API + Three.js/WebGL interface</li>
+    <li><span>03</span>Live data: CelesTrak, NASA/JPL Horizons, SBDB, DE440s ephemeris</li>
+    <li><span>04</span>Manoeuvres, and a J2 + drag integrator (SciPy DOP853)</li>
+    <li><span>05</span>Gravity assists: batch + multi-revolution Lambert, beam search</li>
+    <li><span>06</span>Mission playback, free camera, NASA-sourced input suggestions</li>
+    <li><span>07</span>pytest suite, Windows .exe (PyInstaller), course hand-in</li>
+  </ol>
+</section>
+
+<section class="slide" data-n="8 / 8">
+  <div class="kick">Stack & takeaways</div>
+  <h2>≈11,000 lines. One lesson: <span class="accent">verify everything.</span></h2>
+  <div class="chips"><span>Python</span><span>NumPy</span><span>SciPy</span><span>Skyfield</span><span>sgp4</span>
+    <span>Three.js</span><span>Plotly</span><span>pytest</span><span>PyInstaller</span><span>git</span></div>
+  <p>Screenshots can look right and still be wrong; a wider search turned Cassini from worse-than-direct into the
+    historical route; and knowing where the maths breaks (resonant orbits) matters as much as the maths.</p>
+  <p>Built with <b>Claude Code</b> as an AI pair-programming assistant, with every step directed, run and checked by me.</p>
+</section>
+</body></html>
