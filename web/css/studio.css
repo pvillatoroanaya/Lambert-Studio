@@ -240,7 +240,8 @@ button.busy { opacity: .7; cursor: progress; }
 
 /* ---------------- full-screen mission playback ---------------- */
 .player { position: fixed; inset: 0; z-index: 50; background: #03050b; }
-.player-canvas { position: absolute; inset: 0; }
+/* z-index 0 keeps the 3D labels (which carry their own z-index) below the overlays */
+.player-canvas { position: absolute; inset: 0; z-index: 0; }
 .player .camtools { top: 96px; left: 20px; }
 .p-top { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: flex-start;
   padding: 18px 22px 30px; background: linear-gradient(180deg, rgba(3,5,11,.92) 0%, rgba(3,5,11,.55) 65%, rgba(3,5,11,0) 100%);
@@ -291,6 +292,45 @@ button.busy { opacity: .7; cursor: progress; }
 .p-mark.below span { top: 14px; }
 .p-clock { font-family: var(--mono); font-size: 12.5px; min-width: 230px; text-align: right; }
 .p-clock b { color: var(--accent-2); font-weight: 600; }
+.p-fxon { display: flex; flex-direction: row; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); white-space: nowrap; cursor: pointer; }
+.p-fxon input { accent-color: var(--ok); }
+.p-event .fx-open { margin-top: 10px; background: rgba(110,231,168,.14); color: var(--ok); border: 1px solid rgba(110,231,168,.4);
+  border-radius: 8px; padding: 6px 12px; cursor: pointer; font-weight: 600; font-size: 12.5px; }
+.p-event .fx-open:hover { background: rgba(110,231,168,.22); }
+
+/* gravity-assist close-up */
+.fx { position: absolute; inset: 0; z-index: 5; background: #03050b; animation: fxin .45s ease-out; }
+@keyframes fxin { from { opacity: 0; } to { opacity: 1; } }
+.fx-canvas { position: absolute; inset: 0; z-index: 0; }
+.fx .camtools { display: none; }
+.fx .p-actions .go { background: linear-gradient(90deg, #5ac8fa, #6ee7a8); color: #04121c; border: 0; font-weight: 700; }
+.fx-steps { position: absolute; left: 20px; top: 110px; width: min(360px, 30vw); display: flex; flex-direction: column; gap: 8px; }
+.fx-steps > div { display: flex; gap: 10px; align-items: flex-start; background: var(--glass); border: 1px solid var(--line);
+  border-radius: 10px; padding: 9px 12px; color: var(--faint); transition: border-color .3s, color .3s; }
+.fx-steps > div.done { color: var(--muted); }
+.fx-steps > div.on { color: var(--text); border-color: rgba(110,231,168,.55); box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+.fx-steps .n { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 11.5px;
+  font-weight: 700; border: 1.5px solid currentColor; }
+.fx-steps .on .n { background: var(--ok); color: #04121c; border-color: var(--ok); }
+.fx-steps b { font-size: 13px; }
+.fx-steps p { margin: 5px 0 0; font-size: 13px; line-height: 1.55; color: #c9d4ea; animation: pin2 .35s ease-out; }
+.fx-steps p b { color: var(--text); font-size: inherit; }
+@keyframes pin2 { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.fx-side { position: absolute; right: 20px; top: 110px; width: 300px; display: flex; flex-direction: column; gap: 10px; }
+.fx-side .box { background: var(--glass); border: 1px solid var(--line); border-radius: var(--radius); padding: 11px 13px; }
+.fx-side h4 { margin: 0 0 6px; font-size: 10.5px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); font-weight: 600; }
+.fx-side p { margin: 6px 0 0; font-size: 11.5px; line-height: 1.5; color: var(--muted); }
+.fx-side svg text { font-family: var(--font); }
+.fx-side.sun .box:first-child { border-color: rgba(255,180,84,.6); }
+.fx-legend { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 10.5px; color: var(--muted); }
+.fx-legend span::before { content: ""; display: inline-block; width: 10px; height: 3px; border-radius: 2px; background: var(--c);
+  margin-right: 5px; vertical-align: middle; }
+.fx-bottom { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); width: min(620px, 70vw); text-align: center; }
+.fx-clock { font-family: var(--mono); font-size: 12.5px; color: var(--muted); margin-bottom: 8px; }
+.fx-clock b { color: var(--text); font-weight: 600; }
+.fx-prog { height: 4px; border-radius: 2px; background: var(--surface-2); overflow: hidden; }
+.fx-prog i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #5ac8fa, #6ee7a8); }
+@media (max-width: 1100px) { .fx-side { display: none; } .fx-steps { width: min(360px, 45vw); } }
 button.play-mission { margin-top: 10px; width: 100%; background: linear-gradient(90deg, #5ac8fa, #6ee7a8); color: #04121c;
   border: 0; border-radius: 8px; padding: 10px 14px; font-weight: 700; cursor: pointer; font-size: 13px; }
 button.play-mission:hover { filter: brightness(1.08); }
@@ -305,6 +345,23 @@ details.advanced[open] summary { color: var(--text); }
   font-size: 12.5px; line-height: 1.55; color: #c9d4ea; }
 .why b { color: var(--text); }
 .why .t { font-size: 10.5px; letter-spacing: 1px; text-transform: uppercase; color: var(--ok); font-weight: 600; margin-bottom: 4px; }
+.lesson { font-size: 12.8px; line-height: 1.6; display: flex; flex-direction: column; gap: 4px; }
+.lesson .headline { font-weight: 600; color: var(--text); font-size: 13.5px; }
+.lesson .headline span { display: block; font-weight: 400; color: var(--muted); font-size: 11.5px; }
+.lesson h5 { margin: 8px 0 0; font-size: 11px; letter-spacing: .8px; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+.lesson p { margin: 0; }
+.lesson ol.steps { margin: 2px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 5px; }
+.lesson ol.steps li::marker { color: var(--ok); font-weight: 600; }
+.lesson .analogy { margin-top: 6px; padding: 8px 10px; border-left: 3px solid var(--accent-2); background: rgba(255,180,84,.07);
+  border-radius: 0 8px 8px 0; }
+.lesson .glossary { margin-top: 8px; font-size: 11.5px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 7px; }
+.searching { display: flex; gap: 12px; align-items: flex-start; padding: 12px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--surface); font-size: 12.5px; line-height: 1.55; color: #c9d4ea; }
+.searching b { color: var(--text); }
+.searching p { margin: 4px 0 0; }
+.searching .spin { flex: none; width: 18px; height: 18px; margin-top: 2px; border-radius: 50%; border: 2px solid var(--line-2);
+  border-top-color: var(--accent); animation: spin .9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 .sg-card { text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 9px 11px;
   cursor: pointer; display: grid; gap: 5px; transition: border-color .15s; }
 .sg-card:hover { border-color: var(--line-2); }

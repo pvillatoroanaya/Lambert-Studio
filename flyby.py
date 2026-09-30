@@ -55,6 +55,9 @@ MAX_FLYBYS = 4
 # larger than any real delta-v difference, so a possible route always wins,
 # but still graded, so the optimiser can climb out of an impossible region.
 IMPOSSIBLE = 50.0
+# Samples used to bracket multi-revolution Lambert solutions before the
+# bisection refines them to machine precision (48 is plenty for routes).
+MULTIREV_GRID = 48
 GIANTS = ("Jupiter", "Saturn", "Uranus", "Neptune")
 
 
@@ -184,14 +187,41 @@ def _leg_plan(seq, jd, max_days):
 # ----------------------------------------------------------------------
 
 class _StateCache:
+    """
+    Planet states for the refinement step, which asks for thousands of
+    slightly different dates. Each planet's states are computed once on a
+    1-day grid (one vectorised ephemeris call) and interpolated with cubic
+    Hermite polynomials using the velocities -- the same scheme the 3D view
+    uses; the interpolation error is far below the model's accuracy.
+    """
+
+    STEP = 1.0
+
     def __init__(self):
-        self.store = {}
+        self.grids = {}
+
+    def _grid(self, planet, jd):
+        g = self.grids.get(planet)
+        if g is None or not (g["t0"] + 1 <= jd <= g["t1"] - 1):
+            t0 = np.floor(jd) - 400.0
+            t = t0 + self.STEP * np.arange(int(12000 / self.STEP) + 1)
+            R, V = planet_states_array(planet, t)
+            g = {"t0": t[0], "t1": t[-1], "R": R, "V": V * 86400.0}   # velocity per day
+            self.grids[planet] = g
+        return g
 
     def get(self, planet, jd):
-        key = (planet, round(float(jd), 6))
-        if key not in self.store:
-            self.store[key] = best_planet_state(planet, key[1])
-        return self.store[key]
+        jd = float(jd)
+        g = self._grid(planet, jd)
+        f = (jd - g["t0"]) / self.STEP
+        k = int(f)
+        s = f - k
+        h = self.STEP
+        p0, p1, v0, v1 = g["R"][k], g["R"][k + 1], g["V"][k], g["V"][k + 1]
+        s2, s3 = s * s, s * s * s
+        r = (2 * s3 - 3 * s2 + 1) * p0 + (s3 - 2 * s2 + s) * h * v0 + (-2 * s3 + 3 * s2) * p1 + (s3 - s2) * h * v1
+        dr = ((6 * s2 - 6 * s) * p0 + (3 * s2 - 4 * s + 1) * h * v0 + (-6 * s2 + 6 * s) * p1 + (3 * s2 - 2 * s) * h * v1) / h
+        return r, dr / 86400.0
 
 
 def _leg(cache, p1, p2, jd1, jd2, opt):
@@ -200,7 +230,8 @@ def _leg(cache, p1, p2, jd1, jd2, opt):
     r1, vp1 = cache.get(p1, jd1)
     r2, vp2 = cache.get(p2, jd2)
     try:
-        v1, v2, _ = lambert_universal(r1, r2, (jd2 - jd1) * 86400.0, mu=MU_SUN, revs=opt[0], branch=opt[1])
+        v1, v2, _ = lambert_universal(r1, r2, (jd2 - jd1) * 86400.0, mu=MU_SUN, revs=opt[0], branch=opt[1],
+                                      grid=MULTIREV_GRID)
     except (ValueError, ZeroDivisionError, OverflowError):
         return None
     if not (np.all(np.isfinite(v1)) and np.all(np.isfinite(v2))):
@@ -279,7 +310,8 @@ def _beam_search(seq, window, capture, max_days, plan, n_launch, n_tof, beam, n_
 
     st = {k: [] for k in ("t0", "jd", "cost", "v2", "vp", "r", "hist_jd", "hist_opt")}
     for oi, opt in enumerate(opts):
-        v1, v2, _, ok = lambert_batch(R0[I], R1u[inv1], tofs[J] * 86400.0, mu=MU_SUN, revs=opt[0], branch=opt[1])
+        v1, v2, _, ok = lambert_batch(R0[I], R1u[inv1], tofs[J] * 86400.0, mu=MU_SUN, revs=opt[0], branch=opt[1],
+                                      grid=MULTIREV_GRID)
         evaluated += len(I)
         vinf = np.linalg.norm(v1 - V0[I], axis=1)
         cost = np.where(ok, _launch_dv(vinf, seq[0]), np.inf)
@@ -311,7 +343,7 @@ def _beam_search(seq, window, capture, max_days, plan, n_launch, n_tof, beam, n_
         st = {key: [] for key in S}
         for oi, opt in enumerate(opts):
             v1, v2, _, ok = lambert_batch(S["r"][I], Rn[invn], tofs[J] * 86400.0, mu=MU_SUN,
-                                          revs=opt[0], branch=opt[1])
+                                          revs=opt[0], branch=opt[1], grid=MULTIREV_GRID)
             evaluated += len(I)
             vout = v1 - S["vp"][I]
             dv, pen = _flyby_vec(seq[k], vin, vout)
@@ -412,7 +444,7 @@ def optimise(seq, window, capture=True, max_days=None, n_launch=None, n_tof=None
     return det
 
 
-def _refine(seq, window, capture, max_days, plan, jds0, opts, cache):
+def _refine(seq, window, capture, max_days, plan, jds0, opts, cache, quick=False):
     """Nelder-Mead polish of one candidate; returns (cost, jds)."""
     from scipy.optimize import minimize
     n_legs = len(seq) - 1
@@ -424,9 +456,14 @@ def _refine(seq, window, capture, max_days, plan, jds0, opts, cache):
             jds.append(jds[-1] + min(max(x[k + 1], lo * 0.9), hi * 1.1))
         return jds
     x0 = [jds0[0]] + [jds0[k + 1] - jds0[k] for k in range(n_legs)]
+    tol = {"xatol": 0.05, "fatol": 1e-4, "maxiter": 150 * (n_legs + 1)} if quick else \
+        {"xatol": 0.05, "fatol": 1e-5, "maxiter": 250 * (n_legs + 1)}
     res = minimize(lambda x: evaluate(seq, to_jds(x), capture, cache, opts, max_days=max_days), x0,
-                   method="Nelder-Mead", options={"xatol": 0.05, "fatol": 1e-5, "maxiter": 250 * (n_legs + 1)})
+                   method="Nelder-Mead", options=tol)
     return res.fun, to_jds(res.x)
+
+
+WINDOW_MAX_DAYS = 90.0
 
 
 def launch_window(profile, t0_best, span, margin=0.3):
@@ -449,9 +486,13 @@ def launch_window(profile, t0_best, span, margin=0.3):
     thr = np.min(best_per[near]) + margin
     i = int(np.argmin(np.abs(grid - t0_best)))
     lo = hi = i
-    while lo > 0 and best_per[lo - 1] <= thr:
+    # Never reach into the next opportunity, and never more than about three
+    # months either side: when the cost changes very slowly (Jupiter to
+    # Saturn line up only every 20 years) the run could otherwise span years.
+    reach = min(span, WINDOW_MAX_DAYS)
+    while lo > 0 and best_per[lo - 1] <= thr and t0_best - grid[lo - 1] <= reach:
         lo -= 1
-    while hi < len(grid) - 1 and best_per[hi + 1] <= thr:
+    while hi < len(grid) - 1 and best_per[hi + 1] <= thr and grid[hi + 1] - t0_best <= reach:
         hi += 1
     # The grid only resolves launch dates to its spacing: pad by half a
     # step, and make sure the optimised date itself is inside.
@@ -471,7 +512,7 @@ def _distinct_opportunities(seq, window, capture, max_days, plan, cands, profile
     cache = _StateCache()
     out = []
     for cost0, jds0, opts in seeds:
-        cost, jds = _refine(seq, window, capture, max_days, plan, jds0, opts, cache)
+        cost, jds = _refine(seq, window, capture, max_days, plan, jds0, opts, cache, quick=True)
         if not np.isfinite(cost):
             continue
         c2, det = evaluate(seq, jds, capture, cache, opts, detail=True)
@@ -529,7 +570,7 @@ def _synodic_days(a, b, jd):
     return 1.0 / abs(1.0 / orbital_period_days(a, jd) - 1.0 / orbital_period_days(b, jd))
 
 
-def suggest_routes(dep, arr, start_jd, years=12.0, capture=True, max_years=None, per_route=3):
+def suggest_routes(dep, arr, start_jd, years=12.0, capture=True, max_years=None, per_route=3, progress=None):
     """
     Search every candidate route family over the next `years` years and
     return the launch opportunities found, cheapest first, each with its
@@ -537,39 +578,83 @@ def suggest_routes(dep, arr, start_jd, years=12.0, capture=True, max_years=None,
     """
     if dep == arr:
         raise ValueError("Start and destination must be different planets.")
-    max_years = max_years or TRIP_LIMIT_YEARS[arr]
+    if not max_years:
+        max_years = TRIP_LIMIT_YEARS[arr]
+        if dep != "Earth":
+            # The limits above are for trips from Earth. From elsewhere, allow
+            # at least 1.25x the Hohmann time (Jupiter -> Saturn takes ~10
+            # years even on the most efficient path). Transfer period from
+            # Kepler's third law: a is proportional to T^(2/3).
+            T1, T2 = orbital_period_days(dep, start_jd), orbital_period_days(arr, start_jd)
+            hohmann_days = 0.5 * ((T1 ** (2 / 3) + T2 ** (2 / 3)) / 2) ** 1.5
+            max_years = max(max_years, math.ceil(1.25 * hohmann_days / 365.25))
     max_days = max_years * 365.25
     window = (start_jd, start_jd + years * 365.25)
     t_start = time.perf_counter()
     options, tried = [], []
-    for seq in candidate_routes(dep, arr):
+    routes = candidate_routes(dep, arr)
+
+    def search(seq):
         # Launch opportunities repeat with the synodic period of the first leg.
         syn = _synodic_days(seq[0], seq[1], start_jd)
-        n_launch = int(min(max(years * 365.25 / 7.0, 90), 650))
+        n_launch = int(min(max(years * 365.25 / 8.0, 90), 560))
         try:
-            found = optimise(seq, window, capture, max_days=max_days, n_launch=n_launch,
-                             n_results=per_route, min_sep=max(0.6 * syn, 60.0))
+            return optimise(seq, window, capture, max_days=max_days, n_launch=n_launch,
+                            n_results=per_route, min_sep=max(0.6 * syn, 60.0)), None
         except ValueError as exc:
-            tried.append({"seq": seq, "found": 0, "note": str(exc)})
+            return None, str(exc)
+
+    # The families are independent, and numpy releases the interpreter lock
+    # during the big array operations, so they are searched in parallel.
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=min(4, len(routes))) as pool:
+        results = list(pool.map(search, routes))
+    if progress:
+        progress(len(routes), len(routes), None)
+    for seq, (found, note) in zip(routes, results):
+        if found is None:
+            tried.append({"seq": seq, "found": 0, "note": note})
+            continue
+        # Sanity filter: the optimiser allows 2% slack on the trip time, but
+        # a suggestion must respect the limit it is shown with; and a launch
+        # pinned to the first or last day of the search period is not a real
+        # opportunity (the true optimum lies outside the period).
+        found = [d for d in found
+                 if d["jds"][-1] - d["jds"][0] <= max_days + 1.0
+                 and window[0] + 2.0 < d["jds"][0] < window[1] - 2.0]
+        if not found:
+            tried.append({"seq": seq, "found": 0, "note": "no workable trajectory"})
             continue
         tried.append({"seq": seq, "found": len(found),
                       "best_dv": min((f["total_dv"] for f in found), default=None),
                       "tof_days": (found[0]["jds"][-1] - found[0]["jds"][0]) if found else None,
                       "max_burn": max((fb["dv"] for fb in found[0]["flybys"]), default=0.0) if found else None})
         for det in found:
+            legs = det["legs"]
             options.append({
                 "seq": seq, "jds": det["jds"], "total_dv": det["total_dv"],
                 "tof_days": det["jds"][-1] - det["jds"][0],
                 "c3": det["vinf_launch"] ** 2, "vinf_arrive": det["vinf_arrive"],
+                "launch_dv": float(_launch_dv(det["vinf_launch"], seq[0])),
+                "capture_dv": float(capture_dv(det["vinf_arrive"], seq[-1])) if capture else None,
                 "window": det["launch_window"],
-                "flybys": [{"planet": f["planet"], "dv": f["dv"]} for f in det["flybys"]],
-                "legs": [{"revs": L["revs"]} for L in det["legs"]],
+                # What each flyby does, for the plain-language explanation:
+                # the change in speed around the Sun it gives for free.
+                "flybys": [{"planet": f["planet"], "dv": f["dv"], "altitude_radii": f["altitude_radii"],
+                            "turn_deg": f["turn_deg"],
+                            "gain": float(np.linalg.norm(legs[k + 1]["v1"]) - np.linalg.norm(legs[k]["v2"]))}
+                           for k, f in enumerate(det["flybys"])],
+                "legs": [{"revs": L["revs"], "days": det["jds"][k + 1] - det["jds"][k]} for k, L in enumerate(legs)],
             })
     if not options:
         raise ValueError("No workable route was found in this period. Try a later start year or a longer search.")
     options.sort(key=lambda o: o["total_dv"])
+    # Timing facts for the explanation: how often the planets line up, and
+    # how long each planet's year is.
     return {"options": options, "tried": tried, "max_years": max_years, "years": years,
-            "capture": capture, "seconds": time.perf_counter() - t_start}
+            "capture": capture, "seconds": time.perf_counter() - t_start,
+            "synodic_days": _synodic_days(dep, arr, start_jd),
+            "period_days": {p: orbital_period_days(p, start_jd) for p in {dep, arr, "Earth"}}}
 
 
 # ----------------------------------------------------------------------
@@ -616,6 +701,13 @@ def describe(det, n_per_leg=180):
                        "gain": v_after - v_before,
                        "v_planet": float(np.linalg.norm(legs[k]["vp1"])),
                        "r_au": float(np.linalg.norm(legs[k]["r1"])) / AU,
+                       # Vectors for the close-up animation (km/s, ecliptic
+                       # frame): the hyperbola is drawn from these.
+                       "v_planet_vec": legs[k]["vp1"].tolist(),
+                       "vinf_in_vec": (legs[k - 1]["v2"] - legs[k]["vp1"]).tolist(),
+                       "vinf_out_vec": (legs[k]["v1"] - legs[k]["vp1"]).tolist(),
+                       "sun_dir": (-legs[k]["r1"] / np.linalg.norm(legs[k]["r1"])).tolist(),
+                       "mu": PLANET_MU[seq[k]], "radius": PLANET_STYLE[seq[k]]["radius"],
                        "repeat": seq[k] == seq[k - 1] or (k + 1 < len(seq) and seq[k] == seq[k + 1])})
     events.append({"kind": "arrival", "planet": seq[-1], "jd": jds[-1], "vinf": det["vinf_arrive"],
                    "v_helio_before": float(np.linalg.norm(legs[-1]["v2"])),

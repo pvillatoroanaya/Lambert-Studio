@@ -42,7 +42,7 @@
     $('btn-suggest').addEventListener('click', suggest);
 
     // #mission/route/<preset key> opens that example directly.
-    const wanted = location.hash.split('/')[2];
+    const wanted = (location.hash.split('/')[2] || '').split('?')[0];
     const k = Math.max(0, presets.findIndex((p) => p.key === wanted));
     applyPreset(presets[k]);
     $('r-presets').querySelectorAll('.preset')[k].classList.add('on');
@@ -61,14 +61,25 @@
     err();
     const dep = $('r-p0').value, arr = $('r-p3').value;
     const box = $('r-suggest');
+    // While the search runs (a few seconds), show a rotating space fact.
+    let tip = Math.floor(Math.random() * LS.routeTips.length);
+    const showTip = () => {
+      box.innerHTML = `<div class="searching"><div class="spin"></div><div><b>Comparing every route from ${dep} to ${arr}…</b>
+        <p>Did you know? ${LS.routeTips[tip++ % LS.routeTips.length]}</p></div></div>`;
+    };
+    showTip();
+    box.hidden = false;
+    const timer = setInterval(showTip, 5000);
     try {
-      const data = await LS.busy(`Comparing routes from ${dep} to ${arr} (about 5–40 s)…`, $('btn-suggest'),
+      const data = await LS.busy(`Comparing routes from ${dep} to ${arr}…`, $('btn-suggest'),
         () => LS.api('/api/route_suggest', { dep, arr, capture: $('r-goal').value === 'orbit',
           from_year: $('r-year').value, years: $('r-years').value }));
+      clearInterval(timer);
       renderSuggestions(data, dep, arr);
       box.hidden = false;
       box.scrollIntoView({ behavior: 'smooth', block: 'start' });   // results sit below the form
     } catch (e) {
+      clearInterval(timer);
       box.hidden = true;
       err(e.message);
     }
@@ -108,7 +119,7 @@
     [cheapest, fastest, direct].forEach(add);
     [...new Set(byScore.map(family))].forEach((fam) => add(byScore.find((o) => family(o) === fam)));
     byScore.forEach(add);
-    const why = explain(balanced, cheapest, fastest, direct, data);
+    const why = LS.routeLesson(balanced, { cheapest, fastest, direct, data });
     const cards = order.map((o, k) => {
       const badges = [];
       if (o === balanced) badges.push('<span class="best">Recommended · best balance</span>');
@@ -145,38 +156,6 @@
       $('r-suggest').querySelectorAll('.sg-card').forEach((x) => x.classList.toggle('on', x === b));
       applyOption(order[+b.dataset.k], data);
     }));
-  }
-
-  /* Plain-language reasons for the recommendation. */
-  function explain(best, cheapest, fastest, direct, data) {
-    const f = LS.fmt;
-    const route = best.seq.join(' → ');
-    const flybyPlanets = best.seq.slice(1, -1);
-    let text = `<b>${route}</b>, launching between <b>${fmtDate(best.window_iso[0])}</b> and <b>${fmtDate(best.window_iso[1])}</b>,
-      needs <b>${f(best.total_dv, 2)} km/s</b> in total and takes <b>${f(years(best.tof_days), 1)} years</b>.`;
-    if (flybyPlanets.length && direct) {
-      const saved = direct.total_dv - best.total_dv;
-      if (saved > 0.05) {
-        text += ` That is <b>${f(saved, 2)} km/s less</b> (${f(100 * saved / direct.total_dv, 0)}%) than the best direct flight
-          (${f(direct.total_dv, 2)} km/s, launching ${fmtDate(direct.iso[0])}), because the ${[...new Set(flybyPlanets)].join(' and ')}
-          flyby${flybyPlanets.length > 1 ? 's' : ''} supply energy the rocket would otherwise have to provide.`;
-      }
-      if (best.c3 < direct.c3 * 0.6) {
-        text += ` The launch energy drops from C₃ ${f(direct.c3, 0)} to ${f(best.c3, 0)} km²/s², so a much smaller rocket can launch it.`;
-      }
-      const extraTime = years(best.tof_days - direct.tof_days);
-      if (extraTime > 0.2) text += ` The price is time: ${f(extraTime, 1)} years longer than flying direct.`;
-    } else if (!flybyPlanets.length) {
-      text += ' For this trip no flyby pays off in this period: flying direct is both cheaper and simpler.';
-    }
-    if (best !== cheapest) {
-      text += ` The absolute cheapest option (${cheapest.seq.join(' → ')}, ${f(cheapest.total_dv, 2)} km/s) takes
-        ${f(years(cheapest.tof_days), 1)} years — the extra time is not worth the saving.`;
-    }
-    if (best !== fastest) {
-      text += ` The fastest (${fastest.seq.join(' → ')}, ${f(years(fastest.tof_days), 1)} years) costs ${f(fastest.total_dv, 2)} km/s.`;
-    }
-    return `<div class="why"><div class="t">Why this route is recommended</div>${text}</div>`;
   }
 
   /* Load a suggestion into the builder (with a launch window a little

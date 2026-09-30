@@ -356,7 +356,7 @@ def stumpff_S(z):
     return 1.0 / 6 - z / 120 + z ** 2 / 5040 - z ** 3 / 362880
 
 
-def lambert_universal(r1, r2, dt, prograde=True, mu=MU_EARTH, revs=0, branch=0):
+def lambert_universal(r1, r2, dt, prograde=True, mu=MU_EARTH, revs=0, branch=0, grid=96):
     """
     Solve Lambert's problem.
 
@@ -391,12 +391,11 @@ def lambert_universal(r1, r2, dt, prograde=True, mu=MU_EARTH, revs=0, branch=0):
         raise ValueError("Time of flight must be positive.")
 
     if revs:
-        v1, v2, z, ok = lambert_batch(r1[None, :], r2[None, :], np.array([float(dt)]),
-                                      prograde=prograde, mu=mu, revs=revs, branch=branch)
-        if not ok[0]:
+        sol = _multirev_scalar(r1, r2, float(dt), prograde, mu, revs, branch, grid)
+        if sol is None:
             raise ValueError(f"No {revs}-revolution solution: the time of flight is too "
                              f"short for {revs} full lap(s), or the geometry is degenerate.")
-        return v1[0], v2[0], float(z[0])
+        return sol
 
     r1n = np.linalg.norm(r1)
     r2n = np.linalg.norm(r2)
@@ -471,6 +470,66 @@ def lambert_universal(r1, r2, dt, prograde=True, mu=MU_EARTH, revs=0, branch=0):
 
     v1 = (r2 - f * r1) / g
     v2 = (gdot * r2 - r1) / g
+    return v1, v2, z
+
+
+def _multirev_scalar(r1, r2, dt, prograde, mu, revs, branch, grid):
+    """
+    One multi-revolution problem, same method as lambert_batch (bracket on
+    a z grid, then bisect) but in plain Python floats: for a single
+    problem this is much faster than going through numpy arrays, which
+    matters when an optimiser calls it thousands of times.
+    Returns (v1, v2, z) or None when there is no solution.
+    """
+    r1n, r2n = math.sqrt(r1 @ r1), math.sqrt(r2 @ r2)
+    cross_z = r1[0] * r2[1] - r1[1] * r2[0]
+    dth = math.acos(max(-1.0, min(1.0, float(r1 @ r2) / (r1n * r2n))))
+    if (cross_z < 0) if prograde else (cross_z >= 0):
+        dth = 2 * math.pi - dth
+    if abs(math.sin(dth)) <= 1e-10 or dt <= 0:
+        return None
+    A = math.sin(dth) * math.sqrt(r1n * r2n / (1.0 - math.cos(dth)))
+    sqrt_mu = math.sqrt(mu)
+
+    def tof(z):
+        C, S = stumpff_C(z), stumpff_S(z)
+        if C <= 0:
+            return math.nan
+        y = r1n + r2n + A * (z * S - 1.0) / math.sqrt(C)
+        if y <= 0:
+            return math.nan
+        return ((y / C) ** 1.5 * S + A * math.sqrt(y)) / sqrt_mu
+
+    zL, zH = (2 * math.pi * revs) ** 2, (2 * math.pi * (revs + 1)) ** 2
+    zg = [zL + (zH - zL) * (1e-4 + (1 - 2e-4) * k / (grid - 1)) for k in range(grid)]
+    f = [tof(z) - dt for z in zg]
+    ks = [k for k in range(grid - 1)
+          if not (math.isnan(f[k]) or math.isnan(f[k + 1]))
+          and ((f[k] > 0 and f[k + 1] <= 0) if branch == 0 else (f[k] <= 0 and f[k + 1] > 0))]
+    if not ks:
+        return None
+    k = ks[0] if branch == 0 else ks[-1]
+    lo, hi = zg[k], zg[k + 1]
+    for _ in range(64):
+        mid = 0.5 * (lo + hi)
+        fm = tof(mid) - dt
+        left = (fm > 0) if branch == 0 else (fm <= 0)       # comparisons with NaN are False, as in numpy
+        if left:
+            lo = mid
+        else:
+            hi = mid
+    z = 0.5 * (lo + hi)
+    C, S = stumpff_C(z), stumpff_S(z)
+    y = r1n + r2n + A * (z * S - 1.0) / math.sqrt(C)
+    if not (y > 0 and math.isfinite(y)):
+        return None
+    f_ = 1.0 - y / r1n
+    g = A * math.sqrt(y / mu)
+    gdot = 1.0 - y / r2n
+    v1 = (r2 - f_ * r1) / g
+    v2 = (gdot * r2 - r1) / g
+    if not (np.isfinite(v1).all() and np.isfinite(v2).all()):
+        return None
     return v1, v2, z
 
 

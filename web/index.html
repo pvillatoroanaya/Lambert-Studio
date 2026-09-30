@@ -428,7 +428,27 @@
     <select id="p-rate" title="Playback speed"></select>
     <div class="p-timeline" id="p-timeline"><div class="p-fill" id="p-fill"></div><div class="p-head" id="p-head"></div></div>
     <div class="p-clock" id="p-clock"></div>
+    <label class="p-fxon" title="Stop at each gravity assist and show it up close"><input type="checkbox" id="p-fxon" checked> Flyby close-ups</label>
   </footer>
+  <!-- gravity-assist close-up (flyby_closeup.js) -->
+  <div class="fx" id="fx" hidden>
+    <div class="fx-canvas" id="cv-fx"></div>
+    <header class="p-top">
+      <div>
+        <div class="p-kicker">Gravity assist · close-up</div>
+        <div class="p-title" id="fx-title"></div>
+        <div class="p-sub" id="fx-sub"></div>
+      </div>
+      <div class="p-actions">
+        <button class="cam-btn" id="fx-pause">❚❚ Pause</button>
+        <button class="cam-btn" id="fx-replay" title="Watch this flyby again">↺ Replay</button>
+        <button class="cam-btn go" id="fx-skip" title="Back to the mission (Enter)">Continue mission ▶</button>
+      </div>
+    </header>
+    <aside class="fx-steps" id="fx-steps"></aside>
+    <aside class="fx-side" id="fx-side"></aside>
+    <div class="fx-bottom"><div class="fx-clock" id="fx-clock"></div><div class="fx-prog"><i id="fx-prog"></i></div></div>
+  </div>
 </div>
 
 <!-- report dialog -->
@@ -460,7 +480,9 @@
 <script src="js/view_near.js"></script>
 <script src="js/view_flybys.js"></script>
 <script src="js/view_solar.js"></script>
+<script src="js/flyby_closeup.js"></script>
 <script src="js/player.js"></script>
+<script src="js/route_lesson.js"></script>
 <script src="js/view_route.js"></script>
 <script src="js/view_mission.js"></script>
 <script src="js/suggest.js"></script>

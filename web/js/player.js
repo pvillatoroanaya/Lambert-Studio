@@ -114,7 +114,7 @@
     $('p-rate').addEventListener('change', () => { baseRate = +$('p-rate').value; });
     document.querySelectorAll('#p-cam button').forEach((b) => b.addEventListener('click', () => setCam(b.dataset.c)));
     window.addEventListener('keydown', (e) => {
-      if (!P.isOpen || (e.target.matches && e.target.matches('input, select, textarea'))) return;
+      if (!P.isOpen || LS.flybyCloseup.active || (e.target.matches && e.target.matches('input, select, textarea'))) return;
       if (e.code === 'Escape' && s3.mode !== 'fly') { P.close(); e.stopPropagation(); }
       if (e.code === 'Space') { playing = !playing; e.preventDefault(); e.stopPropagation(); }
     }, true);
@@ -122,7 +122,7 @@
     const seek = (e) => {
       const r = tl.getBoundingClientRect();
       t = tMin() + Math.min(Math.max((e.clientX - r.left) / r.width, 0), 1) * (tMax() - tMin());
-      shownEvent = -1;
+      shownEvent = M.eventT.filter((te) => te <= t).length - 1;
       lastFocus = null;
       $('p-event').hidden = true;
     };
@@ -182,6 +182,7 @@
   };
 
   P.close = function () {
+    LS.flybyCloseup.stop();
     $('player').hidden = true;
     P.isOpen = false;
     if (s3) { s3.setMode('orbit'); s3.keys.clear(); }
@@ -309,6 +310,8 @@
 
   P.frame = function (dt) {
     if (!P.isOpen || !M) return;
+    // While a flyby close-up is showing, the mission waits for it.
+    if (LS.flybyCloseup.active) { LS.flybyCloseup.frame(dt); return; }
     // Slow motion around flybys and arrival in the cinematic view.
     const k = nearEvent();
     rate = baseRate * (camMode === 'auto' && k >= 0 ? 0.3 : 1);
@@ -339,9 +342,17 @@
     updateCamera();
     s3.render();
 
-    // Event cards: shown when the clock passes each event.
+    // Event cards: shown when the clock passes each event. At a gravity
+    // assist the mission pauses for the close-up (unless switched off).
     for (let e = shownEvent + 1; e < M.events.length; e++) {
-      if (t >= M.eventT[e]) { showEvent(e); shownEvent = e; }
+      if (t < M.eventT[e]) break;
+      shownEvent = e;
+      if (playing && $('p-fxon').checked && LS.flybyCloseup.available(M.events[e])) {
+        t = M.eventT[e];
+        closeup(e);
+        break;
+      }
+      showEvent(e);
     }
     if (eventTimer > 0) {
       eventTimer -= dt;
@@ -355,6 +366,14 @@
     $('p-fill').style.width = `${frac}%`;
     $('p-head').style.left = `${frac}%`;
   };
+
+  /* Show flyby k up close; the mission carries on when it ends. */
+  function closeup(k) {
+    playing = false;
+    $('p-event').hidden = true;
+    const again = k >= 2 && M.events[k - 1].planet === M.events[k].planet;
+    LS.flybyCloseup.play(M.events[k], { again, onDone: () => { showEvent(k); playing = true; } });
+  }
 
   function eventTitle(e) {
     return e.kind === 'launch' ? `Launch from ${e.planet}` : e.kind === 'flyby' ? `${e.planet} gravity assist` : `Arrival at ${e.planet}`;
@@ -379,8 +398,10 @@
     }
     const box = $('p-event');
     box.style.setProperty('--c', EVENT_CSS[e.kind]);
+    const replay = LS.flybyCloseup.available(e) ? '<button class="fx-open">▶ Watch this flyby up close</button>' : '';
     box.innerHTML = `<div class="k">${LS.fmtDate(LS.jdToDate(e.jd))} · event ${k + 1} of ${M.events.length}</div>
-      <div class="t">${eventTitle(e)}</div><p>${text}</p>`;
+      <div class="t">${eventTitle(e)}</div><p>${text}</p>${replay}`;
+    if (replay) box.querySelector('.fx-open').onclick = () => closeup(k);
     box.hidden = false;
     // Replay the entrance animation.
     box.style.animation = 'none'; void box.offsetWidth; box.style.animation = '';
