@@ -244,10 +244,14 @@
   function buildTimeline() {
     const tl = $('p-timeline');
     tl.querySelectorAll('.p-mark').forEach((m) => m.remove());
+    let lastX = -100, below = false;
     M.events.forEach((e, k) => {
       const x = (M.eventT[k] - tMin()) / (tMax() - tMin()) * 100;
       const m = document.createElement('div');
-      m.className = 'p-mark';
+      // Labels of events close together alternate above / below the line.
+      below = x - lastX < 7 ? !below : false;
+      lastX = x;
+      m.className = 'p-mark' + (below ? ' below' : '');
       m.style.left = `${x}%`;
       m.style.setProperty('--c', EVENT_CSS[e.kind]);
       m.title = `${eventTitle(e)} · ${LS.fmtDate(LS.jdToDate(e.jd))}`;

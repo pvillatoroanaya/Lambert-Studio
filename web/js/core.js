@@ -508,7 +508,7 @@ class Scene3D {
       </div>
       <select class="cam-follow" title="Keep the camera with a moving object"><option value="">Follow: nothing</option></select>
       <button class="cam-btn cam-reset" title="Back to the starting view">Reset</button>
-      <button class="cam-btn cam-shot" title="Save a picture of this view (PNG)">📷</button>
+      <button class="cam-btn cam-shot" title="Save a picture of this view (PNG)" aria-label="Save image"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8h3l2-2.5h6L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.4"/></svg></button>
       <button class="cam-btn cam-help" title="Camera controls">?</button>
       <span class="cam-speed" hidden></span>
       <div class="cam-helpbox" hidden>
