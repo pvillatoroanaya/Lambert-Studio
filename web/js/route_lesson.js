@@ -173,8 +173,25 @@
     direction; seen from the Sun, it has gained (or lost) speed. The planet pays for it, slowing down by an amount far too
     tiny to ever measure.</div>`;
 
+  /* Which rocket each option needs (launchers.js), in words. */
+  function rocket(best, direct, mass) {
+    if (!LS.launch || !LS.launch.data || best.seq[0] !== 'Earth') return '';
+    const say = (c3) => {
+      const s = c3 <= 100 ? LS.launch.smallest(c3, mass) : null;
+      return s ? `at least a <b>${s}</b>` : '<b>more than any single rocket in the dataset can give</b>';
+    };
+    const mine = say(best.c3);
+    let t = `<p>For a ${f(mass, 0)} kg spacecraft, the launch (C₃ = ${f(best.c3, 0)} km²/s²) needs ${mine}.`;
+    if (direct && direct !== best) {
+      const theirs = say(direct.c3);
+      if (theirs !== mine) t += ` Flying direct (C₃ = ${f(direct.c3, 0)}) would need ${theirs}.`;
+    }
+    return t + ` The bigger the launch energy, the less mass a rocket can send: launch energy is expensive.</p>`;
+  }
+
   LS.routeLesson = function (best, ctx) {
     const { cheapest, fastest, direct, data } = ctx;
+    const mass = ctx.mass || 2000;
     const key = best.seq.join('-');
     const missions = MISSIONS[key];
     const hasFlyby = best.seq.length > 2;
@@ -186,6 +203,7 @@
       <h5>How the trip works</h5>${steps(best, data)}
       ${hasFlyby ? ANALOGY : ''}
       <h5>${hasFlyby ? 'Why not fly straight there?' : 'Why not use a flyby?'}</h5>${whyNotDirect(best, direct, best.seq[0])}
+      ${rocket(best, direct, mass) ? `<h5>Which rocket?</h5>${rocket(best, direct, mass)}` : ''}
       <h5>Why these dates?</h5>${whyDates(best, data)}
       ${tradeoff(best, cheapest, fastest) ? `<h5>The trade-off</h5>${tradeoff(best, cheapest, fastest)}` : ''}
       ${missions ? `<h5>Real missions that did this</h5><p>${missions}</p>` : ''}

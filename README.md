@@ -91,8 +91,8 @@ The single file is **generated** from the modules by
 - **Planets and transfers.** Sidereal periods match accepted values, and
   an Earth→Mars 2026 transfer lands in the realistic range for C₃ and Δv.
 
-With the Lambert Studio packages installed, 29 more checks cover the
-extensions (103 in total; without them, those checks are listed as skipped):
+With the Lambert Studio packages installed, 51 more checks cover the
+extensions (125 in total; without them, those checks are listed as skipped):
 
 - the JPL DE440s ephemeris, compared with the approximate elements;
 - Hohmann LEO→GEO Δv = 3.893 km/s;
@@ -108,7 +108,19 @@ extensions (103 in total; without them, those checks are listed as skipped):
 - routes that return to the same planet (multi-revolution legs), within
   each mission's real launch period. Cassini's Earth flyby comes within a
   day of the real date (18 Aug 1999) and its launch within 2 days. Galileo's
-  Venus and first Earth flybys come within 11 and 20 days.
+  Venus and first Earth flybys come within 11 and 20 days;
+- launch vehicles: NASA planning curves, and Juno's real launch mass
+  (3,625 kg at C₃ = 31.1 on an Atlas V 551) sits 0–15 % above its curve;
+- moon tours: every flyby within the moon's bending limit and above its
+  minimum altitude, v∞ conserved through resonant flybys, resonant periods
+  exact, and a JUICE-style tour saving more than 3 km/s;
+- ion-engine spirals: the integrated Δv agrees with Edelbaum's analytic
+  |v₁ − v₂| within 3 %, and the propellant obeys the rocket equation;
+- Juno's deep-space-burn route, re-optimised in its real launch period:
+  Earth flyby within a month of the real date (9 Oct 2013), burn and launch
+  energy of the right size;
+- orbit-determination uncertainty: no measurement error gives exactly the
+  nominal orbit, and doubling the angle error doubles the spread.
 
 ---
 
@@ -125,13 +137,24 @@ Double-click **`run_studio.bat`** (or run `python lambert_studio.py`).
 | Satellites | Real satellites from CelesTrak at their current positions; search, details and orbits |
 | Flybys | Upcoming asteroid close approaches (NASA/JPL CNEOS), with precise geocentric paths from JPL Horizons |
 | Solar | Planets from the JPL DE440s ephemeris, and potentially hazardous asteroids from the JPL Small-Body Database |
-| Mission | **Direct transfer:** porkchop plot and a plain-language explanation of the route (Type I/II, how far ahead to aim, comparison with Hohmann, how often launch windows return). **Gravity-assist route:** routes with up to 4 flybys, optimised with patched conics (`flyby.py`), where a leg may loop around the Sun (multi-revolution Lambert), so the same planet can be used twice. Shown in 3D with a speed-gain chart and a step-by-step story. Examples: Voyager, Mariner 10, Galileo (VEEGA), Cassini (VVEJGA) and the Voyager 2 Grand Tour. **Suggest routes for me:** give only start, destination and goal; it compares the route families used by real missions over the next years, recommends launch windows and trip times, and explains why the recommended route is best |
+| Learn | Ten short lessons (orbits, Kepler's laws, Hohmann transfers, the rocket equation, launch windows, Lambert's problem, gravity assists, capture and moon tours, ion engines, measurement uncertainty), each with an interactive diagram, a quiz with explanations and a *Try it in the app* button; a **flyby sandbox** (aim past a planet and watch the velocity triangle); and ten **challenges** checked automatically while you use the other tabs |
+| Mission | **Direct transfer:** porkchop plot and a plain-language explanation of the route (Type I/II, how far ahead to aim, comparison with Hohmann, how often launch windows return). **Gravity-assist route:** routes with up to 4 flybys, optimised with patched conics (`flyby.py`), where a leg may loop around the Sun (multi-revolution Lambert), so the same planet can be used twice. Shown in 3D with a speed-gain chart and a step-by-step story. Examples: Voyager, Mariner 10, Galileo (VEEGA), Cassini (VVEJGA) and the Voyager 2 Grand Tour. **Suggest routes for me:** give only start, destination and goal; it compares the route families used by real missions over the next years, recommends launch windows and trip times, and explains why the recommended route is best, in plain language with real missions that flew the same way. **Which rocket?** For every launch, the capacity of each real rocket (NASA planning curves) and the smallest one that can do it. **Juno's trick:** a route with a burn in deep space followed by an Earth flyby (`dsm.py`) |
+| Arrival | Capture at a giant planet, a burn that raises the closest approach, then a **moon tour**: resonant flybys of Callisto, Ganymede, Europa, Titan… found by a beam search (`moontour.py`), shown in 3D and on a **Tisserand graph**. Examples: JUICE (orbit Ganymede), a Galileo-style tour, a Europa orbiter, a Cassini-style Titan tour, a Titan orbiter |
+| Ion | Low-thrust spirals integrated with thrust and mass loss (`lowthrust.py`), compared with a chemical Hohmann transfer and checked against Edelbaum's formula. Examples: Dawn, BepiColombo, an all-electric satellite raised to GEO |
+
+**How certain is this orbit?** (Orbit tab) re-solves the orbit 3,000 times
+with random measurement errors (`uncertainty.py`), draws the cloud of
+possible orbits, shows which measurement matters most, and how fast the
+prediction drifts along the orbit.
 
 **Mission playback:** every route or transfer can be played full-screen
 (▶ Play mission): a cinematic camera follows the spacecraft and swings to
 each planet as it is reached, time slows down around each event, cards
 explain each flyby, and a telemetry panel shows date, distance from the
-Sun, speed and Δv used, with a clickable timeline.
+Sun, speed and Δv used, with a clickable timeline. At each gravity assist the playback stops for a
+**flyby close-up**: the real hyperbola around the planet, timed with the
+hyperbolic Kepler equation, then the same flyby seen from the Sun, with the
+velocity triangle.
 
 **Recommended values:** the input panels suggest real-world values with a
 short sourced note: NASA Deep Space Network / ESA / KSC ground stations
@@ -172,6 +195,8 @@ Three.js (3D) and Plotly (charts).
 - Satellites: CelesTrak GP data, with SGP4 used for validation
 - Asteroids: NASA/JPL SBDB, CNEOS close-approach data and Horizons
 - Atmosphere model: Vallado, *Fundamentals of Astrodynamics and Applications*, Table 8-4
+- Launch-vehicle performance: A. P. Girija, *Launch Vehicle High-Energy Performance Dataset* (arXiv:2310.05994), from NASA Launch Services Program data
+- Moon masses, sizes and orbits: NASA/JPL Solar System Dynamics (planetary satellite parameters)
 - Reference method: H. D. Curtis, *Orbital Mechanics for Engineering Students*
 
 ---
@@ -193,7 +218,7 @@ Each 3D view also has a 📷 button that saves the current view as a PNG.
 | Part | Files |
 |---|---|
 | Core astrodynamics | `constants.py`, `time_utils.py`, `coord_utils.py`, `lambert_solver.py`, `orbital_elements.py`, `frames.py` |
-| Planets & missions | `planets.py`, `ephemeris.py`, `interplanetary.py`, `flyby.py`, `maneuvers.py`, `perturb.py` |
+| Planets & missions | `planets.py`, `ephemeris.py`, `interplanetary.py`, `flyby.py`, `dsm.py`, `moontour.py`, `lowthrust.py`, `launchers.py`, `maneuvers.py`, `perturb.py`, `uncertainty.py` |
 | Live data | `satellites.py`, `asteroids.py`, `netcache.py` |
 | Application | `studio_server.py` (JSON API), `lambert_studio.py` (window), `web/` (Three.js + Plotly interface) |
 | Course deliverable | `app.py`, `dashboard.py`, `viz.py`, `report.py`, `build_single_file.py` → `lambert_problem_solver.py` |

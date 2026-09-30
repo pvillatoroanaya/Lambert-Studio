@@ -21,13 +21,15 @@
 
   R.init = async function () {
     const data = await LS.api('/api/route_presets');
-    presets = data.presets;
+    // Deep-space-burn examples (Juno) are listed with the others but use
+    // their own optimiser (dsm.py).
+    presets = data.presets.concat((data.dsm_presets || []).map((p) => ({ ...p, dsm: true, seq: ['Earth', p.target] })));
     const opts = (none) => (none ? '<option value="">— none —</option>' : '') +
       data.planets.map((p) => `<option>${p}</option>`).join('');
     $('r-p0').innerHTML = opts(false); $('r-p3').innerHTML = opts(false);
     FLYBYS.forEach((id) => { $(id).innerHTML = opts(true); });
     $('r-presets').innerHTML = presets.map((p, k) => `
-      <button class="preset" data-k="${k}"><b>${LS.esc(p.label)}</b><span>${p.from.slice(0, 4)} launch · ${p.capture ? 'enter orbit' : 'fly past'}</span></button>`).join('');
+      <button class="preset" data-k="${k}"><b>${LS.esc(p.label)}</b><span>${p.from.slice(0, 4)} launch · ${p.dsm ? 'deep-space burn + Earth flyby' : p.capture ? 'enter orbit' : 'fly past'}</span></button>`).join('');
     $('r-presets').querySelectorAll('.preset').forEach((b) => b.addEventListener('click', () => {
       $('r-presets').querySelectorAll('.preset').forEach((x) => x.classList.toggle('on', x === b));
       applyPreset(presets[+b.dataset.k]);
@@ -75,6 +77,7 @@
         () => LS.api('/api/route_suggest', { dep, arr, capture: $('r-goal').value === 'orbit',
           from_year: $('r-year').value, years: $('r-years').value }));
       clearInterval(timer);
+      try { await LS.launch.load(); } catch (e) { /* optional */ }
       renderSuggestions(data, dep, arr);
       box.hidden = false;
       box.scrollIntoView({ behavior: 'smooth', block: 'start' });   // results sit below the form
@@ -119,7 +122,7 @@
     [cheapest, fastest, direct].forEach(add);
     [...new Set(byScore.map(family))].forEach((fam) => add(byScore.find((o) => family(o) === fam)));
     byScore.forEach(add);
-    const why = LS.routeLesson(balanced, { cheapest, fastest, direct, data });
+    const why = LS.routeLesson(balanced, { cheapest, fastest, direct, data, mass: mass() });
     const cards = order.map((o, k) => {
       const badges = [];
       if (o === balanced) badges.push('<span class="best">Recommended · best balance</span>');
@@ -134,6 +137,7 @@
           (best ${fmtDate(o.iso[0])})${loops}</div>
         <div class="sg-stats"><div>Total Δv<b>${f(o.total_dv, 2)} km/s</b></div>
           <div>Trip time<b>${f(years(o.tof_days), 1)} years</b></div><div>Launch C₃<b>${f(o.c3, 0)} km²/s²</b></div></div>
+        ${LS.launch.data ? `<div class="sg-rocket">Rocket for ${f(mass(), 0)} kg: <b>${LS.launch.verdict(o.c3, mass())}</b></div>` : ''}
       </button>`;
     }).join('');
     const whyNot = data.tried.map((t) => {
@@ -249,15 +253,25 @@
   async function find(play = true) {
     err();
     const seq = [$('r-p0').value, ...FLYBYS.map((id) => $(id).value), $('r-p3').value].filter(Boolean);
-    const req = { seq, from: $('r-from').value, to: $('r-to').value, max_years: $('r-max').value,
-      capture: $('r-goal').value === 'orbit' };
+    const dsmRoute = R.preset && R.preset.dsm;
+    const req = dsmRoute
+      ? { target: R.preset.target, from: $('r-from').value, to: $('r-to').value, max_years: $('r-max').value,
+          capture: $('r-goal').value === 'orbit' }
+      : { seq, from: $('r-from').value, to: $('r-to').value, max_years: $('r-max').value,
+          capture: $('r-goal').value === 'orbit' };
     R.busy = true;
     const wait = seq.length >= 5 ? 'up to ~30 s' : 'a few seconds';
     try {
-      const r = await LS.busy(`Searching ${seq.join(' → ')} routes (${wait})…`, $('btn-route'),
-        () => LS.api('/api/route', req));
+      const r = dsmRoute
+        ? await LS.busy('Optimising launch, deep-space burn and Earth flyby (~10 s)…', $('btn-route'),
+          () => LS.api('/api/route_dsm', req))
+        : await LS.busy(`Searching ${seq.join(' → ')} routes (${wait})…`, $('btn-route'),
+          () => LS.api('/api/route', req));
       route = r;
       route.presetInfo = R.preset;
+      try { await LS.launch.load(); } catch (e) { /* rocket table is optional */ }
+      LS.lastRoute = r;
+      LS.emit('route', r);
       ensureScene();
       draw();
       chart();
@@ -297,15 +311,17 @@
       const idx = k === 0 ? 0 : route.legs[k - 1].end - 1;
       const p = LS.sv3(route.track_au[idx]);
       const ring = new THREE.Mesh(new THREE.RingGeometry(rmax * 0.012, rmax * 0.016, 48),
-        new THREE.MeshBasicMaterial({ color: e.kind === 'flyby' ? 0x6ee7a8 : 0xffffff, side: THREE.DoubleSide,
+        new THREE.MeshBasicMaterial({ color: e.kind === 'flyby' ? 0x6ee7a8 : e.kind === 'dsm' ? 0xff6b6b : 0xffffff, side: THREE.DoubleSide,
           transparent: true, opacity: 0.9, depthWrite: false }));
       ring.position.copy(p);
       ring.lookAt(p.clone().add(new THREE.Vector3(0, 1, 0)));
       routeGroup.add(ring);
       const txt = e.kind === 'launch' ? `Launch · ${e.iso.slice(0, 10)}`
         : e.kind === 'flyby' ? `${e.planet} flyby · ${e.gain >= 0 ? '+' : ''}${LS.fmt(e.gain, 1)} km/s`
-          : `Arrival · ${e.iso.slice(0, 10)}`;
+          : e.kind === 'dsm' ? `Deep-space burn · ${LS.fmt(e.dv, 2)} km/s`
+            : `Arrival · ${e.iso.slice(0, 10)}`;
       const lb = LS.label(txt, e.kind === 'flyby' ? 'accent' : 'warm');
+      if (e.kind === 'dsm') lb.element.firstChild.style.color = '#ff8a80';
       lb.position.copy(p);
       routeGroup.add(lb);
     });
@@ -361,9 +377,13 @@
                  ...(d ? [['Direct route Δv', `${f(d.total_dv, 3)} km/s`]] : [])])}
         ${route.feasible ? '' : '<p class="hint" style="margin-top:6px">⚠ Some flyby would need more bending than the planet can give.</p>'}
         <button class="play-mission" id="route-play">▶ Play mission</button>
-      </div>`;
+      </div>
+      ${LS.launch.data ? `<div class="box"><h4>Which rocket? <small>for ${f(mass(), 0)} kg</small></h4>
+        ${LS.launch.table(route.events[0].c3, mass())}</div>` : ''}`;
     $('route-play').onclick = R.play;
   }
+
+  const mass = () => Math.max(+$('r-mass').value || 2000, 1);
 
   R.play = () => { if (route) LS.player.open(LS.player.fromRoute(route, route.presetInfo)); };
 
@@ -384,8 +404,9 @@
       traces.unshift({ x: route.direct.t_days.map((t) => LS.fmtDate(LS.jdToDate(d0 + t))), y: route.direct.speed,
         name: 'Direct route', type: 'scatter', mode: 'lines', line: { color: 'rgba(255,255,255,0.35)', width: 1.5 } });
     }
-    const ann = route.events.filter((e) => e.kind === 'flyby').map((e) => ({
-      x: e.iso.slice(0, 10), y: e.v_helio_after, text: `${e.planet} ${e.gain >= 0 ? '+' : ''}${LS.fmt(e.gain, 1)} km/s`,
+    const ann = route.events.filter((e) => e.kind === 'flyby' || e.kind === 'dsm').map((e) => ({
+      x: e.iso.slice(0, 10), y: e.v_helio_after,
+      text: e.kind === 'dsm' ? `burn ${LS.fmt(e.dv, 2)} km/s` : `${e.planet} ${e.gain >= 0 ? '+' : ''}${LS.fmt(e.gain, 1)} km/s`,
       showarrow: true, arrowhead: 0, arrowcolor: '#6ee7a8', ax: 0, ay: -26, font: { color: '#6ee7a8', size: 11 },
       bgcolor: 'rgba(12,19,34,0.85)',
     }));
@@ -424,6 +445,10 @@
     } else if (L.revs) {
       text = `On the way, the spacecraft loops ${loops} fully around the Sun before meeting ${L.to} (${days}).
         For a looping trip, Lambert's problem has two solutions; the cheaper one was chosen.`;
+    } else if (L.to === 'deep-space burn') {
+      text = `The spacecraft coasts outward on a loop that reaches beyond Mars' orbit (${days}).`;
+    } else if (L.from === 'deep-space burn') {
+      text = `After the burn it falls back toward the Sun and meets Earth again (${days}).`;
     } else {
       text = `Cruise to ${L.to}: ${days}.`;
     }
@@ -433,9 +458,15 @@
   function story() {
     const f = LS.fmt, ev = route.events, d = (e) => e.iso.slice(0, 10);
     const items = ev.map((e, k) => {
-      const color = e.kind === 'flyby' ? '#6ee7a8' : e.kind === 'launch' ? '#5ac8fa' : '#ffb454';
+      const color = e.kind === 'flyby' ? '#6ee7a8' : e.kind === 'launch' ? '#5ac8fa' : e.kind === 'dsm' ? '#ff8a80' : '#ffb454';
       let text = '';
-      if (e.kind === 'launch') {
+      if (e.kind === 'dsm') {
+        text = `Far from any planet (${f(e.r_au, 2)} AU from the Sun, beyond Mars' orbit), the main engine fires for
+          <b>${f(e.dv, 2)} km/s</b>. The spacecraft is moving slowly out here, near the far end of its loop, so a modest burn
+          changes the shape of its orbit a lot: it re-aims the spacecraft to come back past Earth much faster than it left.
+          Earth's gravity then turns that speed toward the destination. This is a <b>ΔV-EGA</b> ("delta-V Earth gravity
+          assist"): a small engine burn plus a flyby replaces a much bigger rocket.`;
+      } else if (e.kind === 'launch') {
         text = `The rocket leaves a 200 km parking orbit with <b>${f(e.dv, 2)} km/s</b> of Δv (launch energy
           C₃ = ${f(e.c3, 1)} km²/s²). Adding Earth's own ${f(e.v_planet, 1)} km/s around the Sun, the spacecraft starts
           at <b>${f(e.v_helio_after, 1)} km/s</b> relative to the Sun.`;
@@ -466,7 +497,8 @@
       }
       const again = e.kind === 'flyby' && k >= 2 && ev[k - 1].planet === e.planet;
       const title = e.kind === 'launch' ? `Launch from ${e.planet}`
-        : e.kind === 'flyby' ? `${e.planet} gravity assist${again ? ' (second pass)' : ''}` : `Arrival at ${e.planet}`;
+        : e.kind === 'flyby' ? `${e.planet} gravity assist${again ? ' (second pass)' : ''}`
+          : e.kind === 'dsm' ? 'Deep-space burn' : `Arrival at ${e.planet}`;
       const event = `<div class="ev" style="--c:${color}"><div class="when">${d(e)}</div><div class="what">${title}</div><p>${text}</p></div>`;
       return event + (k < route.legs.length ? cruise(route.legs[k], k) : '');
     }).join('');

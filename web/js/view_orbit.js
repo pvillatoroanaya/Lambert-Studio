@@ -104,6 +104,7 @@
       $('btn-report').disabled = false;
       $('empty-orbit').hidden = true;
       LS.emit('solved', sol);
+      if (view.onSolved) view.onSolved(sol);
     } catch (e) {
       $('orbit-err').textContent = e.message;
       $('orbit-err').hidden = false;
@@ -246,6 +247,11 @@
   };
 
   view.render = () => s3 && s3.render();
+  // For orbit_uncertainty.js: the scene, the scale and the current inputs.
+  view.scene = () => s3;
+  view.scale = S;
+  view.request = request;
+  view.mode = mode;
 
   view.clockLabel = function (t) {
     if (!view.sol) return '—';

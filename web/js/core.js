@@ -332,20 +332,27 @@ LS.applySettings = function () {
 class Scene3D {
   constructor(container, { fov = 45, near = 0.01, far = 1e7 } = {}) {
     this.container = container;
-    // 'high-performance' asks for the dedicated GPU on laptops that also
-    // have an integrated one.
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true,
-      powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    // If the GPU driver resets, the scene can be rebuilt by reloading.
-    this.renderer.domElement.addEventListener('webglcontextlost', (e) => {
-      e.preventDefault();
-      if (LS.report) LS.report('WebGL context lost');
-      LS.status('Graphics were reset, reloading…', 'busy');
-      setTimeout(() => location.reload(), 1500);
-    });
-    this.renderer.setClearColor(0x03050b, 1);
-    container.appendChild(this.renderer.domElement);
+    // ONE WebGL renderer (and canvas) is shared by every 3D view: browsers
+    // allow only ~16 WebGL contexts per page and drop the oldest beyond
+    // that. Only one view is on screen at a time, so whichever scene is
+    // being drawn moves the shared canvas into its own container.
+    if (!Scene3D.shared) {
+      // 'high-performance' asks for the dedicated GPU on laptops that also
+      // have an integrated one.
+      const r = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true,
+        powerPreference: 'high-performance' });
+      r.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      // If the GPU driver resets, the scene can be rebuilt by reloading.
+      r.domElement.addEventListener('webglcontextlost', (e) => {
+        e.preventDefault();
+        if (LS.report) LS.report('WebGL context lost');
+        LS.status('Graphics were reset, reloading…', 'busy');
+        setTimeout(() => location.reload(), 1500);
+      });
+      r.setClearColor(0x03050b, 1);
+      Scene3D.shared = r;
+    }
+    this.renderer = Scene3D.shared;
 
     this.labels = new THREE.CSS2DRenderer();
     Object.assign(this.labels.domElement.style, { position: 'absolute', top: '0', left: '0', pointerEvents: 'none' });
@@ -388,10 +395,21 @@ class Scene3D {
     this.sky.visible = LS.settings.milkyway;
     this.stars.visible = !LS.settings.milkyway;
   }
+  /* Is this the scene currently drawn on the shared canvas? */
+  get active() { return Scene3D.current === this; }
+  _attach() {
+    const el = this.renderer.domElement;
+    if (Scene3D.current === this && el.parentNode === this.container) return;
+    Scene3D.current = this;
+    this.container.insertBefore(el, this.container.firstChild);
+    // Only the scene on screen reacts to the mouse.
+    LS.scenes.forEach((s) => { s.controls.enabled = s === this && s.mode === 'orbit'; });
+    this.resize();
+  }
   resize() {
     const w = this.container.clientWidth, h = this.container.clientHeight;
     if (!w || !h) return;
-    this.renderer.setSize(w, h);
+    if (this.active) this.renderer.setSize(w, h);
     this.labels.setSize(w, h);
     if (this.composer) {
       this.composer.setPixelRatio(this.renderer.getPixelRatio());
@@ -401,6 +419,7 @@ class Scene3D {
     this.camera.updateProjectionMatrix();
   }
   render() {
+    this._attach();
     const now = performance.now();
     const dt = Math.min((now - this._lastT) / 1000, 0.1);
     this._lastT = now;
@@ -463,7 +482,7 @@ class Scene3D {
     const typing = (e) => e.target.matches && e.target.matches('input, select, textarea');
     const FLY_KEYS = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
     window.addEventListener('keydown', (e) => {
-      if (!visible() || typing(e)) return;
+      if (!visible() || !this.active || typing(e)) return;
       if (e.code === 'Escape' && this.mode === 'fly') { this.setMode('orbit'); return; }
       if (e.code === 'KeyF' && !e.ctrlKey) { this.setMode(this.mode === 'fly' ? 'orbit' : 'fly'); return; }
       if (this.mode === 'fly' && FLY_KEYS.includes(e.code)) { this.keys.add(e.code); e.preventDefault(); }
@@ -474,12 +493,12 @@ class Scene3D {
     // Fly mode: drag to look around.
     let drag = null;
     el.addEventListener('pointerdown', (e) => {
-      if (this.mode !== 'fly' || e.button !== 0) return;
+      if (!this.active || this.mode !== 'fly' || e.button !== 0) return;
       drag = { x: e.clientX, y: e.clientY };
       el.setPointerCapture(e.pointerId);
     });
     el.addEventListener('pointermove', (e) => {
-      if (!drag) return;
+      if (!drag || !this.active) return;
       const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
       drag = { x: e.clientX, y: e.clientY };
       this._euler.y -= dx * 0.0035;
@@ -489,13 +508,13 @@ class Scene3D {
     el.addEventListener('pointerup', () => { drag = null; });
     // Fly mode: the scroll wheel sets the speed.
     el.addEventListener('wheel', (e) => {
-      if (this.mode !== 'fly') return;
+      if (!this.active || this.mode !== 'fly') return;
       e.preventDefault();
       this.flySpeed *= e.deltaY > 0 ? 1 / 1.25 : 1.25;
       this._showSpeed();
     }, { passive: false });
     // Double-click: fly to whatever is under the pointer.
-    el.addEventListener('dblclick', (e) => this._flyToPointer(e));
+    el.addEventListener('dblclick', (e) => { if (this.active) this._flyToPointer(e); });
   }
 
   _buildCameraBar() {

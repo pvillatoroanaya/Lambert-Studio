@@ -84,6 +84,7 @@
     }
     try {
       plan = await LS.busy('Planning the maneuver…', $('btn-mv'), () => LS.api('/api/maneuver', req));
+      LS.emit('maneuver', { plan, req });
       draw();
     } catch (e) { showErr(e.message); }
   }

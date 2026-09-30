@@ -15,7 +15,7 @@
 (function () {
   const $ = (id) => document.getElementById(id);
   const LEG_CSS = ['#5ac8fa', '#ffb454', '#c792ea', '#6ee7a8', '#ff8a80'];
-  const EVENT_CSS = { launch: '#5ac8fa', flyby: '#6ee7a8', arrival: '#ffb454' };
+  const EVENT_CSS = { launch: '#5ac8fa', flyby: '#6ee7a8', arrival: '#ffb454', dsm: '#ff8a80' };
   const SIZE = { Mercury: 0.03, Venus: 0.045, Earth: 0.048, Mars: 0.036,
     Jupiter: 0.2, Saturn: 0.17, Uranus: 0.11, Neptune: 0.11 };
   const AU_KM = 1.495978707e8;
@@ -253,7 +253,7 @@
       m.style.left = `${x}%`;
       m.style.setProperty('--c', EVENT_CSS[e.kind]);
       m.title = `${eventTitle(e)} · ${LS.fmtDate(LS.jdToDate(e.jd))}`;
-      m.innerHTML = `<span>${e.kind === 'launch' ? 'Launch' : e.planet}</span>`;
+      m.innerHTML = `<span>${e.kind === 'launch' ? 'Launch' : e.kind === 'dsm' ? 'Burn' : e.planet}</span>`;
       m.addEventListener('click', () => {
         t = M.eventT[k] - Math.max(M.tof * 0.03, 8);    // arrive just before it
         shownEvent = k - 1;
@@ -295,7 +295,7 @@
     let want = 'craft';
     if (camMode === 'auto') {
       const k = nearEvent();
-      if (k >= 0) want = M.events[k].planet;
+      if (k >= 0 && bodies[M.events[k].planet]) want = M.events[k].planet;     // (a deep-space burn has no planet)
     }
     if (want === lastFocus) return;
     lastFocus = want;
@@ -376,7 +376,8 @@
   }
 
   function eventTitle(e) {
-    return e.kind === 'launch' ? `Launch from ${e.planet}` : e.kind === 'flyby' ? `${e.planet} gravity assist` : `Arrival at ${e.planet}`;
+    return e.kind === 'launch' ? `Launch from ${e.planet}` : e.kind === 'flyby' ? `${e.planet} gravity assist`
+      : e.kind === 'dsm' ? 'Deep-space burn' : `Arrival at ${e.planet}`;
   }
 
   function showEvent(k) {
@@ -385,6 +386,10 @@
     if (e.kind === 'launch') {
       text = `The rocket fires for <b>${f(e.dv, 2)} km/s</b> of Δv from a 200 km parking orbit
         (launch energy C₃ = ${f(e.c3, 1)} km²/s²) and leaves ${e.planet}'s gravity behind.`;
+    } else if (e.kind === 'dsm') {
+      text = `Far from any planet, ${f(e.r_au, 2)} AU from the Sun, the main engine fires for <b>${f(e.dv, 2)} km/s</b>.
+        Out here the spacecraft moves slowly, so a modest burn reshapes its orbit: it will come back past Earth much
+        faster than it left, and Earth's gravity will fling it onward.`;
     } else if (e.kind === 'flyby') {
       text = `Passing ${f(e.altitude_radii, 1)} ${e.planet} radii from its centre, gravity bends the path by
         <b>${f(e.turn_deg, 0)}°</b>. Because ${e.planet} is moving at ${f(e.v_planet, 1)} km/s around the Sun, the spacecraft
@@ -415,7 +420,7 @@
     const next = M.eventT.findIndex((te) => te > t);
     const legIdx = M.legs.findIndex((L) => idx >= L.start && idx < L.end);
     const spent = M.events.filter((e, k) => M.eventT[k] <= t)
-      .reduce((s, e) => s + (e.kind === 'launch' ? e.dv || 0 : e.kind === 'flyby' ? e.dv || 0 : e.capture_dv || 0), 0);
+      .reduce((s, e) => s + (e.kind === 'launch' || e.kind === 'flyby' || e.kind === 'dsm' ? e.dv || 0 : e.capture_dv || 0), 0);
     const escape = Math.sqrt(2 * 1.32712440018e11 / (r * AU_KM));
     $('p-tele').innerHTML = `
       <div class="box"><h4>Mission time</h4>

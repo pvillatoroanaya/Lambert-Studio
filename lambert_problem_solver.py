@@ -2783,6 +2783,96 @@ def test_satellite_model():
     check("GPS: Kepler+J2 model vs SGP4 (6 h)", worst, 0.0, 100.0, " km")
 
 
+def test_launchers():
+    """Launch-vehicle curves: the published NASA planning values, and a
+    real launch (Juno: 3,625 kg at C3 = 31.1 on an Atlas V 551) must be at
+    or a little above the curve (the curves carry margins)."""
+    import launchers
+    check("Atlas V 551 capacity at C3 = 0", launchers.capacity("Atlas V 551", 0.0), 6114.5, 1.0, " kg")
+    check("Falcon Heavy (exp.) capacity at C3 = 20", launchers.capacity("Falcon Heavy (expendable)", 20.0),
+          10159.8, 1.0, " kg")
+    ratio = 3625.0 / launchers.capacity("Atlas V 551", 31.1)
+    check_true("Juno launch mass within +0..15 % of the Atlas V 551 curve", 1.0 <= ratio <= 1.15,
+               f"real / curve = {ratio:.3f}")
+    check_true("Smallest rocket for 2,000 kg at C3 = 10 is the Atlas V 401",
+               launchers.smallest(10.0, 2000.0) == "Atlas V 401", launchers.smallest(10.0, 2000.0))
+    check_true("No extrapolation beyond the data (C3 = 157, New Horizons)",
+               launchers.capacity("Atlas V 551 + Star 48", 157.0) is None)
+
+
+def test_moon_tours():
+    """Moon tours: every flyby within the moon's bending limit and above its
+    minimum altitude, v-infinity conserved on resonant flybys, resonant
+    periods exact, and the tour much cheaper than inserting on first pass."""
+    import moontour as mt
+    t = mt.plan_preset("juice")
+    fbs = [e for e in t["events"] if e["kind"] == "flyby"]
+    check_true("JUICE-style tour: every flyby within the maximum bend",
+               all(e["turn_deg"] <= e["max_turn_deg"] + 1e-6 for e in fbs), f"{len(fbs)} flybys")
+    check_true("JUICE-style tour: every flyby above the minimum altitude",
+               all(e["altitude"] >= mt.MOONS[e["moon"]][4] - 1e-6 for e in fbs))
+    check_true("Tour saves more than 3 km/s vs inserting on the first pass",
+               t["direct"]["dv"] - t["insertion_dv"] > 3.0,
+               f"{t['direct']['dv']:.2f} -> {t['insertion_dv']:.2f} km/s")
+    # A resonant flyby keeps v-infinity: re-deriving it from the new orbit gives the same value.
+    worst = 0.0
+    for e in fbs:
+        if e["res"]:
+            m = mt.get_moon(e["moon"])
+            a = (e["rp"] + e["ra"]) / 2
+            ecc = (e["ra"] - e["rp"]) / (e["ra"] + e["rp"])
+            worst = max(worst, abs(mt.pump_from_orbit(m, a, ecc)[0] - e["vinf"]))
+            N, M = e["res"]
+            check("Resonant orbit period = N/M x moon period", e["period_days"], N / M * m.T / 86400, 1e-6, " d")
+            break
+    check("v-infinity conserved through a resonant flyby", worst, 0.0, 1e-6, " km/s")
+    c = mt.plan_preset("cassini")
+    check_true("Cassini-style tour reaches Titan's period (16 d) with flybys only", c["final_period_days"] <= 16.0,
+               f"{c['final_period_days']:.2f} d, {c['n_flybys']} flybys")
+
+
+def test_low_thrust():
+    """Low-thrust spirals: the integrated delta-v matches Edelbaum's
+    analytic |v1 - v2| for slow spirals, and the propellant obeys the
+    rocket equation."""
+    import lowthrust
+    for key in ("dawn", "geo"):
+        r = lowthrust.run_preset(key)
+        check(f"{key}: spiral delta-v vs Edelbaum", r["dv"], r["edelbaum_dv"], 0.03, "", relative=True)
+        dv_rocket = r["isp"] * 9.80665e-3 * math.log(r["mass"] / r["final_mass"])
+        check(f"{key}: rocket equation consistency", r["dv"], dv_rocket, 1e-9, " km/s")
+
+
+def test_deep_space_maneuver():
+    """Juno's dV-EGA, re-optimised in Juno's real launch period
+    (5-26 Aug 2011): Earth flyby within a month of the real 9 Oct 2013,
+    deep-space burn of the right size, launch energy close to Juno's."""
+    import dsm
+    pass
+    b = dsm.optimise_dsm((julian_date(2011, 8, 5, 0, 0, 0), julian_date(2011, 8, 26, 0, 0, 0)))
+    efb = julian_date(2013, 10, 9, 0, 0, 0)
+    check("Juno: Earth flyby date (days from 9 Oct 2013)", b["jds"][2] - efb, 0.0, 30.0, " d")
+    check("Juno: deep-space burn (real ~0.8 km/s total)", b["dsm_dv"], 0.75, 0.3, " km/s")
+    check("Juno: launch C3 (real 31.1 km^2/s^2)", b["vinf_launch"] ** 2, 31.1, 4.0, " km^2/s^2")
+    check_true("Juno: Earth flyby is physically possible", b["feasible"])
+
+
+def test_orbit_uncertainty():
+    """Monte Carlo orbit determination: without errors every sample is the
+    nominal orbit; the spread grows in proportion to the angle error."""
+    import uncertainty
+    st = [1344.143, 6068.601, 1429.311]
+    ob = [(julian_date(2023, 4, 2, 0, 30, 0.0), 132.67, 32.44, 16945.450),
+          (julian_date(2023, 4, 2, 3, 0, 0.0), 123.08, 50.06, 37350.340)]
+    r0 = uncertainty.monte_carlo(st, ob, 0.0, 0.0, 0.0, n=200)
+    check("No measurement error: a", r0["elements"]["a"]["mean"], 28184.1887, 0.01, " km")
+    check("No measurement error: spread of a", r0["elements"]["a"]["std"], 0.0, 1e-6, " km")
+    r1 = uncertainty.monte_carlo(st, ob, 0.01, 0.0, 0.0, n=4000)
+    r2 = uncertainty.monte_carlo(st, ob, 0.02, 0.0, 0.0, n=4000)
+    check("Doubling the angle error doubles the spread of a", r2["elements"]["a"]["std"] / r1["elements"]["a"]["std"],
+          2.0, 0.1)
+
+
 def run_validation():
     test_stumpff()
     test_curtis_elements()
@@ -2798,6 +2888,11 @@ def run_validation():
     _optional("Gravity assists", test_gravity_assists)
     _optional("Repeat flybys", test_repeat_flybys)
     _optional("Satellite model", test_satellite_model)
+    _optional("Launch vehicles", test_launchers)
+    _optional("Moon tours", test_moon_tours)
+    _optional("Low thrust", test_low_thrust)
+    _optional("Deep-space maneuver (Juno)", test_deep_space_maneuver)
+    _optional("Orbit uncertainty", test_orbit_uncertainty)
 
     width = 58
     print("=" * 78)

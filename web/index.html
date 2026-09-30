@@ -14,6 +14,9 @@
     <div class="brand" title="Lambert Studio">
       <svg viewBox="0 0 32 32" width="30" height="30"><circle cx="16" cy="16" r="5" fill="#5ac8fa"/><ellipse cx="16" cy="16" rx="14" ry="6.5" fill="none" stroke="#ffb454" stroke-width="1.6" transform="rotate(-28 16 16)"/><circle cx="27.6" cy="10" r="2" fill="#ffb454"/></svg>
     </div>
+    <button class="nav" data-view="learn" title="Learn orbital mechanics: lessons, sandbox and challenges">
+      <svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4z"/><path d="M7 9v5c0 1.5 2.5 3 5 3s5-1.5 5-3V9"/><path d="M21 7v6"/></svg>
+      <span>Learn</span></button>
     <button class="nav active" data-view="orbit" title="Orbit determination">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><ellipse cx="12" cy="12" rx="9.5" ry="4.5" transform="rotate(-25 12 12)"/></svg>
       <span>Orbit</span></button>
@@ -38,6 +41,12 @@
     <button class="nav" data-view="mission" title="Interplanetary mission design">
       <svg viewBox="0 0 24 24"><path d="M4 20c2-9 9-15 16-16"/><circle cx="4" cy="20" r="1.8" class="fill"/><circle cx="20" cy="4" r="1.8" class="fill"/></svg>
       <span>Mission</span></button>
+    <button class="nav" data-view="arrival" title="Arrival at a giant planet and moon tours">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><ellipse cx="12" cy="12" rx="10" ry="4.2" transform="rotate(-18 12 12)" stroke-dasharray="2.5 2"/><circle cx="20.5" cy="9.2" r="1.4" class="fill"/><circle cx="4" cy="15" r="1.1" class="fill"/></svg>
+      <span>Arrival</span></button>
+    <button class="nav" data-view="lowthrust" title="Ion engines: low-thrust spirals">
+      <svg viewBox="0 0 24 24"><path d="M12 12m-1.5 0a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0M12 12c0-3 4-4 5-1s-2 6-6 6-7-4-6-8 5-7 9-6"/><path d="M19 3l2 2" /></svg>
+      <span>Ion</span></button>
   </nav>
 
   <!-- ============ control panel ============ -->
@@ -107,6 +116,85 @@
         <button class="ghost" id="btn-report" disabled>Full report</button>
         <button class="ghost" id="btn-example">Reset example</button>
       </div>
+      <details class="advanced" id="mc-box">
+        <summary>How certain is this orbit?</summary>
+        <p class="hint">Every measurement has small errors. This re-solves the orbit thousands of times with random
+          errors of this size (1 standard deviation) and shows how much the answer changes.</p>
+        <div class="grid3">
+          <label>Angles ±°<input id="mc-angle" value="0.01"></label>
+          <label>Range ±km<input id="mc-range" value="0.015"></label>
+          <label>Clock ±s<input id="mc-time" value="0.001"></label>
+        </div>
+        <div class="chips" id="mc-presets"></div>
+        <button class="ghost" id="btn-mc">Run 3,000 simulations</button>
+        <div class="err" id="mc-err" hidden></div>
+      </details>
+    </section>
+
+    <!-- LEARN -->
+    <section class="ctl" data-for="learn" hidden>
+      <h2>Learn</h2>
+      <p class="lede">Ten short lessons, each with something to play with, and challenges to try in the rest of the app.</p>
+      <div class="learn-progress" id="learn-progress"></div>
+      <h3>Lessons</h3>
+      <div class="learn-lessons" id="learn-lessons"></div>
+      <h3>Challenges <small>checked automatically as you use the app</small></h3>
+      <div class="learn-challenges" id="learn-challenges"></div>
+      <button class="ghost small" id="learn-reset">Reset progress</button>
+    </section>
+
+    <!-- ARRIVAL -->
+    <section class="ctl" data-for="arrival" hidden>
+      <h2>Arrival &amp; moon tours</h2>
+      <p class="lede">Get captured by a giant planet, then let its moons reshape the orbit, flyby after flyby, for free.</p>
+      <h3>Real missions</h3>
+      <div class="list" id="ar-presets"></div>
+      <h3>Or design your own</h3>
+      <div class="grid2">
+        <label>Planet<select id="ar-planet"><option>Jupiter</option><option>Saturn</option><option>Uranus</option></select></label>
+        <label>Goal<select id="ar-goal"><option value="orbit">Orbit a moon</option><option value="period">Shrink the orbit</option></select></label>
+      </div>
+      <label id="ar-target-l">Moon to orbit<select id="ar-target"></select></label>
+      <label id="ar-gp-l" hidden>Reach an orbit period of (days)<input id="ar-gp" value="20"></label>
+      <h3>Moons used for flybys</h3>
+      <div class="chips" id="ar-moons"></div>
+      <h3>Arrival and capture</h3>
+      <div class="grid2">
+        <label>Arrival speed v∞ (km/s)<input id="ar-vinf" value="5.5"></label>
+        <label>Capture closest approach (radii)<input id="ar-rp" value="8"></label>
+        <label>First orbit period (days)<input id="ar-period" value="250"></label>
+        <label>Raise closest approach to (radii)<input id="ar-raise" value="13" placeholder="none"></label>
+      </div>
+      <label>Tour time limit (years)<input id="ar-years" value="4"></label>
+      <button class="ghost small" id="ar-from-route" hidden></button>
+      <button class="primary" id="btn-tour">Plan the tour</button>
+      <div class="err" id="ar-err" hidden></div>
+      <p class="hint">Planar model: moons on circular orbits, one flyby at a time, timing between different moons idealised.
+        Moons are drawn 8× larger than scale so you can see them.</p>
+    </section>
+
+    <!-- LOW THRUST -->
+    <section class="ctl" data-for="lowthrust" hidden>
+      <h2>Ion engines</h2>
+      <p class="lede">A push about as strong as the weight of two sheets of paper, kept up for months, can outdo a rocket.</p>
+      <h3>Examples</h3>
+      <div class="list" id="lt-presets"></div>
+      <h3>Or try your own</h3>
+      <div class="seg small" id="lt-body">
+        <button class="on" data-b="Sun">Around the Sun (AU)</button>
+        <button data-b="Earth">Around Earth (altitude, km)</button>
+      </div>
+      <div class="grid2">
+        <label id="lt-r1-l">Start orbit<input id="lt-r1" value="1"></label>
+        <label id="lt-r2-l">Target orbit<input id="lt-r2" value="1.524"></label>
+        <label>Spacecraft mass (kg)<input id="lt-mass" value="1500"></label>
+        <label>Thrust (mN)<input id="lt-thrust" value="180"></label>
+        <label>Specific impulse Isp (s)<input id="lt-isp" value="3000"></label>
+      </div>
+      <button class="primary" id="btn-lt">Fly the spiral</button>
+      <div class="err" id="lt-err" hidden></div>
+      <p class="hint">Only the central body's gravity; thrust always along the direction of motion; no departure or
+        arrival spiral around planets. Chemical comparison: a Hohmann transfer with Isp 320 s.</p>
     </section>
 
     <!-- GROUND -->
@@ -256,10 +344,11 @@
           <label>Goal<select id="r-goal"><option value="flyby">Fly past target</option><option value="orbit">Enter orbit</option></select></label>
           <label>Search from (year)<input id="r-year" type="number" min="1900" max="2130" step="1"></label>
           <label>Search length<select id="r-years"><option value="6">6 years</option><option value="12" selected>12 years</option><option value="18">18 years</option></select></label>
+          <label>Spacecraft mass (kg)<input id="r-mass" value="2000"></label>
         </div>
         <button class="primary" id="btn-suggest">✨ Suggest routes for me</button>
         <p class="hint">Compares the route families mission designers use for this trip (direct, Venus–Earth flybys,
-          Jupiter flybys…), finds their launch windows and trip times, and recommends one. Takes about 5–40 s.</p>
+          Jupiter flybys…), finds their launch windows and trip times, the rocket each one needs, and recommends one. Takes a few seconds.</p>
         <div id="r-suggest" hidden></div>
         <details class="advanced" id="r-advanced">
           <summary>Advanced: choose the flybys and dates yourself</summary>
@@ -332,6 +421,11 @@
     <div class="viewport" id="viewport">
       <div class="view" data-view="orbit"><div class="canvas" id="cv-orbit"></div>
         <div class="hud right" id="hud-orbit"></div>
+        <div class="mc-panel" id="mc-panel" hidden>
+          <button class="icon mc-close" id="mc-close" title="Close">✕</button>
+          <div class="mc-text" id="mc-text"></div>
+          <div class="mc-chart" id="ch-mc"></div>
+        </div>
         <div class="empty" id="empty-orbit"><div><b>No orbit yet</b><br>Press <em>Solve orbit</em> to compute and draw it.</div></div>
       </div>
       <div class="view" data-view="ground" hidden>
@@ -381,6 +475,26 @@
               <div class="chart story" id="route-story"></div>
             </div>
           </div>
+        </div>
+      </div>
+      <div class="view" data-view="learn" hidden><div class="learn-page" id="learn-page"></div></div>
+      <div class="view" data-view="arrival" hidden>
+        <div class="split">
+          <div class="top"><div class="canvas" id="cv-arrival"></div><div class="hud right wide" id="hud-arrival"></div>
+            <div class="legend" id="legend-arrival" style="bottom:12px"></div>
+            <div class="phase" id="ar-phase" hidden></div>
+            <div class="empty" id="empty-arrival"><div><b>Choose a tour</b><br>Start with JUICE: the first spacecraft that will orbit a moon of another planet.</div></div>
+          </div>
+          <div class="bottom"><div class="chart" id="ch-tisserand"></div><div class="chart story" id="arrival-story"></div></div>
+        </div>
+      </div>
+      <div class="view" data-view="lowthrust" hidden>
+        <div class="split">
+          <div class="top"><div class="canvas" id="cv-lowthrust"></div><div class="hud right wide" id="hud-lowthrust"></div>
+            <div class="phase" id="lt-phase" hidden></div>
+            <div class="empty" id="empty-lowthrust"><div><b>Choose an example</b><br>Start with Dawn, the ion-powered explorer of Vesta and Ceres.</div></div>
+          </div>
+          <div class="bottom"><div class="chart" id="ch-lt"></div><div class="chart story" id="lt-story"></div></div>
         </div>
       </div>
       <div class="tooltip" id="tooltip" hidden></div>
@@ -474,6 +588,7 @@
 <script src="vendor/plotly.min.js"></script>
 <script src="js/core.js"></script>
 <script src="js/view_orbit.js"></script>
+<script src="js/orbit_uncertainty.js"></script>
 <script src="js/view_ground.js"></script>
 <script src="js/view_maneuver.js"></script>
 <script src="js/view_perturb.js"></script>
@@ -482,9 +597,14 @@
 <script src="js/view_solar.js"></script>
 <script src="js/flyby_closeup.js"></script>
 <script src="js/player.js"></script>
+<script src="js/launchers.js"></script>
 <script src="js/route_lesson.js"></script>
 <script src="js/view_route.js"></script>
 <script src="js/view_mission.js"></script>
+<script src="js/view_arrival.js"></script>
+<script src="js/view_lowthrust.js"></script>
+<script src="js/learn_widgets.js"></script>
+<script src="js/view_learn.js"></script>
 <script src="js/suggest.js"></script>
 <script src="js/app.js"></script>
 </body>

@@ -80,6 +80,7 @@
       LS.transfer = t;
       LS.emit('transfer', t);
       renderHud(t);
+      LS.emit('transfer', t);
       markSelection();
       if (play === true) LS.player.open(LS.player.fromTransfer(t));
     } catch (e) { err(e.message); }
@@ -160,6 +161,7 @@
   /* ---------------- explanation of a direct route ---------------- */
 
   function renderHud(t) {
+    if (!LS.launch.data) LS.launch.load().then(() => renderHud(t)).catch(() => {});
     const f = LS.fmt, x = t.explain;
     const dep = t.departure, arr = t.arrival;
     const typeText = t.type === 'Type I'
@@ -191,7 +193,9 @@
           Planet positions: ${t.ephemeris}.</p>
         <button class="play-mission" id="m-play">▶ Play mission</button>
         <button class="ghost wide" id="m-3d" style="margin-top:8px">Show in the Solar tab</button>
-      </div>`;
+      </div>
+      ${LS.launch.data && dep === 'Earth' ? `<div class="box"><h4>Which rocket? <small>for 2,000 kg</small></h4>
+        ${LS.launch.table(t.c3, 2000)}</div>` : ''}`;
     $('m-play').onclick = () => LS.player.open(LS.player.fromTransfer(t));
     $('m-3d').onclick = () => LS.setView('solar');
   }

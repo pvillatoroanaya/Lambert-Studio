@@ -10,6 +10,7 @@
   LS.setView = async function (id) {
     const view = LS.views[id];
     if (active === view) return;
+    if (active && active.hide) active.hide();
     document.querySelectorAll('.nav').forEach((b) => b.classList.toggle('active', b.dataset.view === id));
     document.querySelectorAll('.view').forEach((v) => { v.hidden = v.dataset.view !== id; });
     document.querySelectorAll('.ctl').forEach((c) => { c.hidden = c.dataset.for !== id; });
@@ -171,6 +172,11 @@
   /* ---------------- start ---------------- */
 
   document.querySelectorAll('.nav').forEach((b) => b.addEventListener('click', () => LS.setView(b.dataset.view)));
+  // Links such as #arrival switch views while the app is open, too.
+  window.addEventListener('hashchange', () => {
+    const [wanted] = location.hash.slice(1).split('/');
+    if (wanted && LS.views[wanted]) LS.setView(wanted);
+  });
 
   (async function start() {
     // Every 3D view lights its scene from the Sun's real direction, which

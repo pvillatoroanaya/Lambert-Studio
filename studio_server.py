@@ -42,6 +42,11 @@ import ephemeris
 import maneuvers
 import perturb
 import flyby
+import launchers
+import moontour
+import lowthrust
+import dsm
+import uncertainty
 
 # Inside a packaged .exe (PyInstaller) the files live in sys._MEIPASS.
 import sys as _sys
@@ -359,7 +364,7 @@ def api_route_suggest(req):
 
 
 def api_route_presets(_req=None):
-    return {"presets": flyby.PRESETS, "planets": planets.PLANET_ORDER}
+    return {"presets": flyby.PRESETS, "dsm_presets": dsm.PRESETS, "planets": planets.PLANET_ORDER}
 
 
 def api_route(req):
@@ -460,7 +465,127 @@ def api_log(req):
     return {}
 
 
+# ----------------------------------------------------------------------
+# arrival tours, low thrust, deep-space maneuvers, launchers, uncertainty
+# ----------------------------------------------------------------------
+
+def api_launchers(_req=None):
+    return launchers.curves()
+
+
+def api_tour_presets(_req=None):
+    return {"presets": moontour.PRESETS,
+            "moons": {p: moontour.moons_of(p) for p in ("Jupiter", "Saturn", "Uranus", "Earth")},
+            "radius": {p: planets.PLANET_STYLE[p]["radius"] for p in ("Jupiter", "Saturn", "Uranus", "Earth")}}
+
+
+def api_tour(req):
+    if req.get("preset"):
+        keys = [p["key"] for p in moontour.PRESETS]
+        if req["preset"] not in keys:
+            raise ValueError(f"Unknown tour example '{req['preset']}'.")
+        return moontour.plan_preset(req["preset"])
+    planet = req.get("planet")
+    if planet not in ("Jupiter", "Saturn", "Uranus", "Earth"):
+        raise ValueError("Choose Jupiter, Saturn, Uranus or Earth.")
+    R = planets.PLANET_STYLE[planet]["radius"]
+    moons = [m for m in req.get("moons", []) if m]
+    goal = req.get("goal", "orbit")
+    if goal not in ("orbit", "period"):
+        raise ValueError("The goal must be 'orbit' or 'period'.")
+    target = req.get("target") if goal == "orbit" else None
+    if goal == "orbit" and not target:
+        raise ValueError("Choose the moon to orbit.")
+    vinf = _float_arg(req, "vinf", "Arrival speed v∞ (km/s)", 0.5, 20)
+    rp = _float_arg(req, "rp_radii", "Capture closest approach (planet radii)", 1.02, 200)
+    period = _float_arg(req, "period_days", "First orbit period (days)", 1, 2000)
+    raise_r = req.get("raise_radii")
+    raise_r = _float_arg(req, "raise_radii", "Raised closest approach (planet radii)", 1.02, 500) \
+        if raise_r not in (None, "", 0, "0") else None
+    years = _float_arg(req, "years", "Tour length limit (years)", 0.1, 10)
+    goal_p = _float_arg(req, "goal_period", "Target orbit period (days)", 0.5, 1000) if goal == "period" else None
+    ins_alt = _float_arg(req, "insertion_alt", "Final orbit altitude (km)", 10, 20000) \
+        if req.get("insertion_alt") not in (None, "") else 500.0
+    return moontour.plan_tour(planet, moons, target, vinf, rp * R, period, rp_raise=raise_r * R if raise_r else None,
+                              goal=goal, goal_period_days=goal_p, insertion_alt=ins_alt, max_years=years)
+
+
+def api_lowthrust_presets(_req=None):
+    return {"presets": lowthrust.PRESETS}
+
+
+def api_lowthrust(req):
+    if req.get("preset"):
+        if req["preset"] not in [p["key"] for p in lowthrust.PRESETS]:
+            raise ValueError(f"Unknown example '{req['preset']}'.")
+        return lowthrust.run_preset(req["preset"])
+    body = req.get("body", "Sun")
+    if body not in ("Sun", "Earth"):
+        raise ValueError("The central body must be the Sun or Earth.")
+    if body == "Sun":
+        r1 = _float_arg(req, "r1", "Start orbit radius (AU)", 0.2, 40) * AU
+        r2 = _float_arg(req, "r2", "Target orbit radius (AU)", 0.2, 40) * AU
+    else:
+        r1 = _float_arg(req, "r1", "Start orbit altitude (km)", 150, 400000) + R_EARTH
+        r2 = _float_arg(req, "r2", "Target orbit altitude (km)", 150, 400000) + R_EARTH
+    mass = _float_arg(req, "mass", "Spacecraft mass (kg)", 1, 100000)
+    thrust = _float_arg(req, "thrust_mN", "Thrust (mN)", 1, 100000)
+    isp = _float_arg(req, "isp", "Specific impulse Isp (s)", 100, 20000)
+    # Keep the integration reasonable (tens of thousands of laps at most).
+    acc = thrust / 1000.0 / mass
+    if body == "Earth" and acc < 1e-6:
+        raise ValueError("That thrust is too small for this mass (it would take decades); increase the thrust.")
+    return lowthrust.spiral(body, r1, r2, mass, thrust / 1000.0, isp)
+
+
+def api_route_dsm(req):
+    target = req.get("target", "Jupiter")
+    if target not in ("Mars", "Jupiter", "Saturn"):
+        raise ValueError("Deep-space-burn routes are available to Mars, Jupiter and Saturn.")
+    w0 = _jd_from_date(req.get("from"), "Launch window start")
+    w1 = _jd_from_date(req.get("to"), "Launch window end")
+    if w1 <= w0:
+        raise ValueError("The launch window must end after it starts.")
+    if w1 - w0 > 3 * 365.25:
+        raise ValueError("Keep the launch window under 3 years for this route type.")
+    max_years = _float_arg(req, "max_years", "Maximum trip time (years)", 1, 20) if req.get("max_years") else 8
+    out = dsm.plan_dsm((w0, w1), target, bool(req.get("capture", True)), max_years * 365.25)
+    for r in (out, out.get("direct")):
+        if r:
+            for e in r["events"]:
+                e["iso"] = jd_to_iso(e["jd"])
+    return out
+
+
+def api_uncertainty(req):
+    station = np.array([_num(v, f"Station {a}") for v, a in zip(req["station"], "XYZ")])
+    if np.linalg.norm(station) < 1.0:
+        raise ValueError("Station position cannot be the zero vector.")
+    obs = []
+    for k, key in enumerate(("obs1", "obs2"), 1):
+        o = req[key]
+        label = f"Observation {k}"
+        obs.append((_jd(o["date"], o["time"], label), _num(o["az"], f"{label} azimuth"),
+                    _num(o["el"], f"{label} elevation"), _num(o["rng"], f"{label} range")))
+    if obs[1][0] <= obs[0][0]:
+        raise ValueError("Observation 2 must be later than Observation 1.")
+    return uncertainty.monte_carlo(
+        station, obs,
+        sigma_angle_deg=_float_arg(req, "sigma_angle", "Angle error (deg)", 0, 5),
+        sigma_range_km=_float_arg(req, "sigma_range", "Range error (km)", 0, 100),
+        sigma_time_s=_float_arg(req, "sigma_time", "Timing error (s)", 0, 60),
+        n=int(_float_arg(req, "n", "Number of samples", 100, 20000)),
+        prograde=bool(req.get("prograde", True)))
+
+
 ROUTES = {
+    "/api/launchers": api_launchers,
+    "/api/tour": api_tour,
+    "/api/tour_presets": api_tour_presets,
+    "/api/lowthrust": api_lowthrust,
+    "/api/lowthrust_presets": api_lowthrust_presets,
+    "/api/route_dsm": api_route_dsm,
+    "/api/uncertainty": api_uncertainty,
     "/api/solve": api_solve,
     "/api/planets": api_planets,
     "/api/transfer": api_transfer,
