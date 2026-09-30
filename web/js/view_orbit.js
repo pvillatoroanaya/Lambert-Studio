@@ -18,7 +18,7 @@
   };
   LS.views.orbit = view;
 
-  let s3, earth, sun, orbitGroup, sat, satGlow, station, los, hudLive;
+  let s3, earth, sun, orbitGroup, sat, station, los, hudLive;
 
   view.init = function () {
     // Inputs first: solving must work even if 3D graphics are unavailable.
@@ -144,10 +144,7 @@
     addMark(pts[iP], 'perigee', w);
     if (sol.track.closed) addMark(pts[radii.indexOf(Math.max(...radii))], 'apogee', w);
 
-    sat = LS.dot(w * 3.5, 0xffffff);
-    satGlow = LS.glowSprite(0x5ac8fa, rmax * 0.06);
-    sat.add(satGlow);
-    const sl = LS.label('satellite', 'accent'); sat.add(sl);
+    sat = LS.spacecraft(Math.max(rmax * 0.012, 0.04), { label: 'satellite' });
     orbitGroup.add(sat);
 
     if (sol.station_ecef) {
@@ -221,6 +218,7 @@
       const a = tr.r[k], b = tr.r[k + 1];
       const p = [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u];
       sat.position.copy(LS.v3(p, S));
+      LS.aimCraft(sat, LS.v3(tr.r[Math.min(k + 2, n - 1)], S));
 
       let elev = null;
       if (station) {

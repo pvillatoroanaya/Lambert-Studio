@@ -119,8 +119,7 @@
       lb.position.copy(p.clone().add(dir.clone().multiplyScalar(len)));
       planGroup.add(lb);
     });
-    craft = LS.glowSprite(0xffffff, rmax * 0.07);
-    craft.add(LS.dot(w * 2.5, 0xffffff));
+    craft = LS.spacecraft(Math.max(rmax * 0.012, 0.05));
     planGroup.add(craft);
 
     const c = view.clock, T = plan.duration;
@@ -182,6 +181,8 @@
     const at = positionAt(view.clock.t);
     if (!at) return;
     craft.position.copy(LS.v3(at.p, S));
+    const ahead = positionAt(view.clock.t + 60);
+    if (ahead) LS.aimCraft(craft, LS.v3(ahead.p, S));
     phaseTimer -= dt;
     if (phaseTimer <= 0) {
       phaseTimer = 0.2;

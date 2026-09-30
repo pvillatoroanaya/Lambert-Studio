@@ -108,8 +108,7 @@
     kep.material.dashSize = rmax * 0.02; kep.material.gapSize = rmax * 0.015; kep.computeLineDistances();
     group.add(kep);
 
-    craft = LS.glowSprite(0xffffff, Math.max(rmax * 0.06, 0.12));
-    craft.add(LS.dot(0.02, 0xffffff));
+    craft = LS.spacecraft(Math.max(rmax * 0.012, 0.03));
     group.add(craft);
 
     const cl = view.clock;
@@ -194,6 +193,7 @@
     const k = Math.min(Math.floor(f), n - 2), u = f - k;
     const a = res.r[k], b = res.r[k + 1];
     craft.position.copy(LS.v3([a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u], S));
+    LS.aimCraft(craft, LS.v3(res.r[Math.min(k + 2, n - 1)], S));
   };
 
   view.render = () => s3.render();

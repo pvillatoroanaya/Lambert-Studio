@@ -177,8 +177,7 @@
       lb.position.copy(p);
       routeGroup.add(lb);
     });
-    craft = LS.glowSprite(0xffffff, rmax * 0.05);
-    craft.add(LS.label('spacecraft', 'dim'));
+    craft = LS.spacecraft(rmax * 0.012, { label: 'spacecraft' });
     routeGroup.add(craft);
 
     // All eight planets are always shown; the ones on the route are brighter.
@@ -382,6 +381,7 @@
       const u = Math.min(Math.max((R.clock.t - td[lo]) / ((td[hi] - td[lo]) || 1), 0), 1);
       const a = route.track_au[lo], b = route.track_au[hi];
       craft.position.copy(LS.sv3([a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u]));
+      LS.aimCraft(craft, LS.sv3(route.track_au[Math.min(hi + 1, n - 1)]));
     }
   };
   R.render = () => s3 && s3.render();

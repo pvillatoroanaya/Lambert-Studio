@@ -895,6 +895,66 @@ LS.glowSprite = function (color, size) {
   return s;
 };
 
+/* Thin ring marker, drawn once: keeps a small object findable at any
+   zoom without a glowing blob (normal blending, so the bloom pass does
+   not turn it into a bright ball). */
+LS.ringTexture = (function () {
+  let t = null;
+  return function () {
+    if (t) return t;
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const g = c.getContext('2d');
+    g.strokeStyle = '#ffffff'; g.lineWidth = 5;
+    g.beginPath(); g.arc(32, 32, 24, 0, Math.PI * 2); g.stroke();
+    g.fillStyle = '#ffffff';
+    g.beginPath(); g.arc(32, 32, 4, 0, Math.PI * 2); g.fill();
+    t = new THREE.CanvasTexture(c);
+    return t;
+  };
+})();
+
+LS.markerRing = function (color = 0x5ac8fa, screenSize = 0.026) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: LS.ringTexture(), color, sizeAttenuation: false,
+    transparent: true, opacity: 0.85, depthWrite: false, depthTest: false }));
+  s.scale.set(screenSize, screenSize, 1);
+  s.renderOrder = 20;
+  s.userData.noPick = true;
+  return s;
+};
+
+/* A small spacecraft: gold-foil bus, white high-gain dish, two solar
+   panels, plus a ring marker so it stays visible when zoomed out.
+   `size` is the length of the bus in scene units. Call
+   LS.aimCraft(craft, point) to point it along its direction of travel. */
+LS.spacecraft = function (size, { color = 0x5ac8fa, label = null } = {}) {
+  const craft = new THREE.Group();
+  const model = new THREE.Group();
+  const foil = new THREE.MeshStandardMaterial({ color: 0xc9a24a, metalness: 0.55, roughness: 0.45 });
+  const white = new THREE.MeshStandardMaterial({ color: 0xdfe6ee, metalness: 0.1, roughness: 0.6, side: THREE.DoubleSide });
+  const panel = new THREE.MeshStandardMaterial({ color: 0x1d3f7a, metalness: 0.3, roughness: 0.5, emissive: 0x06142b });
+  const bus = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 1), foil);
+  const dish = new THREE.Mesh(new THREE.SphereGeometry(0.55, 24, 12, 0, Math.PI * 2, 0, Math.PI / 3.2), white);
+  dish.rotation.x = -Math.PI / 2;            // opening faces backwards (towards Earth, roughly)
+  dish.position.z = -0.75;
+  const boom = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 2.9, 6), white);
+  boom.rotation.z = Math.PI / 2;
+  const wingGeo = new THREE.BoxGeometry(1.1, 0.03, 0.55);
+  const left = new THREE.Mesh(wingGeo, panel); left.position.x = -1.05;
+  const right = new THREE.Mesh(wingGeo, panel); right.position.x = 1.05;
+  model.add(bus, dish, boom, left, right);
+  model.scale.setScalar(size);
+  craft.add(model, LS.markerRing(color));
+  if (label) craft.add(LS.label(label, 'accent'));
+  craft.userData.model = model;
+  return craft;
+};
+
+LS.aimCraft = function (craft, point) {
+  if (!craft || !craft.userData.model || !point) return;
+  const p = craft.getWorldPosition(new THREE.Vector3());
+  if (p.distanceToSquared(point) > 1e-18) craft.userData.model.lookAt(point);
+};
+
 LS.label = function (text, cls = '') {
   // CSS2DRenderer owns the outer element's transform, so the styling
   // (including the upward offset) goes on an inner element.

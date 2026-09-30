@@ -46,7 +46,7 @@ from interplanetary import best_planet_state, planet_states_array, _hyperbolic_d
 # radiation / ring regions, like real missions do.
 MIN_FLYBY_ALT = {
     "Mercury": 200.0, "Venus": 300.0, "Earth": 300.0, "Mars": 200.0,
-    "Jupiter": 0.5 * 69911.0, "Saturn": 0.3 * 58232.0, "Uranus": 0.3 * 25362.0, "Neptune": 0.3 * 24622.0,
+    "Jupiter": 0.5 * 71492.0, "Saturn": 0.3 * 60268.0, "Uranus": 0.3 * 25559.0, "Neptune": 0.3 * 24764.0,
 }
 LEO_ALT = 200.0
 INF = float("inf")
@@ -489,8 +489,8 @@ PRESETS = [
      "history": "Mariner 10 launched 3 Nov 1973, passed Venus 5 Feb 1974 and Mercury 29 Mar 1974 — the first gravity assist ever flown."},
     {"key": "galileo", "label": "Galileo: Earth → Venus → Earth → Earth → Jupiter",
      "seq": ["Earth", "Venus", "Earth", "Earth", "Jupiter"],
-     "from": "1989-10-08", "to": "1989-11-26", "capture": True, "max_years": 6.5,
-     "history": "The launch window here is Galileo's real launch period (8 Oct - 26 Nov 1989). "
+     "from": "1989-10-12", "to": "1989-11-21", "capture": True, "max_years": 6.5,
+     "history": "The launch window here is Galileo's real launch period (12 Oct - 21 Nov 1989). "
                 "Galileo launched 18 Oct 1989 from the Space Shuttle, with too little launch energy to reach Jupiter "
                 "directly. It passed Venus 10 Feb 1990, Earth 8 Dec 1990, looped around the Sun, passed Earth again "
                 "8 Dec 1992, and reached Jupiter 7 Dec 1995. Its Earth-to-Earth loop took exactly 2 years, so Earth was "
@@ -499,7 +499,8 @@ PRESETS = [
     {"key": "cassini", "label": "Cassini: Earth → Venus → Venus → Earth → Jupiter → Saturn",
      "seq": ["Earth", "Venus", "Venus", "Earth", "Jupiter", "Saturn"],
      "from": "1997-10-06", "to": "1997-11-15", "capture": True, "max_years": 7.5,
-     "history": "The launch window here is Cassini's real launch period (6 Oct - 15 Nov 1997). "
+     "history": "The launch window here is Cassini's real launch period (6 Oct - 15 Nov 1997, "
+                "including the contingency days after 4 Nov). "
                 "Cassini launched 15 Oct 1997: Venus 26 Apr 1998, Venus 24 Jun 1999, Earth 18 Aug 1999, "
                 "Jupiter 30 Dec 2000, Saturn 1 Jul 2004. (The real mission also fired its engine once in deep space, "
                 "in Dec 1998; this model has no deep-space burns, so any such need shows up as a powered flyby.)"},

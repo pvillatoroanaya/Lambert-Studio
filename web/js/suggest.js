@@ -48,12 +48,12 @@
   const STATIONS = [
     { label: 'Assignment station', xyz: [1344.143, 6068.601, 1429.311],
       note: 'The station given in the assignment (about 13° N, 77.5° E, spherical Earth).' },
-    { label: 'Goldstone (NASA DSN)', geo: [35.4267, -116.8900, 1000],
-      note: 'NASA Deep Space Network, Goldstone, California — 35.43° N, 116.89° W, ≈1,000 m. One of the three DSN complexes that talk to every deep-space mission.' },
-    { label: 'Madrid (NASA DSN)', geo: [40.4313, -4.2480, 834],
-      note: 'NASA Deep Space Network, Robledo de Chavela, Spain — 40.43° N, 4.25° W, ≈830 m.' },
-    { label: 'Canberra (NASA DSN)', geo: [-35.4014, 148.9817, 692],
-      note: 'NASA Deep Space Network, Tidbinbilla, Australia — 35.40° S, 148.98° E, ≈690 m. With Goldstone and Madrid, 120° apart in longitude, so a spacecraft is always in view of one of them.' },
+    { label: 'Goldstone DSS-14 (NASA DSN)', xyz: [-2353.621251, -4641.341542, 3677.052370],
+      note: 'NASA Deep Space Network, 70 m antenna DSS-14, Goldstone, California — 35.426° N, 116.890° W, 1,002 m. Earth-fixed coordinates as published by JPL (accurate to about 15 cm).' },
+    { label: 'Madrid DSS-63 (NASA DSN)', xyz: [4849.092647, -360.180569, 4115.109113],
+      note: 'NASA Deep Space Network, 70 m antenna DSS-63, Robledo de Chavela, Spain — 40.431° N, 4.248° W, 866 m. Coordinates as published by JPL.' },
+    { label: 'Canberra DSS-43 (NASA DSN)', xyz: [-4460.894585, 2682.361554, -3674.748580],
+      note: 'NASA Deep Space Network, 70 m antenna DSS-43, Tidbinbilla, Australia — 35.402° S, 148.981° E, 690 m. Coordinates as published by JPL. The three DSN complexes are about 120° apart in longitude, so a deep-space probe is always in view of one of them.' },
     { label: 'Kennedy Space Center', geo: [28.5729, -80.6490, 3],
       note: 'NASA Kennedy Space Center, Florida — 28.57° N, 80.65° W. Launch site of Apollo, the Shuttle and Artemis.' },
     { label: 'Kourou (ESA)', geo: [5.2515, -52.8047, 14],
@@ -63,7 +63,7 @@
   ];
   chips(document.querySelector('#in-obs .grid3'), 'beforebegin', 'Real ground stations', STATIONS.map((s) => ({
     label: s.label,
-    note: s.note + (s.geo ? ' Converted to Earth-fixed coordinates with the WGS-84 ellipsoid.' : '') +
+    note: s.note + (s.geo ? ' Converted to Earth-fixed coordinates with the WGS-84 ellipsoid (approximate site position).' : '') +
       ' <b>Note:</b> the observations below were measured from the assignment station; with another station they describe a different satellite.',
     apply: () => {
       const p = s.xyz || ecef(...s.geo);
@@ -86,7 +86,7 @@
     ['Sun-sync. 700 km', 700, 'Typical altitude of Earth-observation satellites (e.g. Landsat 9 at 705 km).'],
     ['GPS 20,200 km', 20200, 'GPS satellites orbit at 20,200 km: two revolutions per day.'],
     ['GEO 35,786 km', 35786, 'Geostationary orbit: one revolution per sidereal day, so the satellite hangs over one spot on the equator.'],
-    ['Moon 384,400 km', 378000, 'Roughly the Moon\'s distance (this planner ignores the Moon\'s own gravity).'],
+    ['Moon distance', 378000, 'The Moon is on average 384,400 km from Earth\'s centre, which is about 378,000 km altitude (this planner ignores the Moon\'s own gravity).'],
   ];
   chips($('mv-alt1').closest('.grid2'), 'beforebegin', 'Start from', ORBITS.map(([l, v, n]) => ({
     label: l, note: n, apply: () => set({ 'mv-alt1': v }) })));
@@ -116,9 +116,9 @@
   /* ---------------- Perturb tab ---------------- */
 
   chips($('pt-dragbox'), 'beforebegin', 'Spacecraft (sets drag data)', [
-    ['ISS', [2.2, 1600, 420000], 'International Space Station: ≈420,000 kg; ≈1,600 m² average cross-section with its solar arrays.'],
-    ['Hubble', [2.2, 60, 11110], 'Hubble Space Telescope: 11,110 kg; ≈60 m² average cross-section (13.2 m long, 4.2 m wide, plus solar arrays).'],
-    ['Starlink v1.5', [2.2, 10, 306], 'SpaceX Starlink v1.5: ≈306 kg; ≈10 m² when flying edge-on to reduce drag.'],
+    ['ISS', [2.2, 1600, 420000], 'International Space Station: ≈420,000 kg; ≈1,600 m² average cross-section with its solar arrays (an estimate: the real value changes with array orientation).'],
+    ['Hubble', [2.2, 60, 11110], 'Hubble Space Telescope: 11,110 kg at launch; ≈60 m² average cross-section, an estimate (13.2 m long, 4.2 m wide, plus solar arrays).'],
+    ['Starlink v1.5', [2.2, 10, 306], 'SpaceX Starlink v1.5: ≈306 kg; the ≈10 m² cross-section is an estimate for flying edge-on to reduce drag.'],
     ['CubeSat 3U', [2.2, 0.03, 4], 'A 3U CubeSat: ≈4 kg, 10 × 10 × 30 cm, so ≈0.03 m² in its worst orientation.'],
   ].map(([l, [cd, a, m], n]) => ({
     label: l,

@@ -108,7 +108,7 @@ extensions (103 in total; without them, those checks are listed as skipped):
 - routes that return to the same planet (multi-revolution legs), within
   each mission's real launch period. Cassini's Earth flyby comes within a
   day of the real date (18 Aug 1999) and its launch within 2 days. Galileo's
-  Venus and first Earth flybys come within 12 and 22 days.
+  Venus and first Earth flybys come within 11 and 20 days.
 
 ---
 

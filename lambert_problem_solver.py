@@ -1135,21 +1135,23 @@ _ELEMENTS = {
 PLANET_ORDER = ["Mercury", "Venus", "Earth", "Mars",
                 "Jupiter", "Saturn", "Uranus", "Neptune"]
 
-# Display properties: colour, and mean radius [km] (for labelling only --
-# planets are never drawn to true scale against orbital distances).
+# Display colour, and EQUATORIAL radius [km] (JPL Solar System Dynamics,
+# "Planetary Physical Parameters"; 1-bar level for the giants). Used for
+# parking / capture orbit altitudes and flyby distances; planets are
+# never drawn to true scale against orbital distances.
 PLANET_STYLE = {
-    "Mercury": {"color": "#9c8e82", "radius": 2439.7},
+    "Mercury": {"color": "#9c8e82", "radius": 2440.53},
     "Venus":   {"color": "#e3b76b", "radius": 6051.8},
-    "Earth":   {"color": "#4a90d9", "radius": 6378.1},
-    "Mars":    {"color": "#d1603d", "radius": 3389.5},
-    "Jupiter": {"color": "#d8a86d", "radius": 69911.0},
-    "Saturn":  {"color": "#e0c88a", "radius": 58232.0},
-    "Uranus":  {"color": "#8fd3df", "radius": 25362.0},
-    "Neptune": {"color": "#4f6fd4", "radius": 24622.0},
+    "Earth":   {"color": "#4a90d9", "radius": 6378.1366},
+    "Mars":    {"color": "#d1603d", "radius": 3396.19},
+    "Jupiter": {"color": "#d8a86d", "radius": 71492.0},
+    "Saturn":  {"color": "#e0c88a", "radius": 60268.0},
+    "Uranus":  {"color": "#8fd3df", "radius": 25559.0},
+    "Neptune": {"color": "#4f6fd4", "radius": 24764.0},
 }
 
-# Gravitational parameter of each planet [km^3/s^2], used for departure
-# and capture manoeuvre estimates.
+# Gravitational parameter of each planet [km^3/s^2] (JPL; checked against
+# JPL's masses x G), used for departure, capture and flyby calculations.
 PLANET_MU = {
     "Mercury": 2.2032e4,
     "Venus": 3.24859e5,
@@ -2588,9 +2590,9 @@ def test_ephemeris():
 
 
 def test_maneuvers():
-    """Hohmann LEO (300 km) -> GEO: the textbook total is 3.893 km/s
-    (Curtis, Example 6.1 uses the same method); a pure plane change
-    must equal 2 v sin(di/2)."""
+    """Hohmann LEO (300 km) -> GEO: the standard total is 3.893 km/s
+    (2.426 + 1.467 km/s, from the vis-viva equation as in Curtis, Ch. 6);
+    a pure plane change must equal 2 v sin(di/2)."""
     import maneuvers
     h = maneuvers.hohmann(300, 35786)
     check("Hohmann LEO->GEO total delta-v", h["total_dv"], 3.893, 2e-3, " km/s")
@@ -2696,7 +2698,7 @@ def test_repeat_flybys():
                c["total_dv"] < c["direct"]["total_dv"] - 5.0,
                f"{c['total_dv']:.2f} vs {c['direct']['total_dv']:.2f} km/s")
     g = flyby.plan_route(["Earth", "Venus", "Earth", "Earth", "Jupiter"],
-                         (jd(1989, 10, 8), jd(1989, 11, 26)), capture=True, max_days=6.5 * 365.25)
+                         (jd(1989, 10, 12), jd(1989, 11, 21)), capture=True, max_days=6.5 * 365.25)
     check("Galileo: Venus flyby (real: 10 Feb 1990)", g["jds"][1], jd(1990, 2, 10), 30.0, " JD")
     check("Galileo: first Earth flyby (real: 8 Dec 1990)", g["jds"][2], jd(1990, 12, 8), 40.0, " JD")
     check_true("Galileo: Earth-Earth leg loops around the Sun",

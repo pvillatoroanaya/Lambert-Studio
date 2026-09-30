@@ -212,8 +212,7 @@
     const dl = LS.label(`${t.departure} · depart`, 'dim'); dl.position.copy(pts[0]); transferGroup.add(dl);
     const a = LS.dot(0.018, 0xff6b6b); a.position.copy(pts[pts.length - 1]); transferGroup.add(a);
     const al = LS.label(`${t.arrival} · arrive`, 'dim'); al.position.copy(pts[pts.length - 1]); transferGroup.add(al);
-    craft = LS.glowSprite(0xffffff, 0.12);
-    craft.add(LS.label('spacecraft', 'accent'));
+    craft = LS.spacecraft(0.016, { label: 'spacecraft' });
     transferGroup.add(craft);
 
     if (!redraw) {
@@ -262,6 +261,7 @@
         const x = f * (n - 1), k = Math.min(Math.floor(x), n - 2), u = x - k;
         const a = t.track_au[k], b = t.track_au[k + 1];
         craft.position.copy(LS.sv3([a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u]));
+        LS.aimCraft(craft, LS.sv3(t.track_au[Math.min(k + 2, n - 1)]));
       }
     }
 

@@ -47,7 +47,8 @@
     moon.add(moonLabel);
     s3.scene.add(moon);
 
-    selMarker = LS.glowSprite(0xffffff, 0.35);
+    selMarker = new THREE.Group();
+    selMarker.add(LS.markerRing(0xffffff, 0.034));
     selMarker.visible = false;
     selLabel = LS.label('', 'accent');
     selMarker.add(selLabel);

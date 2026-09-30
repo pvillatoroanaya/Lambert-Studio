@@ -375,9 +375,9 @@ def test_ephemeris():
 
 
 def test_maneuvers():
-    """Hohmann LEO (300 km) -> GEO: the textbook total is 3.893 km/s
-    (Curtis, Example 6.1 uses the same method); a pure plane change
-    must equal 2 v sin(di/2)."""
+    """Hohmann LEO (300 km) -> GEO: the standard total is 3.893 km/s
+    (2.426 + 1.467 km/s, from the vis-viva equation as in Curtis, Ch. 6);
+    a pure plane change must equal 2 v sin(di/2)."""
     import maneuvers
     h = maneuvers.hohmann(300, 35786)
     check("Hohmann LEO->GEO total delta-v", h["total_dv"], 3.893, 2e-3, " km/s")
@@ -483,7 +483,7 @@ def test_repeat_flybys():
                c["total_dv"] < c["direct"]["total_dv"] - 5.0,
                f"{c['total_dv']:.2f} vs {c['direct']['total_dv']:.2f} km/s")
     g = flyby.plan_route(["Earth", "Venus", "Earth", "Earth", "Jupiter"],
-                         (jd(1989, 10, 8), jd(1989, 11, 26)), capture=True, max_days=6.5 * 365.25)
+                         (jd(1989, 10, 12), jd(1989, 11, 21)), capture=True, max_days=6.5 * 365.25)
     check("Galileo: Venus flyby (real: 10 Feb 1990)", g["jds"][1], jd(1990, 2, 10), 30.0, " JD")
     check("Galileo: first Earth flyby (real: 8 Dec 1990)", g["jds"][2], jd(1990, 12, 8), 40.0, " JD")
     check_true("Galileo: Earth-Earth leg loops around the Sun",

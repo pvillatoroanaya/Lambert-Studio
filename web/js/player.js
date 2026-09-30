@@ -228,10 +228,7 @@
       group.add(ring);
     });
 
-    craft = new THREE.Group();
-    const dot = LS.dot(rmax * 0.006, 0xffffff);
-    craft.add(dot, LS.glowSprite(0xbfe9ff, rmax * 0.06));
-    craft.add(LS.label('spacecraft', 'accent'));
+    craft = LS.spacecraft(rmax * 0.012, { label: 'spacecraft' });
     group.add(craft);
 
     const used = new Set(M.seq);
@@ -335,6 +332,7 @@
     const a = M.track_au[lo], b = M.track_au[hi];
     const pos = [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u];
     craft.position.copy(LS.sv3(pos));
+    LS.aimCraft(craft, LS.sv3(M.track_au[Math.min(hi + 1, n - 1)]));
     trail.geometry.setDrawRange(0, t <= 0 ? 0 : lo + 1);
     const speed = M.speed[lo] + (M.speed[hi] - M.speed[lo]) * u;
 

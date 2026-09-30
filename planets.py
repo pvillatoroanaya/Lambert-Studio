@@ -59,21 +59,23 @@ _ELEMENTS = {
 PLANET_ORDER = ["Mercury", "Venus", "Earth", "Mars",
                 "Jupiter", "Saturn", "Uranus", "Neptune"]
 
-# Display properties: colour, and mean radius [km] (for labelling only --
-# planets are never drawn to true scale against orbital distances).
+# Display colour, and EQUATORIAL radius [km] (JPL Solar System Dynamics,
+# "Planetary Physical Parameters"; 1-bar level for the giants). Used for
+# parking / capture orbit altitudes and flyby distances; planets are
+# never drawn to true scale against orbital distances.
 PLANET_STYLE = {
-    "Mercury": {"color": "#9c8e82", "radius": 2439.7},
+    "Mercury": {"color": "#9c8e82", "radius": 2440.53},
     "Venus":   {"color": "#e3b76b", "radius": 6051.8},
-    "Earth":   {"color": "#4a90d9", "radius": 6378.1},
-    "Mars":    {"color": "#d1603d", "radius": 3389.5},
-    "Jupiter": {"color": "#d8a86d", "radius": 69911.0},
-    "Saturn":  {"color": "#e0c88a", "radius": 58232.0},
-    "Uranus":  {"color": "#8fd3df", "radius": 25362.0},
-    "Neptune": {"color": "#4f6fd4", "radius": 24622.0},
+    "Earth":   {"color": "#4a90d9", "radius": 6378.1366},
+    "Mars":    {"color": "#d1603d", "radius": 3396.19},
+    "Jupiter": {"color": "#d8a86d", "radius": 71492.0},
+    "Saturn":  {"color": "#e0c88a", "radius": 60268.0},
+    "Uranus":  {"color": "#8fd3df", "radius": 25559.0},
+    "Neptune": {"color": "#4f6fd4", "radius": 24764.0},
 }
 
-# Gravitational parameter of each planet [km^3/s^2], used for departure
-# and capture manoeuvre estimates.
+# Gravitational parameter of each planet [km^3/s^2] (JPL; checked against
+# JPL's masses x G), used for departure, capture and flyby calculations.
 PLANET_MU = {
     "Mercury": 2.2032e4,
     "Venus": 3.24859e5,
