@@ -28,7 +28,16 @@
       fill(presets[+b.dataset.k]);
       run({ preset: presets[+b.dataset.k].key });
     }));
-    document.querySelectorAll('#lt-body button').forEach((b) => b.addEventListener('click', () => setBody(b.dataset.b)));
+    document.querySelectorAll('#lt-body button').forEach((b) => b.addEventListener('click', () => {
+      // Switching between AU and km: start from sensible values in the new
+      // unit instead of reading "1 AU" as "1 km".
+      const was = document.querySelector('#lt-body .on').dataset.b;
+      setBody(b.dataset.b);
+      if (b.dataset.b !== was) {
+        const [r1, r2] = b.dataset.b === 'Sun' ? [1, 1.524] : [500, 35786];
+        $('lt-r1').value = r1; $('lt-r2').value = r2;
+      }
+    }));
     $('btn-lt').addEventListener('click', () => { mark(-1); run(request()); });
     s3 = new LS.Scene3D($('cv-lowthrust'), { near: 1e-4, far: 1e5 });
     s3.scene.add(new THREE.AmbientLight(0x3a4466, 0.4));

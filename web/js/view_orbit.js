@@ -115,10 +115,15 @@
 
   function draw(sol) {
     if (orbitGroup) {
-      orbitGroup.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.element) o.element.remove(); });
+      // Sprites share one geometry across the whole scene, so they are not disposed.
+      orbitGroup.traverse((o) => { if (o.geometry && !o.isSprite) o.geometry.dispose(); if (o.element) o.element.remove(); });
       s3.scene.remove(orbitGroup);
     }
-    if (station) { earth.spin.remove(station); station.traverse((o) => o.element && o.element.remove()); station = null; }
+    if (station) {
+      earth.spin.remove(station);
+      station.traverse((o) => { if (o.geometry && !o.isSprite) o.geometry.dispose(); if (o.element) o.element.remove(); });
+      station = null;
+    }
     orbitGroup = new THREE.Group();
     s3.scene.add(orbitGroup);
 

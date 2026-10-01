@@ -670,8 +670,8 @@ button.play-mission:hover { background: #fff; filter: none; }
 .p-event, .fx, .fx-steps p, .ch-toast { animation: none; }
 
 /* 3D labels: step aside when they would overlap a label or a panel */
-.lbl { border-radius: 2px; background: rgba(12,13,16,.72); transition: opacity .15s; }
-.lbl.hid { opacity: 0; }
+.lbl { border-radius: 2px; background: rgba(12,13,16,.72); transition: none; }
+.lbl.hid { visibility: hidden; }
 .phase { left: 12px; top: 54px; transform: none; padding: 6px 12px; max-width: calc(100% - 300px);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 

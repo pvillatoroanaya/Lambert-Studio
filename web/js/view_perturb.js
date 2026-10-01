@@ -92,8 +92,18 @@
       req.r = LS.solution.r1; req.v = LS.solution.v1;
       if (LS.solution.mode === 'observations') req.jd0 = LS.solution.jd0;   // the orbit's own date
     }
+    // Long runs: say roughly how long, so a busy minute does not look frozen.
+    // Cost grows with the number of laps (measured: ~38 laps/s simple model,
+    // ~22 laps/s full model on this laptop).
+    let eta = '';
+    if (source === 'elements') {
+      const a = LS.R_EARTH + (+req.alt_p + +req.alt_a) / 2;
+      const laps = (+req.days * 86400) / (2 * Math.PI * Math.sqrt(a ** 3 / 398600.4418));
+      const secs = laps / (model ? 22 : 38);
+      if (isFinite(secs) && secs > 15) eta = secs < 90 ? ` (about ${Math.round(secs / 5) * 5} s)` : ` (about ${Math.round(secs / 60)} min)`;
+    }
     try {
-      res = await LS.busy(model ? 'Integrating with the full force model…' : 'Integrating the equations of motion…',
+      res = await LS.busy((model ? 'Integrating with the full force model' : 'Integrating the equations of motion') + eta + '…',
         $('btn-pt'), () => LS.api('/api/perturb', req));
       startJd = res.jd0 || LS.nowJd();
       LS.emit('perturb-result', res);
