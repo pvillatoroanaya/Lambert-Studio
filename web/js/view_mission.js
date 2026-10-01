@@ -61,7 +61,7 @@
   view.update = (dt) => { if (mode === 'route') LS.route.update(dt); };
   view.render = () => { if (mode === 'route') LS.route.render(); };
   view.clockLabel = (t) => LS.route.clockLabel(t);
-  view.nowLabel = 'Launch';
+  view.nowLabel = 'Back to launch';
   view.onNow = () => LS.route.onNow();
 
   function err(msg) {
@@ -95,7 +95,7 @@
     };
     const count = req.n * req.n;
     try {
-      pork = await LS.busy(`Solving ${count.toLocaleString()} Lambert problems…`, $('btn-pork'),
+      pork = await LS.busy(`Solving ${count.toLocaleString('en-US')} Lambert problems…`, $('btn-pork'),
         () => LS.api('/api/porkchop', req));
       pork.req = req;
       drawPorkchop();
@@ -115,9 +115,9 @@
     const traces = [{
       type: 'contour', x: dep, y: arr, z: Zc, zmin, zmax, ncontours: 22,
       colorscale: [[0, '#0b3a5c'], [0.15, '#1f77b4'], [0.35, '#35b0ab'], [0.6, '#b8d86b'], [0.85, '#f6c85f'], [1, '#2a1f3d']],
-      contours: { coloring: 'heatmap', showlines: true, showlabels: true, labelfont: { size: 10, color: '#e7edf8' } },
+      contours: { coloring: 'heatmap', showlines: true, showlabels: true, labelfont: { size: 10, color: '#e9ecf3' } },
       line: { color: 'rgba(7,11,22,0.45)', width: 0.6 },
-      colorbar: { title: { text: 'C₃  km²/s²', side: 'right' }, thickness: 14, outlinewidth: 0, tickfont: { color: '#8b9bbd' } },
+      colorbar: { title: { text: 'C₃  km²/s²', side: 'right' }, thickness: 14, outlinewidth: 0, tickfont: { color: '#8d95a8' } },
       hovertemplate: 'depart %{x}<br>arrive %{y}<br>C₃ %{z:.1f} km²/s²<extra></extra>',
     }, {
       type: 'contour', x: dep, y: arr, z: tof, showscale: false, hoverinfo: 'skip',
@@ -131,12 +131,12 @@
         marker: { symbol: 'star', size: 16, color: '#ffffff', line: { color: '#070b16', width: 1 } }, hoverinfo: 'skip' });
     }
     traces.push({ type: 'scatter', mode: 'markers', x: [], y: [], hoverinfo: 'skip',
-      marker: { symbol: 'circle-open', size: 16, color: '#ff6b6b', line: { width: 3 } } });
+      marker: { symbol: 'circle-open', size: 16, color: '#e56f6f', line: { width: 3 } } });
 
     Plotly.react('ch-pork', traces, LS.plotLayout({
-      title: { text: `${p.req.dep} → ${p.req.arr}  ·  ${p.count.toLocaleString()} Lambert solutions`, x: 0.02, font: { size: 14 } },
-      xaxis: { title: 'Departure date', gridcolor: 'rgba(148,170,210,0.1)', color: '#8b9bbd' },
-      yaxis: { title: 'Arrival date', gridcolor: 'rgba(148,170,210,0.1)', color: '#8b9bbd' },
+      title: { text: `${p.req.dep} → ${p.req.arr}  ·  ${p.count.toLocaleString('en-US')} Lambert solutions`, x: 0.02, font: { size: 14 } },
+      xaxis: { title: 'Departure date', gridcolor: 'rgba(255,255,255,0.05)', color: '#8d95a8' },
+      yaxis: { title: 'Arrival date', gridcolor: 'rgba(255,255,255,0.05)', color: '#8d95a8' },
       showlegend: false, margin: { l: 70, r: 20, t: 48, b: 56 },
     }), LS.plotConfig);
     markSelection();
@@ -195,7 +195,19 @@
         <button class="ghost wide" id="m-3d" style="margin-top:8px">Show in the Solar tab</button>
       </div>
       ${LS.launch.data && dep === 'Earth' ? `<div class="box"><h4>Which rocket? <small>for 2,000 kg</small></h4>
-        ${LS.launch.table(t.c3, 2000)}</div>` : ''}`;
+        ${LS.launch.table(t.c3, 2000)}</div>` : ''}
+      <div class="box"><button class="ghost wide" id="m-nbody">Check in full solar-system gravity</button>
+        <div id="m-nbody-box"></div></div>`;
+    $('m-nbody').onclick = async () => {
+      try {
+        const v = await LS.nbody.run({ seq: [t.departure, t.arrival], jds: [t.jd_departure, t.jd_arrival], capture: true },
+          $('m-nbody'));
+        $('m-nbody-box').innerHTML = LS.nbody.html(v).replace('<div class="box nbody">', '<div class="nbody" style="margin-top:8px">');
+        LS.emit('nbody', v);
+      } catch (e) {
+        $('m-nbody-box').innerHTML = `<p class="hint">⚠ ${LS.esc(e.message)}</p>`;
+      }
+    };
     $('m-play').onclick = () => LS.player.open(LS.player.fromTransfer(t));
     $('m-3d').onclick = () => LS.setView('solar');
   }
@@ -212,7 +224,7 @@
       paths: [
         { pts: LS.planetOrbit(d, t.jd_departure, 180), color: cd, width: 1, opacity: 0.45 },
         { pts: LS.planetOrbit(a, t.jd_departure, 180), color: ca, width: 1, opacity: 0.45 },
-        { pts: t.track_au, color: '#5ac8fa', width: 2.4 },
+        { pts: t.track_au, color: '#5eb3e6', width: 2.4 },
         { pts: [[0, 0], aLaunch], color: ca, width: 1, dash: '3 3', opacity: 0.7 },
         { pts: [[0, 0], dLaunch], color: cd, width: 1, dash: '3 3', opacity: 0.7 },
       ],
@@ -243,7 +255,7 @@ LS.topViewSvg = function ({ paths = [], bodies = [], size = 300 }) {
         text-anchor="${right ? 'start' : 'end'}" font-family="Segoe UI, sans-serif">${LS.esc(b.label)}</text>` : ''}`;
   }).join('');
   return `<svg class="topview" viewBox="0 0 ${size} ${size}" role="img" aria-label="Top view of the route">
-    <defs><radialGradient id="sunG"><stop offset="0" stop-color="#fff3c4"/><stop offset="0.5" stop-color="#ffb454"/>
-      <stop offset="1" stop-color="#ffb454" stop-opacity="0"/></radialGradient></defs>
+    <defs><radialGradient id="sunG"><stop offset="0" stop-color="#fff3c4"/><stop offset="0.5" stop-color="#eea55a"/>
+      <stop offset="1" stop-color="#eea55a" stop-opacity="0"/></radialGradient></defs>
     ${lines}<circle cx="${c}" cy="${c}" r="9" fill="url(#sunG)"/><circle cx="${c}" cy="${c}" r="3.5" fill="#fff1c1"/>${dots}</svg>`;
 };

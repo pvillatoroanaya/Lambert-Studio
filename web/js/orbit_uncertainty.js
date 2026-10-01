@@ -65,7 +65,7 @@
     cloud = new THREE.Group();
     const S = view.scale;
     res.orbits.forEach((pts) => {
-      cloud.add(LS.line(pts.map((p) => LS.v3(p, S)), 0xff8a80, 0.18));
+      cloud.add(LS.line(pts.map((p) => LS.v3(p, S)), 0xea7f7f, 0.18));
     });
     s3.scene.add(cloud);
   }
@@ -83,7 +83,7 @@
     const maxS = Math.max(...ranked.map((r) => r[1].a_std));
     $('mc-text').innerHTML = `
       <h4>How certain is this orbit?</h4>
-      <p>With these measurement errors, the ${res.n.toLocaleString()} re-solved orbits (red, in 3D) agree on the size of the
+      <p>With these measurement errors, the ${res.n.toLocaleString('en-US')} re-solved orbits (red, in 3D) agree on the size of the
         orbit to within <b>±${f(E.a.std, 1)} km</b> and on its tilt to within <b>±${f(E.i.std, 3)}°</b>. The height of the
         lowest point varies by <b>±${f(E.perigee_alt.std, 1)} km</b>.</p>
       <p><b>What matters most:</b> ${names[main]}. Each error source on its own:</p>
@@ -94,17 +94,16 @@
     $('mc-panel').hidden = false;
     Plotly.react('ch-mc', [
       { x: po.map((p) => p.hours / 24), y: po.map((p) => p.along_std), name: 'Along the orbit (ahead/behind)',
-        type: 'scatter', mode: 'lines+markers', line: { color: '#ff8a80', width: 2.5 } },
+        type: 'scatter', mode: 'lines+markers', line: { color: '#ea7f7f', width: 2.5 } },
       { x: res.growth.map((g) => g.hours / 24), y: res.growth.map((g) => g.radial), name: 'Up/down (radial)',
-        type: 'scatter', mode: 'lines', line: { color: '#5ac8fa', width: 1.5, dash: 'dot' } },
+        type: 'scatter', mode: 'lines', line: { color: '#5eb3e6', width: 1.5, dash: 'dot' } },
       { x: res.growth.map((g) => g.hours / 24), y: res.growth.map((g) => g.cross), name: 'Sideways',
-        type: 'scatter', mode: 'lines', line: { color: '#6ee7a8', width: 1.5, dash: 'dot' } },
+        type: 'scatter', mode: 'lines', line: { color: '#7fcf9f', width: 1.5, dash: 'dot' } },
     ], LS.plotLayout({
       title: { text: 'Position uncertainty of the prediction (km, 1σ)', x: 0.02, font: { size: 12.5 } },
-      margin: { l: 50, r: 12, t: 58, b: 38 },
-      legend: { orientation: 'h', y: 1.13, x: 0, font: { size: 10.5 } },
-      xaxis: { title: { text: 'days after the first observation', font: { size: 11 } }, gridcolor: 'rgba(148,170,210,0.12)', color: '#8b9bbd' },
-      yaxis: { gridcolor: 'rgba(148,170,210,0.12)', color: '#8b9bbd', rangemode: 'tozero' },
+      margin: { l: 50, r: 12, t: 64, b: 38 },
+      xaxis: { title: { text: 'days after the first observation', font: { size: 11 } }, gridcolor: 'rgba(255,255,255,0.06)', color: '#8d95a8' },
+      yaxis: { gridcolor: 'rgba(255,255,255,0.06)', color: '#8d95a8', rangemode: 'tozero' },
     }), LS.plotConfig);
   }
 

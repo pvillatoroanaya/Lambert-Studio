@@ -126,16 +126,16 @@
     const rmax = Math.max(...pts.map((p) => p.length()));
     const w = Math.max(rmax * 0.0022, 0.012);
 
-    orbitGroup.add(LS.tube(pts, w, 0x5ac8fa, sol.track.closed, 0.9));
-    orbitGroup.add(LS.tube(sol.arc.map((p) => LS.v3(p, S)), w * 2.2, 0xffb454));
+    orbitGroup.add(LS.tube(pts, w, 0x5eb3e6, sol.track.closed, 0.9));
+    orbitGroup.add(LS.tube(sol.arc.map((p) => LS.v3(p, S)), w * 2.2, 0xeea55a));
 
     const obsLabel = sol.mode === 'observations' ? ['r₁ · obs 1', 'r₂ · obs 2'] : ['r₁', 'r₂'];
     [sol.r1, sol.r2].forEach((r, k) => {
       const p = LS.v3(r, S);
-      const l = LS.line([new THREE.Vector3(), p], 0xffb454, 0.7, true);
+      const l = LS.line([new THREE.Vector3(), p], 0xeea55a, 0.7, true);
       l.material.dashSize = rmax * 0.02; l.material.gapSize = rmax * 0.012; l.computeLineDistances();
       orbitGroup.add(l);
-      const d = LS.dot(w * 4, 0xff6b6b); d.position.copy(p); orbitGroup.add(d);
+      const d = LS.dot(w * 4, 0xe56f6f); d.position.copy(p); orbitGroup.add(d);
       const lb = LS.label(obsLabel[k], 'warm'); lb.position.copy(p); orbitGroup.add(lb);
     });
 
@@ -150,13 +150,13 @@
 
     if (sol.station_ecef) {
       station = new THREE.Group();
-      const d = LS.dot(0.022, 0x6ee7a8);
+      const d = LS.dot(0.022, 0x7fcf9f);
       station.add(d);
-      station.add(LS.glowSprite(0x6ee7a8, 0.12));
+      station.add(LS.glowSprite(0x7fcf9f, 0.12));
       const lb = LS.label('station', 'dim'); station.add(lb);
       station.position.copy(LS.v3(sol.station_ecef, S));
       earth.spin.add(station);
-      los = LS.line([new THREE.Vector3(), new THREE.Vector3()], 0x6ee7a8, 0.7);
+      los = LS.line([new THREE.Vector3(), new THREE.Vector3()], 0x7fcf9f, 0.7);
       orbitGroup.add(los);
     } else los = null;
 
@@ -257,6 +257,6 @@
     if (!view.sol) return '—';
     return LS.fmtUTC(LS.jdToDate(view.sol.jd0 + t / 86400));
   };
-  view.nowLabel = 'Obs 1';
+  view.nowLabel = 'Back to obs 1';
   view.onNow = function () { view.clock.t = 0; };
 })();

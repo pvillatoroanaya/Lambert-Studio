@@ -1,0 +1,460 @@
+<title>Lambert Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@112,600;112,800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a flight report — one reading column with wide figure plates, a
+   mission-elapsed style rail of section markers, telemetry-style figures. */
+:root {
+  --paper: #f2f4f7;        /* page */
+  --sheet: #ffffff;        /* plates, tables */
+  --ink: #0f1a2b;          /* text */
+  --ink-2: #4a586e;        /* secondary text */
+  --rule: #d5dbe4;         /* hairlines */
+  --cyan: #0e7fb3;         /* first trajectory leg, links */
+  --orange: #c55a12;       /* transfer arcs, highlights */
+  --green: #1d8a5b;        /* validation passes */
+  --plate: #070b16;        /* screenshot mats (the app is dark) */
+  --display: "Archivo", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0a111e; --sheet: #111b2d; --ink: #e6ecf5; --ink-2: #9aa9c2; --rule: #24324b;
+    --cyan: #5ac8fa; --orange: #ffb454; --green: #6ee7a8; --plate: #050810; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0a111e; --sheet: #111b2d; --ink: #e6ecf5; --ink-2: #9aa9c2; --rule: #24324b;
+  --cyan: #5ac8fa; --orange: #ffb454; --green: #6ee7a8; --plate: #050810; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font: 16px/1.65 var(--body); margin: 0; }
+.wrap { max-width: 1040px; margin: 0 auto; padding-inline: 20px; padding-block: 0 72px; }
+a { color: var(--cyan); }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+h1, h2, h3 { font-family: var(--display); font-stretch: 112%; text-wrap: balance; line-height: 1.08; margin: 0; }
+p { margin: 0; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+/* ---------- hero ---------- */
+.hero { padding-block: 56px 28px; display: grid; gap: 18px; }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--orange); }
+.hero h1 { font-size: clamp(44px, 9vw, 92px); font-weight: 800; letter-spacing: -.01em; }
+.hero .lede { font-size: clamp(18px, 2.3vw, 22px); color: var(--ink-2); max-width: 36em; line-height: 1.5; }
+.plate { background: var(--plate); border-radius: 14px; overflow: hidden; border: 1px solid var(--rule); }
+.plate img { display: block; width: 100%; height: auto; }
+figure { margin: 0; display: grid; gap: 8px; }
+figcaption { font-size: 13.5px; color: var(--ink-2); max-width: 70ch; }
+figcaption b { color: var(--ink); font-weight: 600; }
+
+/* ---------- figures row ---------- */
+.stats { display: flex; flex-wrap: wrap; gap: 1px; background: var(--rule);
+  border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; margin-block: 28px 8px; }
+.stat { flex: 1 1 170px; background: var(--sheet); padding: 18px 18px 16px; display: grid; gap: 4px; align-content: start; }
+.stat .v { font-family: var(--display); font-stretch: 112%; font-weight: 800; font-size: 34px; line-height: 1; }
+.stat .k { font-size: 13px; color: var(--ink-2); line-height: 1.4; }
+
+/* ---------- sections with a rail marker ---------- */
+section { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 8px 32px; padding-block: 48px 8px;
+  border-top: 1px solid var(--rule); margin-top: 40px; }
+.rail { font-family: var(--mono); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-2);
+  padding-top: 8px; }
+.rail b { display: block; color: var(--orange); font-weight: 500; font-size: 13px; }
+.body { display: grid; gap: 18px; min-width: 0; }
+section h2 { font-size: clamp(28px, 4vw, 40px); font-weight: 800; }
+.body > p { max-width: 68ch; }
+.body > p.big { font-size: 19px; line-height: 1.55; }
+.wide { grid-column: 1 / -1; }
+
+/* ---------- Lambert diagram ---------- */
+.lambert { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 24px; align-items: center; }
+.lambert svg { width: 100%; height: auto; background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; }
+.lambert .steps { display: grid; gap: 12px; counter-reset: s; padding: 0; margin: 0; list-style: none; }
+.lambert .steps li { display: grid; grid-template-columns: 28px 1fr; gap: 10px; font-size: 15px; }
+.lambert .steps li::before { counter-increment: s; content: counter(s); font-family: var(--mono); font-size: 12px;
+  width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--cyan); color: var(--cyan);
+  display: grid; place-items: center; margin-top: 1px; }
+
+/* ---------- gallery ---------- */
+.gallery { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 24px; }
+.gallery figcaption { font-size: 14px; }
+.gallery h3 { font-size: 19px; font-weight: 600; margin-bottom: 2px; }
+
+/* ---------- build log (a real sequence, so it is numbered) ---------- */
+.log { display: grid; gap: 0; border-left: 2px solid var(--rule); margin-left: 6px; }
+.log li { list-style: none; position: relative; padding: 0 0 22px 26px; }
+.log li::before { content: ""; position: absolute; left: -7px; top: 6px; width: 12px; height: 12px; border-radius: 50%;
+  background: var(--paper); border: 2px solid var(--cyan); }
+.log .ph { font-family: var(--mono); font-size: 12px; color: var(--orange); letter-spacing: .08em; text-transform: uppercase; }
+.log h3 { font-size: 20px; font-weight: 600; margin: 2px 0 4px; }
+.log p { color: var(--ink-2); font-size: 15px; max-width: 64ch; }
+ol.log { padding: 0; margin: 0; }
+
+/* ---------- study charts ---------- */
+.chartfig { margin: 0; display: grid; gap: 8px; }
+.chartfig img { width: 100%; height: auto; display: block; background: #fff; border: 1px solid var(--rule); border-radius: 12px; }
+.chartfig figcaption { font-size: 14px; color: var(--ink-2); max-width: 78ch; }
+.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.callout { border-left: 3px solid var(--cyan); background: var(--sheet); padding: 12px 16px; border-radius: 0 10px 10px 0;
+  font-size: 15px; color: var(--ink-2); }
+.callout b { color: var(--ink); }
+
+/* ---------- tables ---------- */
+.tablewrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 12px; background: var(--sheet); }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; min-width: 620px; }
+th, td { padding: 11px 16px; text-align: left; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-family: var(--mono); font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); font-weight: 500; }
+tr:last-child td { border-bottom: 0; }
+td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.ok { color: var(--green); font-family: var(--mono); white-space: nowrap; }
+.group td { background: var(--paper); font-family: var(--mono); font-size: 11.5px; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--orange); padding-block: 7px; }
+
+/* ---------- architecture ---------- */
+.arch { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; align-items: stretch; }
+.tier { background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; padding: 14px; display: grid;
+  gap: 6px; align-content: start; font-size: 13.5px; }
+.tier h3 { font-size: 15px; font-weight: 600; font-family: var(--body); font-stretch: 100%; }
+.tier .tag { font-family: var(--mono); font-size: 11px; color: var(--cyan); letter-spacing: .08em; text-transform: uppercase; }
+.tier ul { margin: 0; padding-left: 16px; color: var(--ink-2); }
+.flow { font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); }
+
+/* ---------- lessons ---------- */
+.lessons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.lesson { background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; padding: 16px 18px; display: grid; gap: 6px; }
+.lesson h3 { font-family: var(--body); font-stretch: 100%; font-size: 16.5px; font-weight: 600; }
+.lesson p { font-size: 14.5px; color: var(--ink-2); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { font-family: var(--mono); font-size: 12.5px; padding: 5px 10px; border: 1px solid var(--rule); border-radius: 3px;
+  background: var(--sheet); }
+.cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.cols ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 15px; }
+footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--rule); font-size: 13px; color: var(--ink-2);
+  display: grid; gap: 6px; }
+
+@media print {
+  @page { size: A4; margin: 14mm 12mm; }
+  :root, :root:not([data-theme="light"]) { --paper:#fff; --sheet:#fff; --ink:#0f1a2b; --ink-2:#4a586e; --rule:#d5dbe4;
+    --cyan:#0e7fb3; --orange:#c55a12; --green:#1d8a5b; --plate:#070b16; color-scheme: light; }
+  body { font-size: 12.5px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .wrap { max-width: none; padding-inline: 0; }
+  section { grid-template-columns: minmax(0, 1fr); margin-top: 18px; padding-block: 22px 0; break-inside: auto; }
+  .rail { padding-top: 0; }
+  .body { display: block; }
+  .body > * + * { margin-top: 16px; }
+  figure, .lesson, .tier, .log li, .chartfig, tr, .callout { break-inside: avoid; }
+  h2 { break-after: avoid; }
+  .gallery { gap: 14px; }
+  .pair { grid-template-columns: minmax(0, 1fr); }
+  .tablewrap { overflow: visible; }
+  table { min-width: 0; font-size: 11.5px; }
+  .plate img { transition: none !important; }
+}
+@media (max-width: 760px) {
+  section { grid-template-columns: minmax(0, 1fr); padding-block: 36px 4px; }
+  .lambert, .gallery, .lessons, .cols, .pair { grid-template-columns: minmax(0, 1fr); }
+  .arch { grid-template-columns: minmax(0, 1fr); }
+}
+</style>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">Ingeniería aeroespacial · proyecto de estudiante · 2026</div>
+  <h1>Lambert Studio</h1>
+  <p class="lede">Una aplicación de escritorio, escrita en Python y JavaScript, que halla la órbita de un satélite a partir de dos
+    observaciones desde una estación terrestre (el problema de Lambert), planifica maniobras orbitales, predice cómo deriva una órbita
+    con fuerzas reales y diseña rutas con asistencia gravitatoria hacia los planetas. Con solo los planetas y un periodo de lanzamiento,
+    su optimizador encuentra las fechas de lanzamiento y de sobrevuelo de Voyager, Cassini y Galileo con días de diferencia.</p>
+  <figure>
+    <div class="plate"><img src="{{IMG:cassini_overview}}" alt="Reproducción de la misión Cassini: Tierra, Venus, Venus, Tierra, Júpiter, Saturno, con panel de telemetría y línea de tiempo" width="1600" height="900"></div>
+    <figcaption><b>Reproducción de la misión Cassini (1997).</b> La ruta que encontró el optimizador: dos sobrevuelos de Venus, uno de la Tierra,
+      Júpiter y después Saturno. El panel de telemetría muestra la distancia al Sol, la velocidad y el Δv gastado; la línea de tiempo marca cada evento.</figcaption>
+  </figure>
+</header>
+
+<section>
+  <div class="rail"><b>T+0</b>Punto de partida</div>
+  <div class="body">
+    <h2>Un trabajo: hallar una órbita a partir de dos observaciones</h2>
+    <p class="big">Una estación terrestre mide un satélite dos veces: acimut, elevación y distancia, con dos horas y media de diferencia.
+      Con esos seis números hay que hallar la órbita completa. Es el <b>problema de Lambert</b>, las mismas matemáticas con las que se planifica
+      cada misión interplanetaria.</p>
+    <div class="lambert">
+      <svg viewBox="0 0 420 300" role="img" aria-label="Esquema del problema de Lambert: dos vectores de posición r1 y r2 desde la Tierra, unidos por un arco de órbita recorrido en un tiempo delta t">
+        <ellipse cx="200" cy="160" rx="170" ry="92" fill="none" stroke="var(--rule)" stroke-width="1.5" stroke-dasharray="5 5"/>
+        <path d="M 100 238 A 170 92 0 0 1 332 94" fill="none" stroke="var(--orange)" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="160" cy="160" r="26" fill="var(--cyan)" opacity=".85"/>
+        <text x="160" y="165" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" fill="var(--sheet)">Tierra</text>
+        <line x1="160" y1="160" x2="100" y2="238" stroke="var(--ink)" stroke-width="1.8"/>
+        <line x1="160" y1="160" x2="332" y2="94" stroke="var(--ink)" stroke-width="1.8"/>
+        <circle cx="100" cy="238" r="6" fill="var(--ink)"/><circle cx="332" cy="94" r="6" fill="var(--ink)"/>
+        <text x="112" y="206" font-family="IBM Plex Mono, monospace" font-size="15" fill="var(--ink)">r₁</text>
+        <text x="250" y="118" font-family="IBM Plex Mono, monospace" font-size="15" fill="var(--ink)">r₂</text>
+        <text x="64" y="262" font-family="IBM Plex Mono, monospace" font-size="12" fill="var(--ink-2)">obs 1 · 00:30 UTC</text>
+        <text x="246" y="76" font-family="IBM Plex Mono, monospace" font-size="12" fill="var(--ink-2)">obs 2 · 03:00 UTC</text>
+        <text x="236" y="248" font-family="IBM Plex Mono, monospace" font-size="14" fill="var(--orange)">Δt = 9000 s</text>
+        <text x="20" y="28" font-family="IBM Plex Mono, monospace" font-size="12" fill="var(--ink-2)">Dados r₁, r₂, Δt → hallar v₁, v₂</text>
+      </svg>
+      <ol class="steps">
+        <li><span>Convertir cada observación (acimut, elevación, distancia) del sistema horizontal de la estación a coordenadas inerciales centradas en la Tierra, usando el tiempo sidéreo.</span></li>
+        <li><span>Resolver el problema de Lambert con el método de la variable universal (Curtis, algoritmo 5.2) para obtener las velocidades.</span></li>
+        <li><span>Convertir posición y velocidad en los seis elementos orbitales clásicos.</span></li>
+        <li><span>Resultado del trabajo: una órbita elíptica con a = 28&nbsp;184 km, e = 0,768, i = 20,34°, periodo 13 h 04 min.</span></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="rail"><b>T+1</b>Qué hace</div>
+  <div class="body">
+    <h2>Once módulos, una aplicación de escritorio</h2>
+    <p>Todo funciona en una sola ventana, con una línea de tiempo compartida, una cámara de vuelo libre en cada vista 3D y, junto a cada dato
+      de entrada, valores recomendados tomados de misiones e instalaciones reales.</p>
+    <div class="gallery">
+      <figure><div class="plate"><img src="{{IMG:orbit}}" alt="Vista de determinación de órbitas: la órbita resuelta alrededor de una Tierra texturizada con el arco observado resaltado" loading="lazy"></div>
+        <figcaption><h3>Determinación de órbitas</h3>El trabajo, resuelto y dibujado en 3D: la Tierra de día y de noche con imágenes de la NASA, el arco observado, los ápsides y la línea de visión de la estación terrestre.</figcaption></figure>
+      <figure><div class="plate"><img src="{{IMG:near}}" alt="Vista de satélites: cientos de satélites reales alrededor de la Tierra, incluido el anillo geoestacionario" loading="lazy"></div>
+        <figcaption><h3>Satélites reales</h3>Conjuntos de elementos de CelesTrak en directo: la ISS, GPS, Galileo, el anillo geoestacionario, con búsqueda y detalle de cada satélite.</figcaption></figure>
+      <figure><div class="plate"><img src="{{IMG:maneuver}}" alt="Planificador de maniobras con una transferencia de Hohmann, flechas de encendido y comparación de opciones" loading="lazy"></div>
+        <figcaption><h3>Planificador de maniobras</h3>Transferencias de Hohmann, bielípticas y de cambio de plano construidas a partir de vectores de estado, con el Δv de cada encendido, el propulsante según la ecuación del cohete y una comparación de costes.</figcaption></figure>
+      <figure><div class="plate"><img src="{{IMG:perturb_geo}}" alt="Vista de perturbaciones: un satélite geoestacionario durante un año, derivando en longitud hacia 75 grados este mientras crece su inclinación" loading="lazy"></div>
+        <figcaption><h3>Predicción realista de órbitas</h3>El campo gravitatorio terrestre hasta grado 6 más su ecuador elíptico, la Luna y el Sol de JPL, la presión de la luz solar con la sombra de la Tierra y la atmósfera NRLMSIS, mostrados aquí en un satélite geoestacionario durante un año.</figcaption></figure>
+      <figure><div class="plate"><img src="{{IMG:flybys}}" alt="Vista de sobrevuelos de asteroides: la trayectoria de un próximo acercamiento junto a la Tierra y la Luna" loading="lazy"></div>
+        <figcaption><h3>Sobrevuelos de asteroides</h3>Próximos acercamientos según NASA/JPL, cada uno dibujado con su trayectoria precisa de JPL Horizons, a escala con la Tierra y la Luna.</figcaption></figure>
+      <figure><div class="plate"><img src="{{IMG:solar}}" alt="Vista del sistema solar con los ocho planetas y 2549 asteroides potencialmente peligrosos" loading="lazy"></div>
+        <figcaption><h3>Sistema solar</h3>Planetas de las efemérides JPL DE440s y 2549 asteroides potencialmente peligrosos, con distancias comprimidas para que quepan los ocho planetas en pantalla.</figcaption></figure>
+      <figure><div class="plate"><img src="{{IMG:mission}}" alt="Vista de diseño de misiones: diagrama porkchop Tierra–Marte con un esquema que explica la ruta" loading="lazy"></div>
+        <figcaption><h3>Diseño de misiones</h3>Diagramas porkchop a partir de miles de soluciones de Lambert, una explicación de la ruta en lenguaje sencillo y una búsqueda de la próxima ventana de lanzamiento.</figcaption></figure>
+      <figure><div class="plate"><img src="{{IMG:mission_route_cassini_noplay}}" alt="Análisis de la ruta de Cassini con asistencias gravitatorias, gráfica de velocidad y explicación paso a paso" loading="lazy"></div>
+        <figcaption><h3>Rutas con asistencia gravitatoria</h3>Hasta cuatro sobrevuelos, incluidas visitas repetidas al mismo planeta, optimizados automáticamente y explicados paso a paso, con la velocidad ganada en cada sobrevuelo.</figcaption></figure>
+      <figure><div class="plate"><img src="{{IMG:nbody}}" alt="Ruta de Voyager comprobada con la gravedad de todo el sistema solar, con las maniobras de corrección listadas" loading="lazy"></div>
+        <figcaption><h3>Comprobación con gravedad completa</h3>Cualquier ruta diseñada se vuelve a volar con todos los planetas y la Luna atrayendo a la vez. El diseño de Voyager se habría estrellado contra Júpiter; 4 m/s de correcciones lo arreglan.</figcaption></figure>
+      <figure><div class="plate"><img src="{{IMG:lowthrust}}" alt="Espiral con motor iónico desde la órbita terrestre, con el empuje disminuyendo al debilitarse la luz solar" loading="lazy"></div>
+        <figcaption><h3>Motores iónicos</h3>Espirales de bajo empuje con empuje limitado por la potencia solar: el motor de Dawn pierde cerca de una quinta parte de su empuje entre la Tierra y Vesta.</figcaption></figure>
+      <figure><div class="plate"><img src="{{IMG:arrival}}" alt="Llegada a un planeta gigante: órbita de captura y recorrido resonante por sus lunas" loading="lazy"></div>
+        <figcaption><h3>Llegada y recorridos por lunas</h3>Encendidos de captura en los planetas gigantes y recorridos por lunas con el gráfico de Tisserand, el método detrás de Cassini y Europa Clipper.</figcaption></figure>
+      <figure><div class="plate"><img src="{{IMG:learn}}" alt="Pestaña Aprender: diez lecciones interactivas cortas y retos que se comprueban automáticamente" loading="lazy"></div>
+        <figcaption><h3>Aprender</h3>Diez lecciones interactivas y doce retos que se comprueban solos mientras se usa la aplicación.</figcaption></figure>
+    </div>
+    <figure class="wide">
+      <div class="plate"><img src="{{IMG:player_flyby}}" alt="Reproducción de la misión en el sobrevuelo de Júpiter de Voyager, con una tarjeta que explica la ganancia de 10,48 km/s" loading="lazy"></div>
+      <figcaption><b>Reproducción de la misión, Voyager en Júpiter (mayo de 1979).</b> La cámara cinematográfica gira hacia Júpiter y el tiempo se ralentiza. Pasar a 6,9 radios de Júpiter de su centro desvía la trayectoria 98° y añade 10,48 km/s, suficiente para salir del sistema solar.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section>
+  <div class="rail"><b>T+2</b>Cómo se construyó</div>
+  <div class="body">
+    <h2>De un script a un estudio, un paso verificado cada vez</h2>
+    <p>El proyecto creció por etapas. Cada etapa tenía que superar las pruebas de todas las anteriores antes de empezar la siguiente.</p>
+    <ol class="log">
+      <li><div class="ph">Fase 1 · base</div><h3>Reconstruir y verificar el solucionador</h3>
+        <p>Sistemas de tiempo, sistemas de referencia, un solucionador de Lambert de variable universal y elementos orbitales, comprobados con
+          ejemplos resueltos de libros de texto e invariantes físicos: energía y momento angular conservados hasta 10⁻¹⁵, y la propagación llegando a la segunda observación con un error inferior a 10⁻¹¹ km.</p></li>
+      <li><div class="ph">Fase 2 · aplicación</div><h3>Una aplicación de escritorio con un motor 3D de nivel web</h3>
+        <p>Python mantiene la física y sirve una pequeña API JSON en el propio ordenador; la interfaz se dibuja con Three.js
+          (WebGL) y Plotly. Después de que el navegador Qt integrado fallara en este equipo, la ventana pasó al modo aplicación de
+          Microsoft Edge, con registro de errores y recuperación automática.</p></li>
+      <li><div class="ph">Fase 3 · datos reales</div><h3>Satélites, asteroides y planetas</h3>
+        <p>Conjuntos de elementos de CelesTrak para miles de satélites, acercamientos y trayectorias de NASA/JPL (Horizons) y las
+          efemérides DE440s mediante Skyfield, con caché sin conexión para que la aplicación siga funcionando sin internet.</p></li>
+      <li><div class="ph">Fase 4 · herramientas de ingeniería</div><h3>Maniobras y perturbaciones</h3>
+        <p>Un planificador de maniobras que calcula cada encendido a partir de vectores de estado, y un integrador numérico (SciPy DOP853) con
+          J2 y una atmósfera exponencial, comprobado con las tasas de deriva analíticas de J2.</p></li>
+      <li><div class="ph">Fase 5 · diseño de misiones</div><h3>Asistencias gravitatorias y Lambert multirrevolución</h3>
+        <p>Un solucionador de Lambert vectorizado (10 veces más rápido, idéntico hasta 10⁻¹¹ km/s) con soluciones multirrevolución, una búsqueda en haz
+          sobre fechas de lanzamiento y tiempos de vuelo, y la física de sobrevuelos con cónicas enlazadas. Ampliar la búsqueda llevó la ruta de Cassini de
+          9,7 a 6,9 km/s y a sus fechas históricas.</p></li>
+      <li><div class="ph">Fase 6 · experiencia</div><h3>Reproducción de misiones, cámara libre, datos guiados</h3>
+        <p>Una reproducción cinematográfica a pantalla completa de cualquier misión; una cámara que vuela a cualquier sitio; y valores recomendados con fuentes: estaciones
+          de la Red de Espacio Profundo de la NASA, motores que han volado, masas reales de naves y un buscador de ventanas de lanzamiento.</p></li>
+      <li><div class="ph">Fase 7 · entrega</div><h3>Pruebas, empaquetado y la entrega del curso</h3>
+        <p>Un conjunto de pruebas pytest que cubre la física y la API, pruebas de la interfaz controlando un navegador, una versión independiente para Windows con
+          PyInstaller y una versión del solucionador en un solo archivo, generada automáticamente, que cumple el formato del trabajo.</p></li>
+      <li><div class="ph">Fase 8 · profundidad</div><h3>Aprendizaje, llegada, motores iónicos, incertidumbre</h3>
+        <p>Una pestaña Aprender con lecciones y retos que se comprueban solos, diseño de capturas y recorridos por lunas, espirales de bajo empuje, un optimizador
+          de encendidos en espacio profundo (el truco de Juno) y barras de error Monte Carlo sobre la órbita resuelta.</p></li>
+      <li><div class="ph">Fase 9 · fidelidad</div><h3>Una simulación más precisa</h3>
+        <p>El modelo de fuerzas y el modelo de rutas se reconstruyeron para acercarse mucho más a la realidad, y cada paso se midió frente a valores
+          conocidos (véase la sección siguiente).</p></li>
+    </ol>
+  </div>
+</section>
+
+<section>
+  <div class="rail"><b>T+3</b>Arquitectura</div>
+  <div class="body">
+    <h2>La física en Python, las imágenes en el navegador</h2>
+    <div class="arch">
+      <div class="tier"><span class="tag">Datos</span><h3>Fuentes</h3><ul><li>Efemérides NASA/JPL DE440s</li><li>JPL Horizons, SBDB, CNEOS</li><li>Conjuntos de elementos GP de CelesTrak</li><li>NASA Blue &amp; Black Marble</li></ul></div>
+      <div class="tier"><span class="tag">Python</span><h3>Núcleo de astrodinámica</h3><ul><li>Lambert (simple y multirrevolución, por lotes)</li><li>Sistemas de referencia, tiempo, elementos</li><li>Maniobras, modelo de fuerzas de alta fidelidad</li><li>Comprobación de rutas con gravedad completa (n cuerpos)</li><li>Optimizador de rutas con cónicas enlazadas</li></ul></div>
+      <div class="tier"><span class="tag">API local</span><h3>studio_server</h3><ul><li>Servicios JSON en 127.0.0.1</li><li>Validación de datos, errores claros</li><li>Registro de peticiones, caché</li></ul></div>
+      <div class="tier"><span class="tag">Interfaz</span><h3>Interfaz web en una ventana de escritorio</h3><ul><li>Three.js WebGL, bloom, shaders</li><li>Gráficas de Plotly</li><li>Modo aplicación de Edge (alternativa Qt)</li></ul></div>
+    </div>
+    <p class="flow">datos → núcleo Python → API JSON → Three.js / Plotly → ventana de escritorio</p>
+  </div>
+</section>
+
+<section>
+  <div class="rail"><b>T+4</b>Más precisa</div>
+  <div class="body">
+    <h2>De los modelos de libro de texto al campo de fuerzas real</h2>
+    <p>Dos simplificaciones limitaban la primera versión: la predicción de órbitas terrestres solo conocía J2 y una atmósfera exponencial, y las rutas con
+      asistencia gravitatoria suponían que solo atrae un planeta cada vez. Ambas se sustituyeron, y cada cambio se comprobó frente a un valor conocido.</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Mejora</th><th>Antes</th><th>Ahora</th></tr></thead>
+      <tbody>
+        <tr><td>Gravedad terrestre</td><td>solo el abultamiento J2</td><td>EGM96 hasta grado 6, más el ecuador elíptico (C22, S22)</td></tr>
+        <tr><td>Otros cuerpos</td><td>ninguno</td><td>Posiciones del Sol y la Luna de JPL DE440s</td></tr>
+        <tr><td>Luz solar</td><td>ninguna</td><td>Presión de radiación con una sombra cónica de la Tierra (umbra y penumbra)</td></tr>
+        <tr><td>Atmósfera</td><td>exponencial</td><td>NRLMSIS 2.1, que sigue la actividad solar (F10.7) y el ciclo día/noche</td></tr>
+        <tr><td>Rutas</td><td>cónicas enlazadas</td><td>Se vuelven a volar con el Sol, los ocho planetas y la Luna, corregidas en el plano B como un equipo de navegación real</td></tr>
+        <tr><td>Motores iónicos</td><td>empuje constante</td><td>Empuje limitado por la luz solar, que disminuye como 1/r²</td></tr>
+      </tbody></table></div>
+    <div class="pair">
+      <div class="callout"><b>Comprobación geoestacionaria.</b> Con estas fuerzas, un satélite estacionado en 45°E deriva hacia el punto estable cercano a 75°E y
+        su órbita se inclina 0,95° en un año. Los operadores reales observan unos 0,75–0,95° al año, y por eso gastan combustible en el
+        mantenimiento en estación norte–sur.</div>
+      <div class="callout"><b>Comprobación de rutas.</b> Volado sin correcciones en la gravedad real, el viaje a Marte del modelo simple falla por unos
+        641 mil km y Voyager se estrella contra Júpiter. Tras las correcciones, la altitud de llegada a Marte
+        coincide con un error inferior a 10 km y la altitud de Voyager en Saturno, inferior a 50 km.</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="rail"><b>T+5</b>Con el tiempo</div>
+  <div class="body">
+    <h2>Cómo cambian las respuestas con el tiempo</h2>
+    <p class="big">Una simulación no da una respuesta, da una respuesta <em>para una fecha</em>. La misma órbita decae 23 veces más rápido en el máximo
+      solar que en el mínimo solar, el mismo viaje a Marte cuesta casi el doble de energía de lanzamiento en una ventana que en otra, y un satélite estacionado
+      hoy deriva mañana. Cinco estudios, todos ejecutados con la física de la propia aplicación, lo muestran.</p>
+
+    <figure class="chartfig"><img src="{{IMG:study_solar_es}}" alt="Altitud de la misma órbita de 420 km durante 90 días en mínimo solar, actividad moderada y máximo solar">
+      <figcaption><b>1 · El Sol marca el ritmo de decaimiento.</b> Una órbita de 420 km pierde 20 m/día en el mínimo solar,
+        131 m/día con actividad moderada y 461 m/día en el máximo solar, un factor de
+        23. Tras 90 días la órbita está a 413, 403
+        o 373 km de altura. (Área y masa de la nave fijas, sin reelevaciones.)</figcaption></figure>
+
+    <figure class="chartfig"><img src="{{IMG:study_geo_es}}" alt="Satélite geoestacionario durante un año: deriva en longitud y aumento de la inclinación">
+      <figcaption><b>2 · Un satélite estacionado no se queda quieto.</b> Partiendo de 45°E, el satélite se desliza hacia el este, pasa el punto estable de 75°E
+        y llega a 102°E al cabo de un año, mientras la Luna y el Sol inclinan su órbita 0,95°. Sin encendidos de mantenimiento en estación, la posición se pierde.</figcaption></figure>
+
+    <figure class="chartfig"><img src="{{IMG:study_windows_es}}" alt="Mejor energía de lanzamiento Tierra–Marte y velocidad de llegada en cada ventana de 2026 a 2044">
+      <figcaption><b>3 · El mismo viaje, nueve ventanas de lanzamiento.</b> La transferencia Tierra–Marte más barata se repite cada 26 meses, pero su coste no.
+        La energía de lanzamiento va de 7,8 a 14,8 km²/s², la velocidad de llegada de
+        2,5 a 5,5 km/s y el tiempo de vuelo de
+        195 a 400 días, porque la órbita de Marte es elíptica. Primera ventana: lanzamiento el 31-10-2026, llegada el 22-08-2027.</figcaption></figure>
+
+    <div class="pair">
+      <figure class="chartfig"><img src="{{IMG:study_delay_es}}" alt="Retardo de radio de ida entre la Tierra y Marte de 2026 a 2042">
+        <figcaption><b>4 · La distancia cambia la conversación.</b> Marte está a 57 millones de km en su punto más cercano y a 400 millones de km en el más lejano:
+          un mensaje de radio tarda de 3,2 a 22,2 minutos solo de ida, así que un rover no se puede manejar con un joystick.</figcaption></figure>
+      <figure class="chartfig"><img src="{{IMG:study_nbody_es}}" alt="Correcciones de trayectoria necesarias para las rutas de Marte, Voyager y Cassini con gravedad completa">
+        <figcaption><b>5 · El tiempo amplifica los errores pequeños.</b> Cada ruta es exacta en el modelo simple y errónea en la gravedad real, y el error
+          crece a lo largo del viaje. Correcciones de 0,1 m/s (Marte), 4 m/s (Voyager) y 714 m/s (Cassini, cuyo
+          diseño enciende el motor durante los sobrevuelos) las mantienen en su objetivo.</figcaption></figure>
+    </div>
+
+    <h3 style="font-size:19px;margin-top:6px">Vida útil de cada respuesta</h3>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Resultado</th><th>Qué lo cambia</th><th>Cuánto tiempo sigue siendo válido</th></tr></thead>
+      <tbody>
+        <tr><td>Órbita a partir de dos observaciones</td><td>Error de medida y, después, perturbaciones</td><td>Exacta en los instantes de observación; las barras de error crecen al propagar la órbita</td></tr>
+        <tr><td>Transferencias de Hohmann y de Lambert</td><td>Geometría de los dos cuerpos</td><td>Fijas para un par de estados dado; la <em>mejor fecha</em> se repite cada periodo sinódico</td></tr>
+        <tr><td>Posiciones de satélites (CelesTrak)</td><td>Resistencia atmosférica, maniobras, nuevos conjuntos de elementos</td><td>Mejor en la fecha del conjunto de elementos; las órbitas bajas quedan desfasadas en pocos días</td></tr>
+        <tr><td>Decaimiento y vida útil</td><td>Actividad solar, ciclo de 11 años</td><td>Solo tan buenos como la previsión de actividad solar: un factor de 23 entre mínimo y máximo</td></tr>
+        <tr><td>Posiciones planetarias (DE440s)</td><td>Nada, a efectos prácticos</td><td>Décadas, con errores de unos pocos kilómetros</td></tr>
+        <tr><td>Ruta con asistencia gravitatoria</td><td>Alineación de los planetas</td><td>Las buenas ventanas vuelven cada pocos años o décadas (la alineación de Voyager: una vez cada unos 175 años)</td></tr>
+      </tbody></table></div>
+    <div class="callout"><b>Cómo leer estos resultados con honestidad.</b> Los estudios de decaimiento y geoestacionario usan una nave fija y sin mantenimiento en estación, así que muestran cómo
+      <em>el entorno</em> cambia la respuesta, no lo que haría un operador real. Los costes de cada ventana son la menor energía de lanzamiento encontrada en una búsqueda en malla alrededor de cada
+      ventana. Todo se regenera con un solo script (<span class="mono">report/study_time.py</span>), así que las figuras se pueden actualizar para cualquier fecha.</div>
+  </div>
+</section>
+
+<section>
+  <div class="rail"><b>T+6</b>Validación</div>
+  <div class="body">
+    <h2>Comprobada con libros de texto y con la historia</h2>
+    <p>Al optimizador de rutas nunca se le dan las fechas reales. Con solo los planetas, un periodo de lanzamiento y un límite de duración del viaje,
+      encuentra la trayectoria más barata, y las respuestas coinciden con las misiones históricas.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Comprobación</th><th>Lambert Studio</th><th>Referencia</th><th>Diferencia</th></tr></thead>
+        <tbody>
+          <tr class="group"><td colspan="4">Libro de texto y física</td></tr>
+          <tr><td>Curtis, ejemplo 5.2, velocidades de Lambert</td><td class="num">v₁ = (−5,9925; 1,9254; 3,2456) km/s</td><td class="num">publicado</td><td class="ok">&lt; 4×10⁻⁵ km/s</td></tr>
+          <tr><td>Transferencia de Hohmann, LEO de 300 km a GEO</td><td class="num">3,8926 km/s</td><td class="num">3,893 km/s</td><td class="ok">&lt; 0,001 km/s</td></tr>
+          <tr><td>Órbita heliosíncrona, deriva del nodo (integrada)</td><td class="num">0,990 °/día</td><td class="num">0,9856 °/día</td><td class="ok">0,4 %</td></tr>
+          <tr><td>Aumento de la inclinación de una órbita geoestacionaria (Sol y Luna)</td><td class="num">0,95 °/año</td><td class="num">0,75–0,95 °/año</td><td class="ok">dentro del rango</td></tr>
+          <tr><td>Gradiente del modelo de fuerzas frente al potencial (J2–J6, C22)</td><td class="num">diferencias finitas</td><td class="num">analítico</td><td class="ok">coinciden</td></tr>
+          <tr><td>Altitud de llegada a Marte, gravedad de todo el sistema solar</td><td class="num">tras las correcciones</td><td class="num">altitud planificada</td><td class="ok">&lt; 10 km</td></tr>
+          <tr><td>Altitud de Voyager en Saturno, gravedad completa</td><td class="num">tras 4 m/s de correcciones</td><td class="num">altitud planificada</td><td class="ok">&lt; 50 km</td></tr>
+          <tr class="group"><td colspan="4">Misiones históricas, fechas encontradas por el optimizador</td></tr>
+          <tr><td>Mariner 10, sobrevuelo de Venus</td><td class="num">6 feb 1974</td><td class="num">5 feb 1974</td><td class="ok">1,6 días</td></tr>
+          <tr><td>Voyager, lanzamiento</td><td class="num">2 sep 1977</td><td class="num">5 sep 1977</td><td class="ok">2,2 días</td></tr>
+          <tr><td>Galileo, sobrevuelo de Venus</td><td class="num">21 feb 1990</td><td class="num">10 feb 1990</td><td class="ok">11 días</td></tr>
+          <tr><td>Cassini, lanzamiento</td><td class="num">16 oct 1997</td><td class="num">15 oct 1997</td><td class="ok">1,4 días</td></tr>
+          <tr><td>Cassini, sobrevuelo de la Tierra</td><td class="num">17 ago 1999</td><td class="num">18 ago 1999</td><td class="ok">4 horas</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>En total: 136 comprobaciones automáticas y 58 pruebas pytest, además de pruebas que controlan un navegador para pulsar teclas, arrastrar la cámara y
+      reproducir misiones, y confirmar que la interfaz se comporta como está diseñada.</p>
+  </div>
+</section>
+
+<section>
+  <div class="rail"><b>T+7</b>Lecciones</div>
+  <div class="body">
+    <h2>Lo que enseñó construirlo</h2>
+    <div class="lessons">
+      <div class="lesson"><h3>Probar el comportamiento, no la captura de pantalla</h3><p>Una página puede verse bien y aun así estar mal. Controlar un navegador real para pulsar teclas, hacer doble clic y reproducir misiones encontró errores que las capturas nunca mostraron.</p></div>
+      <div class="lesson"><h3>La amplitud de la búsqueda cambia la respuesta</h3><p>Juzgada tramo a tramo, una ruta que parece cara al principio puede ganar al final. Una búsqueda en haz 10 veces más amplia convirtió a Cassini de peor que el vuelo directo en la ruta histórica.</p></div>
+      <div class="lesson"><h3>Saber dónde fallan las matemáticas</h3><p>El bucle Tierra–Tierra de Galileo duró exactamente dos años, así que el punto de inicio y el de llegada coinciden y el problema de Lambert queda indefinido. La aplicación vuela un bucle cercano y lo indica.</p></div>
+      <div class="lesson"><h3>La plataforma forma parte del sistema</h3><p>Un navegador integrado que fallaba en código nativo y Windows redirigiendo sin avisar dónde guarda Python los archivos se resolvieron midiendo primero y cambiando la arquitectura después.</p></div>
+      <div class="lesson"><h3>Más física no es automáticamente mejor</h3><p>Una corrección que parece correcta puede estar mal en su naturaleza: los elementos orbitales osculadores oscilan 10 km solo por J2, así que el decaimiento tuvo que medirse con promedios por órbita. Cada fuerza nueva se añadió solo después de reproducir un número conocido.</p></div>
+      <div class="lesson"><h3>La navegación real es iteración</h3><p>Una ruta diseñada con física simplificada no se puede volar tal cual. Los navegantes apuntan, vuelan, miden y corrigen; la aplicación hace lo mismo con pequeños encendidos de corrección de trayectoria e informa con honestidad cuando un diseño necesita correcciones grandes.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="rail"><b>T+8</b>Herramientas y límites</div>
+  <div class="body">
+    <h2>Herramientas, y lo que el modelo deja fuera</h2>
+    <div class="chips">
+      <span class="chip">Python 3.13</span><span class="chip">NumPy</span><span class="chip">SciPy · DOP853</span>
+      <span class="chip">Skyfield · JPL DE440s</span><span class="chip">NRLMSIS 2.1</span><span class="chip">EGM96</span><span class="chip">sgp4</span><span class="chip">Three.js · WebGL</span>
+      <span class="chip">Plotly.js</span><span class="chip">Modo aplicación de Microsoft Edge</span><span class="chip">PySide6</span>
+      <span class="chip">pytest</span><span class="chip">PyInstaller</span><span class="chip">git</span>
+    </div>
+    <div class="cols">
+      <div><h3 style="font-size:17px;margin-bottom:8px">Límites del modelo</h3><ul>
+        <li>El diseño de rutas sigue usando cónicas enlazadas; la comprobación con gravedad completa lo corrige, pero no puede rediseñarlo. Los diseños que encienden el motor durante los sobrevuelos (Cassini) necesitan correcciones grandes.</li>
+        <li>Órbita terrestre: gravedad hasta grado 6, sin mareas ni relatividad; una nave de área única tipo «bala de cañón»; las simulaciones de máxima fidelidad son lentas en órbitas bajas (unos 8 s por mes simulado).</li>
+        <li>Los bucles resonantes exactos (inicio = final) se aproximan.</li>
+        <li>La estación del trabajo usa una Tierra esférica, tal como se especifica.</li></ul></div>
+      <div><h3 style="font-size:17px;margin-bottom:8px">Próximos pasos</h3><ul>
+        <li>Rediseñar las rutas directamente con gravedad completa.</li>
+        <li>Determinación de órbitas a partir de muchas observaciones con ruido (mínimos cuadrados).</li>
+        <li>Predicción de pasos de satélites para cualquier lugar.</li>
+        <li>Integración continua para el conjunto de pruebas.</li></ul></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <span><b>Datos:</b> NASA/JPL (DE440s, Horizons, SBDB, CNEOS) · CelesTrak · NASA Blue Marble &amp; Black Marble · texturas de Solar System Scope (CC BY 4.0).
+    <b>Método:</b> H. D. Curtis, <i>Orbital Mechanics for Engineering Students</i>; D. A. Vallado, <i>Fundamentals of Astrodynamics and Applications</i>.</span>
+  <span>Desarrollado con Claude Code (Anthropic) como asistente de programación en pareja con IA; cada paso fue dirigido, ejecutado y comprobado por el autor.</span>
+</footer>
+</div>

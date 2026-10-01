@@ -95,7 +95,8 @@ def planet_states(name, jd):
         return None
     with _read_lock:
         t = _t(jd)
-        rel = (eph[TARGETS[name]] - eph["sun"]).at(t)
+        target = TARGETS.get(name) or {"Moon": "moon"}[name]     # the Moon too (full-gravity simulations)
+        rel = (eph[target] - eph["sun"]).at(t)
         r, v = rel.frame_xyz_and_velocity(_state["frame"])
     return r.au.T, v.au_per_d.T
 

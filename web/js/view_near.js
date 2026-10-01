@@ -102,7 +102,7 @@
   function renderGroupChecks() {
     $('sat-groups').innerHTML = groupsMeta.map((g) => {
       const info = groupInfo.find((x) => x.key === g.key);
-      const n = info ? (info.error ? '⚠' : info.count.toLocaleString()) : '';
+      const n = info ? (info.error ? '⚠' : info.count.toLocaleString('en-US')) : '';
       return `<label class="check"><input type="checkbox" data-g="${g.key}" ${selectedGroups.has(g.key) ? 'checked' : ''}>
         <span class="sw" style="background:${g.color}"></span>${g.label}<span class="n">${n}</span></label>`;
     }).join('');
@@ -168,7 +168,7 @@
     const src = groupInfo.filter((g) => g.fetched);
     const oldest = src.length ? Math.min(...src.map((g) => g.fetched)) : null;
     const errs = groupInfo.filter((g) => g.error);
-    $('sat-status').textContent = `${n.toLocaleString()} satellites` +
+    $('sat-status').textContent = `${n.toLocaleString('en-US')} satellites` +
       (oldest ? ` · data from ${ago(oldest)}` : '') +
       (errs.length ? ` · ${errs.length} group(s) could not be downloaded` : '') + ' · source: CelesTrak';
   }
@@ -199,7 +199,7 @@
 
   function renderLegend() {
     $('legend-near').innerHTML = groupInfo.filter((g) => g.count).map((g) =>
-      `<div><i style="background:${g.color}"></i>${g.label} <span class="muted">${g.count.toLocaleString()}</span></div>`).join('');
+      `<div><i style="background:${g.color}"></i>${g.label} <span class="muted">${g.count.toLocaleString('en-US')}</span></div>`).join('');
   }
 
   function renderSummary() {
@@ -207,9 +207,9 @@
     const counts = { LEO: 0, MEO: 0, GEO: 0, HEO: 0 };
     for (let k = 0; k < sats.length; k++) counts[orbitClass(k)]++;
     $('hud-near').innerHTML = `<div class="box"><h4>Overview</h4>
-      <div class="big">${sats.length.toLocaleString()} satellites</div>
-      ${LS.kv([['Low Earth orbit (LEO)', counts.LEO.toLocaleString()], ['Medium (MEO)', counts.MEO.toLocaleString()],
-               ['Geostationary (GEO)', counts.GEO.toLocaleString()], ['Highly elliptical', counts.HEO.toLocaleString()]])}
+      <div class="big">${sats.length.toLocaleString('en-US')} satellites</div>
+      ${LS.kv([['Low Earth orbit (LEO)', counts.LEO.toLocaleString('en-US')], ['Medium (MEO)', counts.MEO.toLocaleString('en-US')],
+               ['Geostationary (GEO)', counts.GEO.toLocaleString('en-US')], ['Highly elliptical', counts.HEO.toLocaleString('en-US')]])}
       <p class="hint" style="margin-top:8px">Click a satellite, or search for one, to see its details and orbit.</p></div>`;
   }
 
@@ -257,7 +257,7 @@
     if (myOrbit) { s3.scene.remove(myOrbit); myOrbit.traverse((o) => o.element && o.element.remove()); myOrbit = null; }
     if (!LS.solution || !$('sat-myorbit').checked) return;
     const pts = LS.solution.track.r.map((p) => LS.v3(p, S));
-    myOrbit = LS.line(pts, 0xffb454, 0.85);
+    myOrbit = LS.line(pts, 0xeea55a, 0.85);
     const lb = LS.label('your solved orbit', 'warm');
     lb.position.copy(pts[Math.floor(pts.length / 3)]);
     myOrbit.add(lb);

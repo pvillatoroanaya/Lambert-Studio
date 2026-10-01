@@ -599,6 +599,83 @@ def test_orbit_uncertainty():
           2.0, 0.1)
 
 
+def test_force_model():
+    """High-fidelity Earth force model: accelerations equal the gradient of
+    the potential, the geostationary equilibrium longitudes (75 E, 105 W),
+    the eclipse length of a low orbit, luni-solar tilt growth of a
+    geostationary orbit (~0.75-0.95 deg/year), and drag that follows solar
+    activity (NRLMSIS 2.1)."""
+    import forces as F
+    import perturb as P
+    from constants import R_EARTH
+    rng = np.random.default_rng(3)
+    fm = F.ForceModel(2461000.5, 1, zonal_degree=6)
+    worst = 0.0
+    for _ in range(50):
+        u = rng.normal(size=3)
+        r = u / np.linalg.norm(u) * rng.uniform(6700, 45000)
+        a = np.array(fm.accel(0.0, *r, 0, 0, 0)) + MU_EARTH * r / np.linalg.norm(r) ** 3
+        h = 1e-3
+        g = np.array([(F.potential_zonal(*(r + h * e), 6) - F.potential_zonal(*(r - h * e), 6)) / (2 * h)
+                      for e in np.eye(3)])
+        worst = max(worst, np.linalg.norm(a - g) / np.linalg.norm(g))
+    check("J2..J6 acceleration = gradient of the potential", worst, 0.0, 1e-6)
+    lam = 0.5 * math.degrees(math.atan2(F.S22, F.C22))
+    check("Geostationary stable point (EGM96 C22/S22)", (lam + 90) % 360, 75.07, 0.5, " deg E")
+    r0 = R_EARTH + 400.0
+    ecl = sum(1 - F.shadow(r0 * math.cos(t), r0 * math.sin(t), 0.0, r0, (1.496e8, 0.0, 0.0))
+              for t in np.linspace(0, 2 * math.pi, 7200, endpoint=False)) / 7200
+    period = 2 * math.pi * math.sqrt(r0 ** 3 / MU_EARTH)
+    check("Eclipse per orbit at 400 km (Sun in the orbit plane)", ecl * period / 60, 36.1, 0.3, " min")
+    jd0 = julian_date(2026, 10, 1, 0, 0, 0.0)
+    th = math.radians(45.0) + gmst_from_jd(jd0)
+    rg, vg = 42164.17, math.sqrt(MU_EARTH / 42164.17)
+    geo = P.propagate_perturbed(np.array([rg * math.cos(th), rg * math.sin(th), 0.0]),
+                                np.array([-vg * math.sin(th), vg * math.cos(th), 0.0]), 365, area_m2=30, mass_kg=3000,
+                                model={"zonal_degree": 6, "tesseral": True, "sun": True, "moon": True, "srp": True},
+                                jd0=jd0)
+    check_true("GEO: Sun and Moon tilt the orbit 0.7-1.0 deg in a year", 0.7 <= geo["i"][-1] <= 1.0,
+               f"{geo['i'][-1]:.3f} deg")
+    check_true("GEO: starting at 45 E it drifts toward the 75 E stable point", geo["lon"][-1] > 60,
+               f"45 -> {geo['lon'][-1]:.1f} deg")
+    rates = {}
+    for act in ("low", "high"):
+        r_, v_ = P.orbit_from_elements(415, 425, 51.6)
+        o = P.propagate_perturbed(r_, v_, 10, cd=2.2, area_m2=1600, mass_kg=420000,
+                                  model={"zonal_degree": 2, "drag": "msis", "activity": act}, jd0=jd0)
+        a_ = np.array(o["a"])
+        n1 = max(1, len(a_) // 150)
+        rates[act] = (a_[:n1].mean() - a_[-n1:].mean()) / 10.0
+    check_true("NRLMSIS: decay at solar maximum > 4x solar minimum", rates["high"] > 4 * rates["low"] > 0,
+               f"{rates['low'] * 1000:.0f} vs {rates['high'] * 1000:.0f} m/day")
+
+
+def test_full_gravity():
+    """Patched-conic routes flown in full solar-system gravity with
+    trajectory-correction manoeuvres: the uncorrected design misses, the
+    corrected flight meets every encounter as planned for a total delta-v
+    close to the design, with realistic correction budgets."""
+    import flyby
+    import nbody
+    w = (julian_date(2026, 9, 1, 0, 0, 0.0), julian_date(2027, 1, 1, 0, 0, 0.0))
+    d = flyby.optimise(["Earth", "Mars"], w, True, max_days=400)
+    d["launch_dv"] = float(flyby._launch_dv(d["vinf_launch"], "Earth"))
+    v = nbody.verify(d)
+    check_true("Mars 2026: the uncorrected design misses Mars by > 10,000 km", v["uncorrected"]["miss_km"] > 1e4,
+               f"{v['uncorrected']['miss_km']:,.0f} km")
+    e = v["encounters"][-1]
+    check("Mars 2026: arrival altitude after corrections", e["alt_actual"], e["alt_planned"], 10.0, " km")
+    check("Mars 2026: total delta-v vs design", v["total_dv"], v["design_total_dv"], 0.05, " km/s")
+    w = (julian_date(1977, 1, 1, 0, 0, 0.0), julian_date(1978, 6, 30, 0, 0, 0.0))
+    d = flyby.optimise(["Earth", "Jupiter", "Saturn"], w, False, max_days=3.5 * 365.25)
+    d["launch_dv"] = float(flyby._launch_dv(d["vinf_launch"], "Earth"))
+    v = nbody.verify(d)
+    check_true("Voyager: course corrections below 50 m/s in total", v["tcm_total"] < 0.05,
+               f"{v['tcm_total'] * 1000:.1f} m/s")
+    e = v["encounters"][-1]
+    check("Voyager: Saturn closest approach after corrections", e["alt_actual"], e["alt_planned"], 50.0, " km")
+
+
 def run_validation():
     test_stumpff()
     test_curtis_elements()
@@ -619,6 +696,8 @@ def run_validation():
     _optional("Low thrust", test_low_thrust)
     _optional("Deep-space maneuver (Juno)", test_deep_space_maneuver)
     _optional("Orbit uncertainty", test_orbit_uncertainty)
+    _optional("High-fidelity force model", test_force_model)
+    _optional("Full solar-system gravity", test_full_gravity)
 
     width = 58
     print("=" * 78)

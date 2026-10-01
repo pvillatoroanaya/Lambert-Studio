@@ -20,6 +20,7 @@ GROUPS = [
     V.test_ephemeris, V.test_maneuvers, V.test_perturbations, V.test_gravity_assists,
     V.test_repeat_flybys, V.test_satellite_model,
     V.test_launchers, V.test_moon_tours, V.test_low_thrust, V.test_deep_space_maneuver, V.test_orbit_uncertainty,
+    V.test_force_model, V.test_full_gravity,
 ]
 
 

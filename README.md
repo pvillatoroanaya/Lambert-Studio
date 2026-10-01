@@ -91,8 +91,8 @@ The single file is **generated** from the modules by
 - **Planets and transfers.** Sidereal periods match accepted values, and
   an Earth→Mars 2026 transfer lands in the realistic range for C₃ and Δv.
 
-With the Lambert Studio packages installed, 51 more checks cover the
-extensions (125 in total; without them, those checks are listed as skipped):
+With the Lambert Studio packages installed, 62 more checks cover the
+extensions (136 in total; without them, those checks are listed as skipped):
 
 - the JPL DE440s ephemeris, compared with the approximate elements;
 - Hohmann LEO→GEO Δv = 3.893 km/s;
@@ -120,7 +120,16 @@ extensions (125 in total; without them, those checks are listed as skipped):
   Earth flyby within a month of the real date (9 Oct 2013), burn and launch
   energy of the right size;
 - orbit-determination uncertainty: no measurement error gives exactly the
-  nominal orbit, and doubling the angle error doubles the spread.
+  nominal orbit, and doubling the angle error doubles the spread;
+- the high-fidelity Earth-orbit force model (`forces.py`): the analytic
+  gradient agrees with finite differences of the potential, the geostationary
+  stable point falls at 75.07°E, a geostationary orbit tilts 0.7-1.0 deg in a
+  year, the eclipse lasts 36.1 min in the test case, and the NRLMSIS density at
+  solar maximum is more than 4x that at solar minimum;
+- full solar-system gravity (`nbody.py`): the simple-model Mars trip misses
+  by over 10,000 km when flown uncorrected, yet after corrections arrives
+  within 10 km of the planned altitude; Voyager needs under 50 m/s of
+  corrections and reaches Saturn within 50 km of the planned altitude.
 
 ---
 
@@ -194,7 +203,7 @@ Three.js (3D) and Plotly (charts).
 - Planet and Moon positions: NASA/JPL DE440s, via Skyfield
 - Satellites: CelesTrak GP data, with SGP4 used for validation
 - Asteroids: NASA/JPL SBDB, CNEOS close-approach data and Horizons
-- Atmosphere model: Vallado, *Fundamentals of Astrodynamics and Applications*, Table 8-4
+- Atmosphere: NRLMSIS 2.1 via `pymsis`; Earth gravity field EGM96 (J2-J6, C22/S22); fallback exponential model from Vallado, *Fundamentals of Astrodynamics and Applications*, Table 8-4
 - Launch-vehicle performance: A. P. Girija, *Launch Vehicle High-Energy Performance Dataset* (arXiv:2310.05994), from NASA Launch Services Program data
 - Moon masses, sizes and orbits: NASA/JPL Solar System Dynamics (planetary satellite parameters)
 - Reference method: H. D. Curtis, *Orbital Mechanics for Engineering Students*
@@ -218,8 +227,9 @@ Each 3D view also has a 📷 button that saves the current view as a PNG.
 | Part | Files |
 |---|---|
 | Core astrodynamics | `constants.py`, `time_utils.py`, `coord_utils.py`, `lambert_solver.py`, `orbital_elements.py`, `frames.py` |
-| Planets & missions | `planets.py`, `ephemeris.py`, `interplanetary.py`, `flyby.py`, `dsm.py`, `moontour.py`, `lowthrust.py`, `launchers.py`, `maneuvers.py`, `perturb.py`, `uncertainty.py` |
+| Planets & missions | `planets.py`, `ephemeris.py`, `interplanetary.py`, `flyby.py`, `dsm.py`, `moontour.py`, `lowthrust.py`, `launchers.py`, `maneuvers.py`, `perturb.py`, `forces.py`, `nbody.py`, `uncertainty.py` |
 | Live data | `satellites.py`, `asteroids.py`, `netcache.py` |
 | Application | `studio_server.py` (JSON API), `lambert_studio.py` (window), `web/` (Three.js + Plotly interface) |
 | Course deliverable | `app.py`, `dashboard.py`, `viz.py`, `report.py`, `build_single_file.py` → `lambert_problem_solver.py` |
+| Report & studies | `report/study_time.py` (how results change with time), `report/build_report.py`, `report/carousel.html`, `report/linkedin_post.md` |
 | Quality | `validation.py`, `tests/`, `pyproject.toml`, `build_exe.py` |

@@ -6,7 +6,7 @@
 (function () {
   const S = 1 / LS.R_EARTH;
   const $ = (id) => document.getElementById(id);
-  const COLORS = { initial: 0x5ac8fa, transfer: 0xffb454, final: 0x6ee7a8 };
+  const COLORS = { initial: 0x5eb3e6, transfer: 0xeea55a, final: 0x7fcf9f };
 
   const view = {
     id: 'maneuver',
@@ -112,10 +112,10 @@
     }
     plan.burns.forEach((b) => {
       const p = LS.v3(b.r, S);
-      const dot = LS.dot(w * 3.5, 0xff6b6b); dot.position.copy(p); planGroup.add(dot);
+      const dot = LS.dot(w * 3.5, 0xe56f6f); dot.position.copy(p); planGroup.add(dot);
       const dir = LS.v3(b.dir).normalize();
       const len = rmax * 0.12;
-      planGroup.add(new THREE.ArrowHelper(dir, p, len, 0xff6b6b, len * 0.3, len * 0.18));
+      planGroup.add(new THREE.ArrowHelper(dir, p, len, 0xe56f6f, len * 0.3, len * 0.18));
       const lb = LS.label(`${b.label.split(' · ')[0]}  ${LS.fmt(b.dv, 3)} km/s`, 'warm');
       lb.position.copy(p.clone().add(dir.clone().multiplyScalar(len)));
       planGroup.add(lb);
@@ -197,6 +197,6 @@
 
   view.render = () => s3.render();
   view.clockLabel = (t) => `T + ${LS.fmtDuration(t)}`;
-  view.nowLabel = 'Start';
+  view.nowLabel = 'Back to start';
   view.onNow = () => { view.clock.t = 0; };
 })();

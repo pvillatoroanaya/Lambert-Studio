@@ -37,11 +37,11 @@ td.d { font-family: var(--mono); color: var(--green); text-align: right; white-s
 .phases li { display: grid; grid-template-columns: 70px 1fr; gap: 18px; align-items: baseline; font-size: 33px; line-height: 1.3; }
 .phases span { font: 500 26px var(--mono); color: var(--cyan); }
 .chips { display: flex; flex-wrap: wrap; gap: 14px; }
-.chips span { font: 500 27px var(--mono); padding: 10px 20px; border: 2px solid var(--rule); border-radius: 999px; }
+.chips span { font: 500 27px var(--mono); padding: 10px 20px; border: 2px solid var(--rule); border-radius: 3px; }
 .accent { color: var(--cyan); }
 </style></head><body>
 
-<section class="slide" data-n="1 / 8">
+<section class="slide" data-n="1 / 10">
   <div class="kick">Aerospace engineering · student project</div>
   <h1>Lambert<br>Studio</h1>
   <p>I turned a university assignment on orbit determination into an <b>interactive mission-design studio</b>
@@ -49,7 +49,7 @@ td.d { font-family: var(--mono); color: var(--green); text-align: right; white-s
   <div class="shot" style="margin-top:auto"><img src="img/cassini_overview.jpg" alt=""></div>
 </section>
 
-<section class="slide" data-n="2 / 8">
+<section class="slide" data-n="2 / 10">
   <div class="kick">The starting point</div>
   <h2>Two sightings of a satellite. <span class="accent">Find its orbit.</span></h2>
   <p>A ground station measures azimuth, elevation and range twice, 2.5 hours apart. Solving <b>Lambert's problem</b>
@@ -58,20 +58,20 @@ td.d { font-family: var(--mono); color: var(--green); text-align: right; white-s
   <p><b>a = 28,184 km · e = 0.768 · i = 20.34° · period 13 h 04 min</b></p>
 </section>
 
-<section class="slide" data-n="3 / 8">
+<section class="slide" data-n="3 / 10">
   <div class="kick">What it does</div>
-  <h2>Eight modules, one desktop app</h2>
+  <h2>Eleven modules, one desktop app</h2>
   <div class="grid">
     <figure><div class="shot"><img src="img/near.jpg" alt=""></div><figcaption>Real satellites (CelesTrak)</figcaption></figure>
     <figure><div class="shot"><img src="img/maneuver.jpg" alt=""></div><figcaption>Manoeuvre planner</figcaption></figure>
-    <figure><div class="shot"><img src="img/perturb.jpg" alt=""></div><figcaption>J2 + drag orbit prediction</figcaption></figure>
+    <figure><div class="shot"><img src="img/perturb.jpg" alt=""></div><figcaption>Full-force orbit prediction</figcaption></figure>
     <figure><div class="shot"><img src="img/flybys.jpg" alt=""></div><figcaption>Asteroid flybys (NASA/JPL)</figcaption></figure>
     <figure><div class="shot"><img src="img/solar.jpg" alt=""></div><figcaption>Solar system (JPL DE440s)</figcaption></figure>
     <figure><div class="shot"><img src="img/mission.jpg" alt=""></div><figcaption>Porkchop & launch windows</figcaption></figure>
   </div>
 </section>
 
-<section class="slide" data-n="4 / 8">
+<section class="slide" data-n="4 / 10">
   <div class="kick">Gravity assists</div>
   <h2>Let the planets do the work</h2>
   <p>Routes with up to four flybys, including repeat visits to the same planet (multi-revolution Lambert), optimised over
@@ -80,7 +80,7 @@ td.d { font-family: var(--mono); color: var(--green); text-align: right; white-s
   <p>Cassini's launch period: flying direct to Saturn costs <b>20.7 km/s</b>; the flyby route needs <b class="accent">7.8 km/s</b>.</p>
 </section>
 
-<section class="slide" data-n="5 / 8">
+<section class="slide" data-n="5 / 10">
   <div class="kick">Mission playback</div>
   <div class="big">+10.48 km/s</div>
   <h2 style="font-size:64px">Voyager at Jupiter, May 1979. No fuel.</h2>
@@ -89,7 +89,7 @@ td.d { font-family: var(--mono); color: var(--green); text-align: right; white-s
     and live telemetry shows the spacecraft passing solar escape speed.</p>
 </section>
 
-<section class="slide" data-n="6 / 8">
+<section class="slide" data-n="6 / 10">
   <div class="kick">Validated</div>
   <h2>It rediscovered history</h2>
   <p>The optimiser is never told the real dates, only the planets and a launch period.</p>
@@ -101,12 +101,30 @@ td.d { font-family: var(--mono); color: var(--green); text-align: right; white-s
     <tr><td>Cassini · Earth flyby</td><td class="m">17 Aug 1999</td><td class="d">4 hours off</td></tr>
     <tr><td>Hohmann LEO → GEO</td><td class="m">3.8926 km/s</td><td class="d">textbook 3.893</td></tr>
   </table>
-  <p><b>103</b> automated validation checks · <b>27</b> pytest tests · browser-driven UI tests</p>
+  <p><b>136</b> automated validation checks · <b>58</b> pytest tests · browser-driven UI tests</p>
 </section>
 
-<section class="slide" data-n="7 / 8">
+<section class="slide" data-n="7 / 10">
+  <div class="kick">Then I made it more accurate</div>
+  <h2>Real forces. Real gravity. <span class="accent">Real corrections.</span></h2>
+  <p>Earth's gravity to degree 6, the Moon and Sun from JPL, sunlight pressure with Earth's shadow and the NRLMSIS atmosphere.
+    Routes are re-flown with every planet pulling at once.</p>
+  <div class="shot"><img src="img/perturb_geo.jpg" alt=""></div>
+  <p><b>A geostationary satellite tilts 0.95° in a year</b>, inside the 0.75–0.95° real operators see.</p>
+</section>
+
+<section class="slide" data-n="8 / 10">
+  <div class="kick">How answers change with time</div>
+  <h2>Same orbit, <span class="accent">23× faster decay</span> at solar maximum</h2>
+  <div class="shot" style="background:#fff"><img src="img/study_solar.png" alt=""></div>
+  <p>Mars launch energy varies almost 2× between windows. Mars is 3 to 22 light-minutes away. Voyager's
+    simple-model route would hit Jupiter until <b>4 m/s</b> of corrections fix it.
+    <b>A simulation answers for a date, not forever.</b></p>
+</section>
+
+<section class="slide" data-n="9 / 10">
   <div class="kick">How it was built</div>
-  <h2>Seven phases, each verified before the next</h2>
+  <h2>Nine phases, each verified before the next</h2>
   <ol class="phases">
     <li><span>01</span>Rebuilt the Lambert solver and checked it against textbook examples</li>
     <li><span>02</span>Desktop app: Python physics + local API + Three.js/WebGL interface</li>
@@ -115,13 +133,15 @@ td.d { font-family: var(--mono); color: var(--green); text-align: right; white-s
     <li><span>05</span>Gravity assists: batch + multi-revolution Lambert, beam search</li>
     <li><span>06</span>Mission playback, free camera, NASA-sourced input suggestions</li>
     <li><span>07</span>pytest suite, Windows .exe (PyInstaller), course hand-in</li>
+    <li><span>08</span>Learn tab, moon tours, ion engines, orbit uncertainty</li>
+    <li><span>09</span>High-fidelity forces + full solar-system route check</li>
   </ol>
 </section>
 
-<section class="slide" data-n="8 / 8">
+<section class="slide" data-n="10 / 10">
   <div class="kick">Stack & takeaways</div>
-  <h2>≈11,000 lines. One lesson: <span class="accent">verify everything.</span></h2>
-  <div class="chips"><span>Python</span><span>NumPy</span><span>SciPy</span><span>Skyfield</span><span>sgp4</span>
+  <h2>≈20,000 lines. One lesson: <span class="accent">verify everything.</span></h2>
+  <div class="chips"><span>Python</span><span>NumPy</span><span>SciPy</span><span>Skyfield</span><span>NRLMSIS</span><span>sgp4</span>
     <span>Three.js</span><span>Plotly</span><span>pytest</span><span>PyInstaller</span><span>git</span></div>
   <p>Screenshots can look right and still be wrong; a wider search turned Cassini from worse-than-direct into the
     historical route; and knowing where the maths breaks (resonant orbits) matters as much as the maths.</p>

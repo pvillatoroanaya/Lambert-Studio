@@ -31,30 +31,29 @@
 
     const traces = [{
       type: 'scattergl', mode: 'lines', x: g.lon, y: g.lat, name: 'Ground track',
-      line: { color: '#5ac8fa', width: 2.5 }, customdata: g.alt, connectgaps: false,
+      line: { color: '#5eb3e6', width: 2.5 }, customdata: g.alt, connectgaps: false,
       hovertemplate: 'lat %{y:.2f}°<br>lon %{x:.2f}°<br>alt %{customdata:,.0f} km<extra></extra>',
     }, {
       type: 'scatter', mode: 'markers', x: [g.lon[0]], y: [g.lat[0]], name: 'Obs 1 epoch',
-      marker: { color: '#ffb454', size: 9, line: { color: '#070b16', width: 1.5 } },
+      marker: { color: '#eea55a', size: 9, line: { color: '#070b16', width: 1.5 } },
     }, {
       type: 'scatter', mode: 'markers', x: [null], y: [null], name: 'Satellite now',
-      marker: { color: '#ffffff', size: 12, line: { color: '#5ac8fa', width: 3 } },
+      marker: { color: '#ffffff', size: 12, line: { color: '#5eb3e6', width: 3 } },
     }];
     if (sol.station_latlon) {
       traces.push({ type: 'scatter', mode: 'markers+text', x: [sol.station_latlon[1]], y: [sol.station_latlon[0]],
-        name: 'Station', text: ['Station'], textposition: 'top center', textfont: { color: '#6ee7a8' },
-        marker: { color: '#6ee7a8', size: 11, symbol: 'diamond', line: { color: '#070b16', width: 1.5 } } });
+        name: 'Station', text: ['Station'], textposition: 'top center', textfont: { color: '#7fcf9f' },
+        marker: { color: '#7fcf9f', size: 11, symbol: 'diamond', line: { color: '#070b16', width: 1.5 } } });
     }
     const layout = LS.plotLayout({
       title: { text: 'Ground track', x: 0.02, font: { size: 14 } },
-      xaxis: { range: [-180, 180], dtick: 30, ticksuffix: '°', gridcolor: 'rgba(255,255,255,0.12)', color: '#8b9bbd',
+      xaxis: { range: [-180, 180], dtick: 30, ticksuffix: '°', gridcolor: 'rgba(255,255,255,0.12)', color: '#8d95a8',
         zeroline: false, constrain: 'domain' },
-      yaxis: { range: [-90, 90], dtick: 30, ticksuffix: '°', gridcolor: 'rgba(255,255,255,0.12)', color: '#8b9bbd',
+      yaxis: { range: [-90, 90], dtick: 30, ticksuffix: '°', gridcolor: 'rgba(255,255,255,0.12)', color: '#8d95a8',
         scaleanchor: 'x', scaleratio: 1, zeroline: false, constrain: 'domain' },
       images: [{ source: 'textures/earth_day_hd.jpg', xref: 'x', yref: 'y', x: -180, y: 90, sizex: 360, sizey: 180,
         sizing: 'stretch', layer: 'below', opacity: 0.85 }],
-      legend: { orientation: 'h', y: -0.12, bgcolor: 'rgba(0,0,0,0)' },
-      margin: { l: 50, r: 16, t: 44, b: 60 },
+      margin: { l: 50, r: 16, t: 66, b: 36 },
     });
     Plotly.react('ch-ground', traces, layout, LS.plotConfig);
 
@@ -63,24 +62,24 @@
     if (sky) {
       const r = sky.el.map((e) => (e >= 0 ? 90 - e : null));
       sTraces.push({ type: 'scatterpolar', mode: 'lines', theta: sky.az, r, name: 'Pass',
-        line: { color: '#5ac8fa', width: 3 }, connectgaps: false,
+        line: { color: '#5eb3e6', width: 3 }, connectgaps: false,
         customdata: sky.el.map((e, k) => [e, sky.rng[k]]),
         hovertemplate: 'az %{theta:.1f}°<br>el %{customdata[0]:.1f}°<br>range %{customdata[1]:,.0f} km<extra></extra>' });
       if (sol.mode === 'observations') {
         sTraces.push({ type: 'scatterpolar', mode: 'markers+text', theta: sky.marks.map((m) => m.az),
           r: sky.marks.map((m) => 90 - m.el), text: sky.marks.map((m) => m.label), textposition: 'top center',
-          name: 'Observations', marker: { color: '#ff6b6b', size: 11 }, textfont: { color: '#ffb454' } });
+          name: 'Observations', marker: { color: '#e56f6f', size: 11 }, textfont: { color: '#eea55a' } });
       }
       sTraces.push({ type: 'scatterpolar', mode: 'markers', theta: [null], r: [null], name: 'Satellite now',
-        marker: { color: '#ffffff', size: 12, line: { color: '#5ac8fa', width: 3 } } });
+        marker: { color: '#ffffff', size: 12, line: { color: '#5eb3e6', width: 3 } } });
     }
     Plotly.react('ch-sky', sTraces, LS.plotLayout({
       title: { text: sky ? 'Sky from the station' : 'Sky view needs observation mode', x: 0.03, font: { size: 14 } },
       showlegend: false, margin: { l: 30, r: 30, t: 56, b: 30 },
       polar: { bgcolor: '#0c1322',
         radialaxis: { range: [0, 90], tickvals: [0, 30, 60, 90], ticktext: ['90°', '60°', '30°', '0°'],
-          gridcolor: 'rgba(148,170,210,0.15)', color: '#8b9bbd', angle: 90, tickangle: 90 },
-        angularaxis: { rotation: 90, direction: 'clockwise', gridcolor: 'rgba(148,170,210,0.15)', color: '#8b9bbd',
+          gridcolor: 'rgba(255,255,255,0.08)', color: '#8d95a8', angle: 90, tickangle: 90 },
+        angularaxis: { rotation: 90, direction: 'clockwise', gridcolor: 'rgba(255,255,255,0.08)', color: '#8d95a8',
           tickvals: [0, 90, 180, 270], ticktext: ['N', 'E', 'S', 'W'] } },
     }), LS.plotConfig);
 
@@ -139,6 +138,6 @@
   };
 
   view.clockLabel = (t) => LS.views.orbit.clockLabel(t);
-  view.nowLabel = 'Obs 1';
+  view.nowLabel = 'Back to obs 1';
   view.onNow = () => LS.views.orbit.onNow();
 })();

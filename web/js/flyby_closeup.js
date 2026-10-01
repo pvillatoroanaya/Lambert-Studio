@@ -19,7 +19,7 @@
   const f = (x, d) => LS.fmt(x, d);
   const N = 900;                          // samples along the hyperbola
   const T_INTRO = 3.5, T_FLY = 15, T_HOLD = 2.5, T_SUN = 10, T_END = 8;   // seconds of animation
-  const COLORS = { in: 0x5ac8fa, out: 0x6ee7a8, planet: 0xffb454, helio: 0xffffff };
+  const COLORS = { in: 0x5eb3e6, out: 0x7fcf9f, planet: 0xeea55a, helio: 0xffffff };
 
   const FX = { active: false };
   LS.flybyCloseup = FX;
@@ -203,7 +203,7 @@
       'to the Sun', 'warm');
     sunA.userData.sunArrow = true;
 
-    craft = LS.spacecraft(V * 0.022, { color: 0x5ac8fa });
+    craft = LS.spacecraft(V * 0.022, { color: 0x5eb3e6 });
     group.add(craft);
     flame = LS.glowSprite(0xff9a3c, V * 0.05);
     flame.visible = false;
@@ -307,21 +307,21 @@
     const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
     const mk = (id, c) => `<marker id="m${id}" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8z" fill="${c}"/></marker>`;
     return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Velocity triangle">
-      <defs>${mk('p', '#ffb454')}${mk('i', '#5ac8fa')}${mk('o', '#6ee7a8')}${mk('b', '#8b9bbd')}${mk('a', '#ffffff')}</defs>
-      <circle cx="${X(A)}" cy="${Y(A)}" r="${(r * s).toFixed(1)}" fill="none" stroke="#8b9bbd" stroke-opacity=".35" stroke-dasharray="3 4"/>
-      ${line(O, B1, '#8b9bbd', 1.6, '5 4', 'b')}
+      <defs>${mk('p', '#eea55a')}${mk('i', '#5eb3e6')}${mk('o', '#7fcf9f')}${mk('b', '#8d95a8')}${mk('a', '#ffffff')}</defs>
+      <circle cx="${X(A)}" cy="${Y(A)}" r="${(r * s).toFixed(1)}" fill="none" stroke="#8d95a8" stroke-opacity=".35" stroke-dasharray="3 4"/>
+      ${line(O, B1, '#8d95a8', 1.6, '5 4', 'b')}
       ${line(O, B2, '#ffffff', 2.4, '', 'a')}
-      ${line(O, A, '#ffb454', 2.2, '', 'p')}
-      ${line(A, B1, '#5ac8fa', 2, '', 'i')}
-      ${line(A, B2, '#6ee7a8', 2, '', 'o')}
-      ${zoom ? txt([x0, 0], `${E.planet} ${f(G.vp.length(), 1)} ⟶`, '#ffb454', 4, 14, 'start')
-        : txt(mid(O, A), `${E.planet} ${f(G.vp.length(), 1)}`, '#ffb454', 0, 14)}
+      ${line(O, A, '#eea55a', 2.2, '', 'p')}
+      ${line(A, B1, '#5eb3e6', 2, '', 'i')}
+      ${line(A, B2, '#7fcf9f', 2, '', 'o')}
+      ${zoom ? txt([x0, 0], `${E.planet} ${f(G.vp.length(), 1)} ⟶`, '#eea55a', 4, 14, 'start')
+        : txt(mid(O, A), `${E.planet} ${f(G.vp.length(), 1)}`, '#eea55a', 0, 14)}
       ${zoom ? `<text x="4" y="${(H - 6)}" fill="#5d6c8c" font-size="9.5">zoomed in on the tip of ${E.planet}'s arrow</text>` : ''}
       ${txt(B1, `before ${f(E.v_helio_before, 1)}`, '#c9d4ea', 0, B1[1] >= A[1] ? -8 : 15)}
       ${txt(B2, `after ${f(E.v_helio_after, 1)}`, '#ffffff', 0, B2[1] >= A[1] ? -8 : 15)}
     </svg>
-    <div class="fx-legend"><span style="--c:#ffb454">planet's motion</span><span style="--c:#5ac8fa">v∞ in</span>
-      <span style="--c:#6ee7a8">v∞ out</span><span style="--c:#fff">speed around the Sun</span></div>
+    <div class="fx-legend"><span style="--c:#eea55a">planet's motion</span><span style="--c:#5eb3e6">v∞ in</span>
+      <span style="--c:#7fcf9f">v∞ out</span><span style="--c:#fff">speed around the Sun</span></div>
     <p>Relative to ${E.planet}, the flyby can only <b>rotate</b> the arrow (it stays on the dashed circle, same length).
       Adding ${E.planet}'s motion turns that rotation into a change of speed around the Sun. Speeds in km/s; drawn flat on one plane.</p>`;
   }

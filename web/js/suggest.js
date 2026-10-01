@@ -61,7 +61,7 @@
     { label: 'Svalbard (KSAT)', geo: [78.2297, 15.4078, 500],
       note: 'SvalSat, Norway — 78.23° N, 15.41° E. So far north that it sees every pass of polar-orbiting satellites.' },
   ];
-  chips(document.querySelector('#in-obs .grid3'), 'beforebegin', 'Real ground stations', STATIONS.map((s) => ({
+  chips($('st-more'), 'beforebegin', 'Real ground stations', STATIONS.map((s) => ({
     label: s.label,
     note: s.note + (s.geo ? ' Converted to Earth-fixed coordinates with the WGS-84 ellipsoid (approximate site position).' : '') +
       ' <b>Note:</b> the observations below were measured from the assignment station; with another station they describe a different satellite.',
@@ -115,7 +115,7 @@
 
   /* ---------------- Perturb tab ---------------- */
 
-  chips($('pt-dragbox'), 'beforebegin', 'Spacecraft (sets drag data)', [
+  chips($('pt-more'), 'beforebegin', 'Spacecraft (sets drag data)', [
     ['ISS', [2.2, 1600, 420000], 'International Space Station: ≈420,000 kg; ≈1,600 m² average cross-section with its solar arrays (an estimate: the real value changes with array orientation).'],
     ['Hubble', [2.2, 60, 11110], 'Hubble Space Telescope: 11,110 kg at launch; ≈60 m² average cross-section, an estimate (13.2 m long, 4.2 m wide, plus solar arrays).'],
     ['Starlink v1.5', [2.2, 10, 306], 'SpaceX Starlink v1.5: ≈306 kg; the ≈10 m² cross-section is an estimate for flying edge-on to reduce drag.'],
@@ -123,7 +123,7 @@
   ].map(([l, [cd, a, m], n]) => ({
     label: l,
     note: n + ' Cd = 2.2 is the standard drag coefficient for satellites (Vallado).',
-    apply: () => { set({ 'pt-cd': cd, 'pt-area': a, 'pt-mass': m }); $('pt-drag').checked = true; $('pt-dragbox').hidden = false; },
+    apply: () => { set({ 'pt-cd': cd, 'pt-area': a, 'pt-mass': m }); if (!$('pt-atm').value) $('pt-atm').value = 'msis'; },
   })));
 
   /* ---------------- Mission tab ---------------- */
@@ -131,7 +131,7 @@
   const suggestBox = document.createElement('div');
   suggestBox.className = 'suggest';
   suggestBox.innerHTML = `<div class="sg-title">Not sure which dates?</div>
-    <button type="button" class="ghost wide" id="m-suggest">✨ Suggest the next launch window</button>
+    <button type="button" class="ghost wide" id="m-suggest">Suggest the next launch window</button>
     <p class="sg-note" id="m-suggest-note" hidden></p>`;
   $('m-dd').closest('.grid2').insertAdjacentElement('afterend', suggestBox);
   $('m-suggest').addEventListener('click', async () => {
@@ -145,7 +145,7 @@
       note.innerHTML = `Best opportunity in the next ${LS.fmt(s.synodic_days / 365.25, 1)} years (one synodic period):
         depart <b>${s.departure_iso.slice(0, 10)}</b>, ${LS.fmt(s.tof_days, 0)}-day flight, launch energy
         C₃ = ${LS.fmt(s.c3, 1)} km²/s², total Δv ${LS.fmt(s.total_dv, 2)} km/s. Found by solving
-        ${s.searched.toLocaleString()} Lambert problems. The porkchop window has been centred on it.`;
+        ${s.searched.toLocaleString('en-US')} Lambert problems. The porkchop window has been centred on it.`;
       note.hidden = false;
       await LS.views.mission.refresh();
     } catch (e) {

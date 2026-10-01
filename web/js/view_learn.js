@@ -166,7 +166,12 @@
         before, green after) gives its speed around the Sun (grey before, white after). The flyby can only rotate the
         blue arrow into the green one, keeping its length.</p>`,
       after: `<p>Try: pass close <b>behind</b> Jupiter to gain the most; pass <b>in front</b> of Venus to brake. Heavy planets
-        and slow, close passes bend the path most. Mariner 10 used the first real gravity assist, at Venus, in 1974.</p>`,
+        and slow, close passes bend the path most. Mariner 10 used the first real gravity assist, at Venus, in 1974.</p>
+        <p><b>Simple model vs real gravity.</b> Routes are designed with <i>patched conics</i>: only one body pulls at a time.
+        Flown in the real solar system (every planet and the Moon pulling at once), the same launch misses its target by
+        tens or hundreds of thousands of kilometres, or even hits the planet. Navigators aim the launch with the full model
+        and make small <b>trajectory-correction manoeuvres</b>. Open a route in the Mission tab and press <i>Check in full
+        solar-system gravity</i> to see it done.</p>`,
       tries: [['Watch Voyager\'s Jupiter flyby', () => missionRoute('Voyager')]],
       quiz: [
         { q: 'Relative to the planet, after a (fuel-free) flyby the spacecraft is…', options: ['Faster', 'Slower', 'Exactly as fast as before, in a new direction'], a: 2,
@@ -257,9 +262,26 @@
     { id: 'track', title: 'Tracking pro', goal: 'Keep the one-week prediction error of the assignment orbit below 100 km.',
       hint: 'Orbit tab → How certain is this orbit? What if the sensors were better?', event: 'mc-result',
       check: (r) => r.per_orbit[r.per_orbit.length - 1].along_std < 100 },
+    { id: 'navigator', title: 'Navigator', goal: 'Fly a gravity-assist route in full solar-system gravity with less than 10 m/s of course corrections.',
+      hint: 'Mission tab → a route → Check in full solar-system gravity. Clean designs need the least correcting.',
+      event: 'nbody', check: (v) => v.encounters.length >= 2 && v.tcm_total < 0.010 },
+    { id: 'weather', title: 'Space weather', goal: 'Show an orbit decaying at least 3 times faster at solar maximum than at solar minimum.',
+      hint: 'Perturb tab: the two "same orbit at solar minimum / maximum" examples, 30 days each.', event: 'perturb-result',
+      check: (r) => {
+        const s = r.summary;
+        if (s.atmosphere !== 'msis' || s.days_run < 20) return false;
+        // Orbit-averaged size at the start and the end (the instantaneous
+        // value wobbles by ~10 km every orbit because of J2).
+        const n = Math.max(1, Math.floor(r.a.length / 20));
+        const avg = (arr) => arr.reduce((x, y) => x + y, 0) / arr.length;
+        weatherRates[s.activity] = (avg(r.a.slice(0, n)) - avg(r.a.slice(-n))) / s.days_run;
+        return weatherRates.low > 0 && weatherRates.high > 3 * weatherRates.low;
+      } },
     { id: 'quiz', title: 'Quiz master', goal: 'Answer every quiz question in the lessons correctly.', event: 'quiz',
       check: () => allQuiz() },
   ];
+
+  const weatherRates = {};
 
   function allQuiz() {
     return LESSONS.every((L) => L.quiz.every((_, k) => progress.quiz[`${L.id}-${k}`] === true));
@@ -273,7 +295,7 @@
     LS.status(`Challenge complete: ${ch.title}!`, 'ok');
     const t = document.createElement('div');
     t.className = 'ch-toast';
-    t.innerHTML = `<b>🏆 Challenge complete</b><span>${ch.title}</span>`;
+    t.innerHTML = `<b>Challenge complete</b><span>${ch.title}</span>`;
     document.body.appendChild(t);
     setTimeout(() => t.remove(), 4200);
   }
@@ -298,7 +320,7 @@
       <i>${progress.done[L.id] ? '✓' : k + 1}</i><span><b>${L.title}</b><small>${L.mins} min${L.widget ? ' · interactive' : ''}</small></span></button>`).join('');
     $('learn-lessons').querySelectorAll('.lesson-btn').forEach((b) => b.addEventListener('click', () => open(b.dataset.id)));
     $('learn-challenges').innerHTML = CHALLENGES.map((c) => `<div class="ch${progress.challenges[c.id] ? ' done' : ''}">
-      <i>${progress.challenges[c.id] ? '🏆' : '○'}</i><span><b>${c.title}</b><small>${c.goal}</small>
+      <i>${progress.challenges[c.id] ? '✓' : '○'}</i><span><b>${c.title}</b><small>${c.goal}</small>
       ${progress.challenges[c.id] ? '' : `<em>Hint: ${c.hint || ''}</em>`}</span></div>`).join('');
   }
 
@@ -365,13 +387,13 @@
   async function launchChart() {
     try {
       const d = await LS.launch.load();
-      const colors = ['#8b9bbd', '#5ac8fa', '#7fb8ff', '#c792ea', '#6ee7a8', '#ffb454', '#ffd27a', '#ff8a80', '#ff6b6b', '#e7edf8'];
+      const colors = ['#8d95a8', '#5eb3e6', '#7fb8ff', '#e3cc6a', '#7fcf9f', '#eea55a', '#ffd27a', '#ea7f7f', '#e56f6f', '#e9ecf3'];
       Plotly.react('lesson-launch-chart', d.order.map((n, k) => ({
         x: d.curves[n].map((p) => p[0]), y: d.curves[n].map((p) => p[1]), name: n, type: 'scatter', mode: 'lines',
         line: { color: colors[k % colors.length], width: 2 } })), LS.plotLayout({
-        margin: { l: 56, r: 12, t: 16, b: 42 }, legend: { font: { size: 10 } },
-        xaxis: { title: { text: 'launch energy C₃ (km²/s²)', font: { size: 11 } }, gridcolor: 'rgba(148,170,210,0.12)', color: '#8b9bbd' },
-        yaxis: { title: { text: 'mass it can launch (kg)', font: { size: 11 } }, gridcolor: 'rgba(148,170,210,0.12)', color: '#8b9bbd' },
+        margin: { l: 56, r: 12, t: 38, b: 42 },
+        xaxis: { title: { text: 'launch energy C₃ (km²/s²)', font: { size: 11 } }, gridcolor: 'rgba(255,255,255,0.06)', color: '#8d95a8' },
+        yaxis: { title: { text: 'mass it can launch (kg)', font: { size: 11 } }, gridcolor: 'rgba(255,255,255,0.06)', color: '#8d95a8' },
       }), LS.plotConfig);
     } catch (e) { /* chart is optional */ }
   }

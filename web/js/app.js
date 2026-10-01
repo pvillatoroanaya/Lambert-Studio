@@ -17,6 +17,7 @@
     $('tooltip').hidden = true;
     $('view-title').textContent = view.title;
     $('view-sub').textContent = view.subtitle;
+    $('tb-now').textContent = view.nowLabel || 'Now';
     active = view;
     LS.activeView = view;
 
@@ -59,6 +60,7 @@
     }
     rateSel.value = String(c.rate);
     $('tb-now').textContent = active.nowLabel || 'Now';
+    $('tb-now').title = active.nowLabel ? 'Move the timeline back to where it began' : 'Jump to the current time';
   };
 
   $('tb-play').addEventListener('click', () => { const c = active.clock; if (c) c.playing = !c.playing; });

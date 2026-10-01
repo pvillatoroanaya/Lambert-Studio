@@ -89,7 +89,8 @@ def secular_rates(a, e, i_deg):
 
 
 def propagate_perturbed(r0, v0, days, use_j2=True, use_drag=False,
-                        cd=2.2, area_m2=10.0, mass_kg=1000.0, max_points=24000):
+                        cd=2.2, area_m2=10.0, mass_kg=1000.0, max_points=24000,
+                        model=None, jd0=None, cr=1.3):
     """
     Integrate the perturbed motion and the ideal Kepler motion side by side.
 
@@ -112,9 +113,18 @@ def propagate_perturbed(r0, v0, days, use_j2=True, use_drag=False,
 
     bc = cd * area_m2 * 1e-6 / mass_kg                         # km^2/kg
     t_end = days * 86400.0
-
-    def rhs(t, y):
-        return np.concatenate([y[3:], acceleration(y[:3], y[3:], use_j2, use_drag, bc)])
+    notes, fm = [], None
+    if model:
+        # High-fidelity force model (forces.py).
+        from forces import ForceModel
+        if jd0 is None:
+            raise ValueError("The high-fidelity model needs a start date.")
+        fm = ForceModel(jd0, days, cd=cd, cr=cr, area_m2=area_m2, mass_kg=mass_kg, **model)
+        notes += fm.notes
+        rhs = fm.rhs
+    else:
+        def rhs(t, y):
+            return np.concatenate([y[3:], acceleration(y[:3], y[3:], use_j2, use_drag, bc)])
 
     def reentry(t, y):
         return np.linalg.norm(y[:3]) - (R_EARTH + REENTRY_ALT)
@@ -124,6 +134,8 @@ def propagate_perturbed(r0, v0, days, use_j2=True, use_drag=False,
     t0 = time.perf_counter()
     sol = solve_ivp(rhs, (0.0, t_end), np.concatenate([r0, v0]), method="DOP853",
                     rtol=1e-10, atol=1e-8, dense_output=True, events=reentry)
+    if sol.status == -1:
+        raise ValueError(f"The integration failed: {sol.message}")
     elapsed = time.perf_counter() - t0
     t_stop = float(sol.t[-1])
     reentered = sol.status == 1
@@ -136,7 +148,8 @@ def propagate_perturbed(r0, v0, days, use_j2=True, use_drag=False,
     R = Y[:, :3]
 
     # Kepler reference at the same instants, and the growing difference.
-    K = np.array([propagate(r0, v0, float(t))[0] for t in ts])
+    from dsm import propagate_batch                        # vectorised universal-variable Kepler
+    K, _ = propagate_batch(np.repeat(r0[None, :], n, 0), np.repeat(v0[None, :], n, 0), ts, mu=MU_EARTH)
     diff = np.linalg.norm(R - K, axis=1)
 
     # Osculating elements on a thinner grid (for the charts).
@@ -154,13 +167,21 @@ def propagate_perturbed(r0, v0, days, use_j2=True, use_drag=False,
     circular = el0["e"] < 1e-3
 
     el_end = rows[-1]
+    # Longitude under the satellite (for geostationary drift), if dated.
+    lon = None
+    if jd0 is not None:
+        from time_utils import gmst_from_jd
+        th = gmst_from_jd(jd0) + OMEGA_EARTH * ts[idx]
+        lon = np.degrees(np.unwrap(np.arctan2(Y[idx, 1], Y[idx, 0]) - th))
     return {
         "t": ts, "r": R, "kepler_r": K[:: max(1, n // 4000)],
         "days": days_axis,
         "alt_p": [r["alt_p"] for r in rows], "alt_a": [r["alt_a"] for r in rows],
         "a": [r["a"] for r in rows], "e": [r["e"] for r in rows], "i": [r["i"] for r in rows],
         "raan": raan, "argp": argp,
-        "diff_days": ts[idx] / 86400.0, "diff": diff[idx],
+        "diff_days": ts[idx] / 86400.0, "diff": diff[idx], "lon": lon,
+        "breakdown": force_breakdown(r0, v0, jd0, model, cd, cr, area_m2, mass_kg) if model else None,
+        "notes": notes,
         "summary": {
             "initial": {k: el0[k] for k in ("a", "e", "i", "RAAN", "argp", "alt_p", "alt_a", "period")},
             "final": {k: el_end[k] for k in ("a", "e", "i", "RAAN", "argp", "alt_p", "alt_a", "period")},
@@ -170,10 +191,46 @@ def propagate_perturbed(r0, v0, days, use_j2=True, use_drag=False,
             "days_run": t_stop / 86400.0, "reentered": bool(reentered),
             "max_diff": float(diff.max()), "revolutions": revs,
             "compute_s": elapsed, "steps": int(sol.t.size),
-            "forces": {"j2": use_j2, "drag": use_drag},
+            "forces": dict(model) if model else {"j2": use_j2, "drag": use_drag},
+            "atmosphere": (fm.drag if fm else ("exponential" if use_drag else None)),
+            "activity": getattr(fm, "activity", None) if fm else None,
             "ballistic_coefficient": mass_kg / (cd * area_m2),   # kg/m^2, the usual convention
         },
     }
+
+
+def force_breakdown(r0, v0, jd0, model, cd, cr, area_m2, mass_kg):
+    """Size of each force at the starting point [km/s^2], for the
+    "which force matters" chart: each one computed on its own."""
+    from forces import ForceModel
+    x, y, z = r0
+    vx, vy, vz = v0
+    central = MU_EARTH / float(np.dot(r0, r0))
+    parts = [("Earth (point mass)", central)]
+    base = ForceModel(jd0, 0.1, zonal_degree=0)
+    ref = np.array(base.accel(0.0, x, y, z, vx, vy, vz))
+
+    def extra(label, **kw):
+        fm = ForceModel(jd0, 0.1, cd=cd, cr=cr, area_m2=area_m2, mass_kg=mass_kg, **kw)
+        a = np.array(fm.accel(0.0, x, y, z, vx, vy, vz)) - ref
+        parts.append((label, float(np.linalg.norm(a))))
+    extra("J2 (equatorial bulge)", zonal_degree=2)
+    if model.get("zonal_degree", 2) > 2:
+        fm2 = ForceModel(jd0, 0.1, zonal_degree=2)
+        fm6 = ForceModel(jd0, 0.1, zonal_degree=model["zonal_degree"])
+        d = np.array(fm6.accel(0.0, x, y, z, vx, vy, vz)) - np.array(fm2.accel(0.0, x, y, z, vx, vy, vz))
+        parts.append((f"J3–J{model['zonal_degree']} (finer shape)", float(np.linalg.norm(d))))
+    if model.get("tesseral"):
+        extra("C22/S22 (elliptical equator)", zonal_degree=0, tesseral=True)
+    if model.get("moon"):
+        extra("Moon", zonal_degree=0, moon=True)
+    if model.get("sun"):
+        extra("Sun", zonal_degree=0, sun=True)
+    if model.get("srp"):
+        extra("Sunlight pressure", zonal_degree=0, srp=True)
+    if model.get("drag"):
+        extra("Air drag", zonal_degree=0, drag=model["drag"], activity=model.get("activity", "moderate"))
+    return [{"force": k, "accel": v, "ratio": v / central} for k, v in parts]
 
 
 def orbit_from_elements(alt_p, alt_a, i_deg, raan_deg=0.0, argp_deg=0.0, nu_deg=0.0):
@@ -194,16 +251,32 @@ def orbit_from_elements(alt_p, alt_a, i_deg, raan_deg=0.0, argp_deg=0.0, nu_deg=
     return Q @ r_pqw, Q @ v_pqw
 
 
-# Teaching cases: each one shows a different effect clearly.
+# Teaching cases: each one shows a different effect clearly. "model" uses
+# the full force model (forces.py); the others use J2 (+ simple drag) only.
+HIFI = {"zonal_degree": 6, "sun": True, "moon": True}
 PRESETS = {
-    "iss": {"label": "ISS-like (420 km, 51.6°)", "alt_p": 415, "alt_a": 425, "i": 51.6, "days": 10,
-            "drag": True, "cd": 2.2, "area": 1600, "mass": 420000},
-    "sso": {"label": "Sun-synchronous (700 km, 98.2°)", "alt_p": 700, "alt_a": 700, "i": 98.19, "days": 30,
+    "iss": {"label": "ISS-like (420 km, 51.6°): realistic atmosphere", "alt_p": 415, "alt_a": 425, "i": 51.6,
+            "days": 10, "drag": True, "cd": 2.2, "area": 1600, "mass": 420000,
+            "model": {**HIFI, "drag": "msis", "activity": "moderate"}},
+    "iss_min": {"label": "Same orbit at solar minimum (30 days)", "alt_p": 415, "alt_a": 425, "i": 51.6,
+                "days": 30, "drag": True, "cd": 2.2, "area": 1600, "mass": 420000,
+                "model": {**HIFI, "drag": "msis", "activity": "low"}},
+    "iss_max": {"label": "Same orbit at solar maximum (30 days)", "alt_p": 415, "alt_a": 425, "i": 51.6,
+                "days": 30, "drag": True, "cd": 2.2, "area": 1600, "mass": 420000,
+                "model": {**HIFI, "drag": "msis", "activity": "high"}},
+    "geo": {"label": "Geostationary drift (1 year): Sun, Moon, elliptical equator", "alt_p": 35786, "alt_a": 35786,
+            "i": 0, "days": 365, "lon": 45, "cd": 2.2, "area": 30, "mass": 3000, "cr": 1.3,
+            "model": {**HIFI, "tesseral": True, "srp": True}},
+    "gps": {"label": "GPS (20,200 km, 55°): Sun, Moon and sunlight", "alt_p": 20180, "alt_a": 20180, "i": 55,
+            "days": 60, "cd": 2.2, "area": 20, "mass": 1600, "cr": 1.3,
+            "model": {**HIFI, "tesseral": True, "srp": True}},
+    "sso": {"label": "Sun-synchronous (700 km, 98.2°): J2 only", "alt_p": 700, "alt_a": 700, "i": 98.19, "days": 30,
             "drag": False},
-    "molniya": {"label": "Molniya (63.4°, frozen perigee)", "alt_p": 600, "alt_a": 39750, "i": 63.4,
+    "molniya": {"label": "Molniya (63.4°, frozen perigee): J2 only", "alt_p": 600, "alt_a": 39750, "i": 63.4,
                 "argp": 270, "days": 30, "drag": False},
-    "decay": {"label": "Low CubeSat (250 km, decays)", "alt_p": 250, "alt_a": 260, "i": 51.6, "days": 60,
-              "drag": True, "cd": 2.2, "area": 0.03, "mass": 4},
+    "decay": {"label": "Low CubeSat (250 km) re-entry, realistic atmosphere", "alt_p": 250, "alt_a": 260, "i": 51.6,
+              "days": 60, "drag": True, "cd": 2.2, "area": 0.03, "mass": 4,
+              "model": {"zonal_degree": 2, "drag": "msis", "activity": "moderate"}},
     "gto": {"label": "GTO (250 × 35,786 km, 27°)", "alt_p": 250, "alt_a": 35786, "i": 27, "days": 20,
             "drag": True, "cd": 2.2, "area": 20, "mass": 3000},
 }

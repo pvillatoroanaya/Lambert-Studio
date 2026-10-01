@@ -5,7 +5,7 @@
 
 (function () {
   const $ = (id) => document.getElementById(id);
-  const LEG_CSS = ['#5ac8fa', '#ffb454', '#c792ea', '#6ee7a8', '#ff8a80'];
+  const LEG_CSS = ['#5eb3e6', '#eea55a', '#e3cc6a', '#7fcf9f', '#ea7f7f'];
   const LEG_COLORS = LEG_CSS.map((c) => new THREE.Color(c).getHex());
   const FLYBYS = ['r-f1', 'r-f2', 'r-f3', 'r-f4'];
   const SIZE = { Mercury: 0.02, Venus: 0.03, Earth: 0.032, Mars: 0.024,
@@ -211,7 +211,7 @@
         sizeAttenuation: false, depthWrite: false, blending: THREE.AdditiveBlending }));
       pin.scale.set(0.022, 0.022, 1);
       m.add(pin);
-      m.userData.label = LS.label(name);
+      m.userData.label = LS.label(name, name === 'Earth' ? 'key' : '');
       m.add(m.userData.label);
       m.userData.orbit = LS.line(orbitPoints(name), st.color, 0.35);
       s3.scene.add(m, m.userData.orbit);
@@ -311,7 +311,7 @@
       const idx = k === 0 ? 0 : route.legs[k - 1].end - 1;
       const p = LS.sv3(route.track_au[idx]);
       const ring = new THREE.Mesh(new THREE.RingGeometry(rmax * 0.012, rmax * 0.016, 48),
-        new THREE.MeshBasicMaterial({ color: e.kind === 'flyby' ? 0x6ee7a8 : e.kind === 'dsm' ? 0xff6b6b : 0xffffff, side: THREE.DoubleSide,
+        new THREE.MeshBasicMaterial({ color: e.kind === 'flyby' ? 0x7fcf9f : e.kind === 'dsm' ? 0xe56f6f : 0xffffff, side: THREE.DoubleSide,
           transparent: true, opacity: 0.9, depthWrite: false }));
       ring.position.copy(p);
       ring.lookAt(p.clone().add(new THREE.Vector3(0, 1, 0)));
@@ -321,7 +321,7 @@
           : e.kind === 'dsm' ? `Deep-space burn · ${LS.fmt(e.dv, 2)} km/s`
             : `Arrival · ${e.iso.slice(0, 10)}`;
       const lb = LS.label(txt, e.kind === 'flyby' ? 'accent' : 'warm');
-      if (e.kind === 'dsm') lb.element.firstChild.style.color = '#ff8a80';
+      if (e.kind === 'dsm') lb.element.firstChild.style.color = '#ea7f7f';
       lb.position.copy(p);
       routeGroup.add(lb);
     });
@@ -377,13 +377,36 @@
                  ...(d ? [['Direct route Δv', `${f(d.total_dv, 3)} km/s`]] : [])])}
         ${route.feasible ? '' : '<p class="hint" style="margin-top:6px">⚠ Some flyby would need more bending than the planet can give.</p>'}
         <button class="play-mission" id="route-play">▶ Play mission</button>
+        ${route.dsm ? '' : '<button class="ghost wide" id="route-nbody" style="margin-top:8px">Check in full solar-system gravity</button>'}
       </div>
+      <div id="route-nbody-box"></div>
       ${LS.launch.data ? `<div class="box"><h4>Which rocket? <small>for ${f(mass(), 0)} kg</small></h4>
         ${LS.launch.table(route.events[0].c3, mass())}</div>` : ''}`;
     $('route-play').onclick = R.play;
+    if ($('route-nbody')) $('route-nbody').onclick = verifyRoute;
   }
 
   const mass = () => Math.max(+$('r-mass').value || 2000, 1);
+
+  /* Fly the designed route again in full solar-system gravity (nbody.py). */
+  let nbodyLine = null;
+  async function verifyRoute() {
+    err();
+    const r = route;
+    try {
+      const v = await LS.nbody.run({ seq: r.seq, jds: r.jds, capture: r.capture,
+        legs: r.legs.map((L) => ({ revs: L.revs, branch: L.branch })) }, $('route-nbody'));
+      if (r !== route) return;                      // a new route was loaded meanwhile
+      r.nbody = v;
+      $('route-nbody-box').innerHTML = LS.nbody.html(v);
+      if (nbodyLine) routeGroup.remove(nbodyLine);
+      nbodyLine = LS.line(v.track_au.map((p) => LS.sv3(p)), 0x7fcf9f, 0.95);
+      routeGroup.add(nbodyLine);
+      $('route-story').insertAdjacentHTML('beforeend', LS.nbody.story(v));
+      $('route-nbody').textContent = '✓ Checked in full solar-system gravity';
+      LS.emit('nbody', v);
+    } catch (e) { err(e.message); }
+  }
 
   R.play = () => { if (route) LS.player.open(LS.player.fromRoute(route, route.presetInfo)); };
 
@@ -394,42 +417,41 @@
     const date = (days) => LS.fmtDate(LS.jdToDate(t0 + days));
     const x = route.t_days.map(date);
     const traces = [
-      { x, y: route.escape_speed, name: 'Speed needed to escape the Sun', type: 'scatter', mode: 'lines',
-        line: { color: 'rgba(255,107,107,0.8)', width: 1.5, dash: 'dash' } },
-      { x, y: route.speed, name: 'Spacecraft speed around the Sun', type: 'scatter', mode: 'lines',
-        line: { color: '#5ac8fa', width: 3 } },
+      { x, y: route.escape_speed, name: 'Solar escape speed', type: 'scatter', mode: 'lines',
+        line: { color: 'rgba(229,111,111,0.8)', width: 1.5, dash: 'dash' } },
+      { x, y: route.speed, name: 'Spacecraft', type: 'scatter', mode: 'lines',
+        line: { color: '#5eb3e6', width: 3 } },
     ];
     if (route.direct) {
       const d0 = route.direct.jds[0];
       traces.unshift({ x: route.direct.t_days.map((t) => LS.fmtDate(LS.jdToDate(d0 + t))), y: route.direct.speed,
         name: 'Direct route', type: 'scatter', mode: 'lines', line: { color: 'rgba(255,255,255,0.35)', width: 1.5 } });
     }
-    const ann = route.events.filter((e) => e.kind === 'flyby' || e.kind === 'dsm').map((e) => ({
+    const ann = route.events.filter((e) => e.kind === 'flyby' || e.kind === 'dsm').map((e, k) => ({
       x: e.iso.slice(0, 10), y: e.v_helio_after,
       text: e.kind === 'dsm' ? `burn ${LS.fmt(e.dv, 2)} km/s` : `${e.planet} ${e.gain >= 0 ? '+' : ''}${LS.fmt(e.gain, 1)} km/s`,
-      showarrow: true, arrowhead: 0, arrowcolor: '#6ee7a8', ax: 0, ay: -26, font: { color: '#6ee7a8', size: 11 },
+      showarrow: true, arrowhead: 0, arrowcolor: '#7fcf9f', ax: 0, ay: k % 2 ? -44 : -24, font: { color: '#7fcf9f', size: 11 },
       bgcolor: 'rgba(12,19,34,0.85)',
     }));
     Plotly.react('ch-route-speed', traces, LS.plotLayout({
       title: { text: 'Speed around the Sun (km/s)', x: 0.02, y: 0.975, font: { size: 13 } },
-      margin: { l: 46, r: 16, t: 70, b: 36 }, annotations: ann,
-      legend: { orientation: 'h', y: 1.1, x: 0, yanchor: 'bottom', bgcolor: 'rgba(0,0,0,0)', font: { size: 10.5 } },
-      yaxis: { gridcolor: 'rgba(148,170,210,0.12)', color: '#8b9bbd', rangemode: 'tozero' },
-      xaxis: { gridcolor: 'rgba(148,170,210,0.12)', color: '#8b9bbd' },
+      margin: { l: 46, r: 16, t: 60, b: 36 }, annotations: ann,
+      yaxis: { gridcolor: 'rgba(255,255,255,0.06)', color: '#8d95a8', rangemode: 'tozero' },
+      xaxis: { gridcolor: 'rgba(255,255,255,0.06)', color: '#8d95a8' },
     }), LS.plotConfig);
   }
 
   /* ---------------- the story, in plain language ---------------- */
 
   const HOW_SVG = `<svg viewBox="0 0 150 120" width="150" height="120" aria-label="How a gravity assist works">
-    <defs><marker id="ah" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7z" fill="#e7edf8"/></marker>
-      <marker id="ahg" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7z" fill="#ffb454"/></marker></defs>
-    <circle cx="80" cy="62" r="17" fill="#d8a86d"/><circle cx="80" cy="62" r="17" fill="none" stroke="#ffb454" stroke-opacity=".3" stroke-width="10"/>
-    <path d="M8,108 C45,70 55,30 80,34 C104,38 112,60 144,50" fill="none" stroke="#5ac8fa" stroke-width="2.4" stroke-dasharray="0" />
-    <line x1="18" y1="100" x2="34" y2="84" stroke="#e7edf8" stroke-width="1.6" marker-end="url(#ah)"/>
-    <line x1="118" y1="56" x2="140" y2="50" stroke="#e7edf8" stroke-width="1.6" marker-end="url(#ah)"/>
-    <line x1="80" y1="92" x2="112" y2="92" stroke="#ffb454" stroke-width="2" marker-end="url(#ahg)"/>
-    <text x="96" y="106" fill="#ffb454" font-size="9" text-anchor="middle" font-family="Segoe UI">planet's motion</text>
+    <defs><marker id="ah" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7z" fill="#e9ecf3"/></marker>
+      <marker id="ahg" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7z" fill="#eea55a"/></marker></defs>
+    <circle cx="80" cy="62" r="17" fill="#d8a86d"/><circle cx="80" cy="62" r="17" fill="none" stroke="#eea55a" stroke-opacity=".3" stroke-width="10"/>
+    <path d="M8,108 C45,70 55,30 80,34 C104,38 112,60 144,50" fill="none" stroke="#5eb3e6" stroke-width="2.4" stroke-dasharray="0" />
+    <line x1="18" y1="100" x2="34" y2="84" stroke="#e9ecf3" stroke-width="1.6" marker-end="url(#ah)"/>
+    <line x1="118" y1="56" x2="140" y2="50" stroke="#e9ecf3" stroke-width="1.6" marker-end="url(#ah)"/>
+    <line x1="80" y1="92" x2="112" y2="92" stroke="#eea55a" stroke-width="2" marker-end="url(#ahg)"/>
+    <text x="96" y="106" fill="#eea55a" font-size="9" text-anchor="middle" font-family="Segoe UI">planet's motion</text>
     <text x="10" y="80" fill="#c9d4ea" font-size="9" font-family="Segoe UI">in</text>
     <text x="126" y="42" fill="#c9d4ea" font-size="9" font-family="Segoe UI">out</text></svg>`;
 
@@ -458,7 +480,7 @@
   function story() {
     const f = LS.fmt, ev = route.events, d = (e) => e.iso.slice(0, 10);
     const items = ev.map((e, k) => {
-      const color = e.kind === 'flyby' ? '#6ee7a8' : e.kind === 'launch' ? '#5ac8fa' : e.kind === 'dsm' ? '#ff8a80' : '#ffb454';
+      const color = e.kind === 'flyby' ? '#7fcf9f' : e.kind === 'launch' ? '#5eb3e6' : e.kind === 'dsm' ? '#ea7f7f' : '#eea55a';
       let text = '';
       if (e.kind === 'dsm') {
         text = `Far from any planet (${f(e.r_au, 2)} AU from the Sun, beyond Mars' orbit), the main engine fires for
@@ -522,7 +544,7 @@
       <h4>This route, step by step</h4>
       <div class="timeline">${items}</div>
       ${lesson}${hist}
-      <p class="hint">Found by testing ${route.search.evaluated.toLocaleString()} date combinations in ${f(route.search.seconds, 1)} s ·
+      <p class="hint">Found by testing ${route.search.evaluated.toLocaleString('en-US')} date combinations in ${f(route.search.seconds, 1)} s ·
         patched-conic model · planet positions: ${route.ephemeris}.</p>`;
   }
 

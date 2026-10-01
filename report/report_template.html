@@ -93,6 +93,15 @@ section h2 { font-size: clamp(28px, 4vw, 40px); font-weight: 800; }
 .log p { color: var(--ink-2); font-size: 15px; max-width: 64ch; }
 ol.log { padding: 0; margin: 0; }
 
+/* ---------- study charts ---------- */
+.chartfig { margin: 0; display: grid; gap: 8px; }
+.chartfig img { width: 100%; height: auto; display: block; background: #fff; border: 1px solid var(--rule); border-radius: 12px; }
+.chartfig figcaption { font-size: 14px; color: var(--ink-2); max-width: 78ch; }
+.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.callout { border-left: 3px solid var(--cyan); background: var(--sheet); padding: 12px 16px; border-radius: 0 10px 10px 0;
+  font-size: 15px; color: var(--ink-2); }
+.callout b { color: var(--ink); }
+
 /* ---------- tables ---------- */
 .tablewrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 12px; background: var(--sheet); }
 table { border-collapse: collapse; width: 100%; font-size: 14.5px; min-width: 620px; }
@@ -120,21 +129,35 @@ td.ok { color: var(--green); font-family: var(--mono); white-space: nowrap; }
 .lesson p { font-size: 14.5px; color: var(--ink-2); }
 
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.chip { font-family: var(--mono); font-size: 12.5px; padding: 5px 10px; border: 1px solid var(--rule); border-radius: 999px;
+.chip { font-family: var(--mono); font-size: 12.5px; padding: 5px 10px; border: 1px solid var(--rule); border-radius: 3px;
   background: var(--sheet); }
 .cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
 .cols ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 15px; }
 footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--rule); font-size: 13px; color: var(--ink-2);
   display: grid; gap: 6px; }
 
+@media print {
+  @page { size: A4; margin: 14mm 12mm; }
+  :root, :root:not([data-theme="light"]) { --paper:#fff; --sheet:#fff; --ink:#0f1a2b; --ink-2:#4a586e; --rule:#d5dbe4;
+    --cyan:#0e7fb3; --orange:#c55a12; --green:#1d8a5b; --plate:#070b16; color-scheme: light; }
+  body { font-size: 12.5px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .wrap { max-width: none; padding-inline: 0; }
+  section { grid-template-columns: minmax(0, 1fr); margin-top: 18px; padding-block: 22px 0; break-inside: auto; }
+  .rail { padding-top: 0; }
+  .body { display: block; }
+  .body > * + * { margin-top: 16px; }
+  figure, .lesson, .tier, .log li, .chartfig, tr, .callout { break-inside: avoid; }
+  h2 { break-after: avoid; }
+  .gallery { gap: 14px; }
+  .pair { grid-template-columns: minmax(0, 1fr); }
+  .tablewrap { overflow: visible; }
+  table { min-width: 0; font-size: 11.5px; }
+  .plate img { transition: none !important; }
+}
 @media (max-width: 760px) {
   section { grid-template-columns: minmax(0, 1fr); padding-block: 36px 4px; }
-  .lambert, .gallery, .lessons, .cols { grid-template-columns: minmax(0, 1fr); }
+  .lambert, .gallery, .lessons, .cols, .pair { grid-template-columns: minmax(0, 1fr); }
   .arch { grid-template-columns: minmax(0, 1fr); }
-}
-@media (prefers-reduced-motion: no-preference) {
-  .plate img { transition: transform .5s ease; }
-  .plate:hover img { transform: scale(1.012); }
 }
 </style>
 
@@ -143,21 +166,15 @@ footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--rule);
 <header class="hero">
   <div class="eyebrow">Aerospace engineering · student project · 2026</div>
   <h1>Lambert Studio</h1>
-  <p class="lede">A university assignment on orbit determination, grown into an interactive mission-design studio:
-    real satellites and asteroids, NASA-grade planet positions, orbital manoeuvres, perturbed orbits and
-    gravity-assist routes that rediscover the dates of Voyager, Cassini and Galileo from physics alone.</p>
+  <p class="lede">A desktop application, written in Python and JavaScript, that finds a satellite's orbit from two
+    ground-station sightings (Lambert's problem), plans orbital manoeuvres, predicts how an orbit drifts under real forces,
+    and designs gravity-assist routes to the planets. Given only the planets and a launch period, its route optimiser
+    finds the launch and flyby dates of Voyager, Cassini and Galileo to within days.</p>
   <figure>
     <div class="plate"><img src="{{IMG:cassini_overview}}" alt="Mission playback of Cassini's route: Earth, Venus, Venus, Earth, Jupiter, Saturn, with telemetry panel and timeline" width="1600" height="900"></div>
     <figcaption><b>Mission playback, Cassini (1997).</b> The route found by the optimiser: two Venus flybys, one Earth flyby,
       Jupiter, then Saturn. The telemetry panel tracks distance from the Sun, speed and Δv used; the timeline marks each event.</figcaption>
   </figure>
-  <div class="stats">
-    <div class="stat"><span class="v mono">≈11,000</span><span class="k">lines of original Python, JavaScript and CSS</span></div>
-    <div class="stat"><span class="v mono">103</span><span class="k">automated validation checks, all passing</span></div>
-    <div class="stat"><span class="v mono">5</span><span class="k">historical missions reproduced from physics alone</span></div>
-    <div class="stat"><span class="v mono">8</span><span class="k">interactive 3D and analysis modules</span></div>
-    <div class="stat"><span class="v mono">6</span><span class="k">NASA/JPL and CelesTrak data sources</span></div>
-  </div>
 </header>
 
 <section>
@@ -196,7 +213,7 @@ footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--rule);
 <section>
   <div class="rail"><b>T+1</b>What it does</div>
   <div class="body">
-    <h2>Eight modules, one desktop app</h2>
+    <h2>Eleven modules, one desktop app</h2>
     <p>Everything runs in one window, with a shared timeline, a free-flying camera in every 3D view, and recommended
       values drawn from real missions and facilities next to every input.</p>
     <div class="gallery">
@@ -206,8 +223,8 @@ footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--rule);
         <figcaption><h3>Real satellites</h3>Live CelesTrak element sets: the ISS, GPS, Galileo, the geostationary ring, with search and per-satellite detail.</figcaption></figure>
       <figure><div class="plate"><img src="{{IMG:maneuver}}" alt="Maneuver planner showing a Hohmann transfer with burn arrows and option comparison" loading="lazy"></div>
         <figcaption><h3>Manoeuvre planner</h3>Hohmann, bi-elliptic and plane-change transfers built from state vectors, with Δv per burn, propellant from the rocket equation and a cost comparison.</figcaption></figure>
-      <figure><div class="plate"><img src="{{IMG:perturb}}" alt="Perturbation view: an ISS-like orbit precessing over ten days, with altitude and drift charts" loading="lazy"></div>
-        <figcaption><h3>Realistic orbit prediction</h3>An 8th-order Runge–Kutta integration with Earth's J2 bulge and atmospheric drag, compared with the ideal Kepler orbit and the analytic drift rates.</figcaption></figure>
+      <figure><div class="plate"><img src="{{IMG:perturb_geo}}" alt="Perturbation view: a geostationary satellite over one year, drifting in longitude toward 75 degrees east while its inclination grows" loading="lazy"></div>
+        <figcaption><h3>Realistic orbit prediction</h3>Earth's gravity field to degree 6 plus its elliptical equator, the Moon and Sun from JPL, sunlight pressure with Earth's shadow and the NRLMSIS atmosphere, shown here on a geostationary satellite over one year.</figcaption></figure>
       <figure><div class="plate"><img src="{{IMG:flybys}}" alt="Asteroid flyby view: an upcoming close approach path past Earth and the Moon" loading="lazy"></div>
         <figcaption><h3>Asteroid flybys</h3>Upcoming close approaches from NASA/JPL, each drawn with its precise path from JPL Horizons, to scale with Earth and the Moon.</figcaption></figure>
       <figure><div class="plate"><img src="{{IMG:solar}}" alt="Solar system view with all eight planets and 2,549 potentially hazardous asteroids" loading="lazy"></div>
@@ -216,6 +233,14 @@ footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--rule);
         <figcaption><h3>Mission design</h3>Porkchop plots from thousands of Lambert solutions, a plain-language route explanation and a search for the next launch window.</figcaption></figure>
       <figure><div class="plate"><img src="{{IMG:mission_route_cassini_noplay}}" alt="Gravity-assist analysis of the Cassini route with a speed chart and step-by-step story" loading="lazy"></div>
         <figcaption><h3>Gravity-assist routes</h3>Up to four flybys, including repeat visits to the same planet, optimised automatically and explained step by step, with the speed gained at each flyby.</figcaption></figure>
+      <figure><div class="plate"><img src="{{IMG:nbody}}" alt="Voyager route checked in full solar-system gravity, with the correction manoeuvres listed" loading="lazy"></div>
+        <figcaption><h3>Full-gravity check</h3>Any designed route is flown again with every planet and the Moon pulling at once. Voyager's design would have crashed into Jupiter; 4 m/s of corrections fix it.</figcaption></figure>
+      <figure><div class="plate"><img src="{{IMG:lowthrust}}" alt="Ion-engine spiral from Earth orbit, with thrust falling as sunlight weakens" loading="lazy"></div>
+        <figcaption><h3>Ion engines</h3>Low-thrust spirals with solar-power-limited thrust: Dawn's engine loses about a fifth of its push between Earth and Vesta.</figcaption></figure>
+      <figure><div class="plate"><img src="{{IMG:arrival}}" alt="Arrival at a giant planet: capture orbit and a resonant tour of its moons" loading="lazy"></div>
+        <figcaption><h3>Arrival and moon tours</h3>Capture burns at the giant planets and Tisserand-graph moon tours, the method behind Cassini and Europa Clipper.</figcaption></figure>
+      <figure><div class="plate"><img src="{{IMG:learn}}" alt="Learn tab: ten short interactive lessons and automatically checked challenges" loading="lazy"></div>
+        <figcaption><h3>Learn</h3>Ten interactive lessons and twelve challenges that check themselves as you use the app.</figcaption></figure>
     </div>
     <figure class="wide">
       <div class="plate"><img src="{{IMG:player_flyby}}" alt="Mission playback at Voyager's Jupiter flyby, with an event card explaining the 10.48 km/s gain" loading="lazy"></div>
@@ -253,6 +278,12 @@ footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--rule);
       <li><div class="ph">Phase 7 · delivery</div><h3>Tests, packaging and the course hand-in</h3>
         <p>A pytest suite covering the physics and the API, browser-driven interface tests, a stand-alone Windows build with
           PyInstaller, and a generated single-file version of the solver that meets the assignment's format.</p></li>
+      <li><div class="ph">Phase 8 · depth</div><h3>Learning, arrival, ion engines, uncertainty</h3>
+        <p>A Learn tab with lessons and self-checking challenges, capture and moon-tour design, low-thrust spirals, a deep-space burn
+          optimiser (the Juno trick) and Monte Carlo error bars on the solved orbit.</p></li>
+      <li><div class="ph">Phase 9 · fidelity</div><h3>A more accurate simulation</h3>
+        <p>The force model and the route model were rebuilt to be much closer to reality, and every step was measured against known
+          values (see the next section).</p></li>
     </ol>
   </div>
 </section>
@@ -263,7 +294,7 @@ footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--rule);
     <h2>Physics in Python, pictures in the browser</h2>
     <div class="arch">
       <div class="tier"><span class="tag">Data</span><h3>Sources</h3><ul><li>NASA/JPL DE440s ephemeris</li><li>JPL Horizons, SBDB, CNEOS</li><li>CelesTrak GP element sets</li><li>NASA Blue &amp; Black Marble</li></ul></div>
-      <div class="tier"><span class="tag">Python</span><h3>Astrodynamics core</h3><ul><li>Lambert (single &amp; multi-rev, batch)</li><li>Frames, time, elements</li><li>Manoeuvres, J2 + drag integrator</li><li>Patched-conic route optimiser</li></ul></div>
+      <div class="tier"><span class="tag">Python</span><h3>Astrodynamics core</h3><ul><li>Lambert (single &amp; multi-rev, batch)</li><li>Frames, time, elements</li><li>Manoeuvres, high-fidelity force model</li><li>Full-gravity route check (n-body)</li><li>Patched-conic route optimiser</li></ul></div>
       <div class="tier"><span class="tag">Local API</span><h3>studio_server</h3><ul><li>JSON endpoints on 127.0.0.1</li><li>Input validation, clear errors</li><li>Request logging, caching</li></ul></div>
       <div class="tier"><span class="tag">Interface</span><h3>Web UI in a desktop window</h3><ul><li>Three.js WebGL, bloom, shaders</li><li>Plotly charts</li><li>Edge app mode (Qt fallback)</li></ul></div>
     </div>
@@ -272,7 +303,85 @@ footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--rule);
 </section>
 
 <section>
-  <div class="rail"><b>T+4</b>Validation</div>
+  <div class="rail"><b>T+4</b>More accurate</div>
+  <div class="body">
+    <h2>From textbook models to the real force field</h2>
+    <p>Two simplifications limited the first version: Earth's orbit prediction knew only J2 and an exponential atmosphere, and gravity-assist
+      routes assumed one planet pulls at a time. Both were replaced, and each change was checked against a known value.</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Upgrade</th><th>Before</th><th>Now</th></tr></thead>
+      <tbody>
+        <tr><td>Earth's gravity</td><td>J2 bulge only</td><td>EGM96 to degree 6, plus the elliptical equator (C22, S22)</td></tr>
+        <tr><td>Other bodies</td><td>none</td><td>Sun and Moon positions from JPL DE440s</td></tr>
+        <tr><td>Sunlight</td><td>none</td><td>Radiation pressure with a conical Earth shadow (umbra and penumbra)</td></tr>
+        <tr><td>Atmosphere</td><td>exponential</td><td>NRLMSIS 2.1, following solar activity (F10.7) and the day/night cycle</td></tr>
+        <tr><td>Routes</td><td>patched conics</td><td>Flown again with the Sun, eight planets and the Moon, corrected in the B-plane like a real navigation team</td></tr>
+        <tr><td>Ion engines</td><td>constant thrust</td><td>Thrust limited by sunlight, falling as 1/r²</td></tr>
+      </tbody></table></div>
+    <div class="pair">
+      <div class="callout"><b>Geostationary check.</b> With these forces a satellite parked at 45°E drifts toward the stable point near 75°E and
+        its orbit tilts 0.95° in a year. Real operators see about 0.75–0.95° per year, which is why they spend fuel on
+        north–south station keeping.</div>
+      <div class="callout"><b>Route check.</b> Flown uncorrected in real gravity, the simple-model Mars trip misses by about
+        641 thousand km and Voyager crashes into Jupiter. After the corrections, Mars arrival altitude
+        agrees to within 10 km and Voyager's Saturn altitude to within 50 km.</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="rail"><b>T+5</b>Over time</div>
+  <div class="body">
+    <h2>How the answers change with time</h2>
+    <p class="big">A simulation does not give one answer, it gives an answer <em>for a date</em>. The same orbit decays 23 times faster at solar
+      maximum than at solar minimum, the same Mars trip costs nearly twice the launch energy in one window than in another, and a satellite that is parked
+      today drifts tomorrow. Five studies, all run with the app's own physics, show how.</p>
+
+    <figure class="chartfig"><img src="{{IMG:study_solar}}" alt="Altitude of the same 420 km orbit over 90 days at solar minimum, moderate and solar maximum">
+      <figcaption><b>1 · The Sun sets the decay rate.</b> A 420 km orbit loses 20 m/day at solar minimum,
+        131 m/day at moderate activity and 461 m/day at solar maximum, a factor of
+        23. After 90 days the orbit is 413, 403
+        or 373 km high. (Fixed spacecraft area and mass, no reboosts.)</figcaption></figure>
+
+    <figure class="chartfig"><img src="{{IMG:study_geo}}" alt="Geostationary satellite over one year: longitude drift and inclination growth">
+      <figcaption><b>2 · A parked satellite does not stay parked.</b> Starting at 45°E the satellite slides east, passes the stable point at 75°E
+        and reaches 102°E after a year, while the Moon and Sun tilt its orbit by 0.95°. Without station-keeping burns the slot is lost.</figcaption></figure>
+
+    <figure class="chartfig"><img src="{{IMG:study_windows}}" alt="Best Earth to Mars launch energy and arrival speed in every window from 2026 to 2044">
+      <figcaption><b>3 · The same trip, nine launch windows.</b> The cheapest Earth–Mars transfer repeats every 26 months, but its cost does not.
+        Launch energy ranges from 7.8 to 14.8 km²/s², the arrival speed from
+        2.5 to 5.5 km/s, and the flight time from
+        195 to 400 days, because Mars's orbit is elliptical. First window: launch 2026-10-31, arrive 2027-08-22.</figcaption></figure>
+
+    <div class="pair">
+      <figure class="chartfig"><img src="{{IMG:study_delay}}" alt="One-way radio delay between Earth and Mars from 2026 to 2042">
+        <figcaption><b>4 · Distance changes the conversation.</b> Mars is 57 million km away at its closest and 400 million km at its farthest:
+          a radio message takes 3.2 to 22.2 minutes one way, so a rover cannot be joysticked.</figcaption></figure>
+      <figure class="chartfig"><img src="{{IMG:study_nbody}}" alt="Course corrections needed for Mars, Voyager and Cassini routes in full gravity">
+        <figcaption><b>5 · Time amplifies small errors.</b> Every route is exact in the simple model and wrong in real gravity, and the error
+          grows along the trip. Corrections of 0.1 m/s (Mars), 4 m/s (Voyager) and 714 m/s (Cassini, whose
+          design burns during flybys) keep them on target.</figcaption></figure>
+    </div>
+
+    <h3 style="font-size:19px;margin-top:6px">Shelf life of each answer</h3>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Output</th><th>What changes it</th><th>How long it stays valid</th></tr></thead>
+      <tbody>
+        <tr><td>Orbit from two sightings</td><td>Measurement error, then perturbations</td><td>Exact at the sighting times; the error bars grow as the orbit is propagated</td></tr>
+        <tr><td>Hohmann and Lambert transfers</td><td>Geometry of the two bodies</td><td>Fixed for a given pair of states; the <em>best date</em> repeats every synodic period</td></tr>
+        <tr><td>Satellite positions (CelesTrak)</td><td>Drag, manoeuvres, new element sets</td><td>Best at the element-set date; low orbits go stale within days</td></tr>
+        <tr><td>Decay and lifetime</td><td>Solar activity, 11-year cycle</td><td>Only as good as the solar-activity forecast: a factor of 23 between minimum and maximum</td></tr>
+        <tr><td>Planet positions (DE440s)</td><td>Nothing, for practical purposes</td><td>Decades, with errors of a few kilometres</td></tr>
+        <tr><td>Gravity-assist route</td><td>Planet alignment</td><td>Good windows come back every few years to decades (Voyager's alignment: once in about 175 years)</td></tr>
+      </tbody></table></div>
+    <div class="callout"><b>Reading these results honestly.</b> The decay and geostationary studies use a fixed spacecraft and no station-keeping, so they show how the
+      <em>environment</em> changes the answer, not what a real operator would do. Window costs are the lowest launch energy found in a grid search around each
+      window. Everything is regenerated by one script (<span class="mono">report/study_time.py</span>), so the figures can be refreshed for any date.</div>
+  </div>
+</section>
+
+<section>
+  <div class="rail"><b>T+6</b>Validation</div>
   <div class="body">
     <h2>Checked against textbooks and against history</h2>
     <p>The route optimiser is never told the real dates. Given only the planets, a launch period and a trip-time limit, it
@@ -285,6 +394,10 @@ footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--rule);
           <tr><td>Curtis Example 5.2, Lambert velocities</td><td class="num">v₁ = (−5.9925, 1.9254, 3.2456) km/s</td><td class="num">published</td><td class="ok">&lt; 4×10⁻⁵ km/s</td></tr>
           <tr><td>Hohmann transfer, 300 km LEO to GEO</td><td class="num">3.8926 km/s</td><td class="num">3.893 km/s</td><td class="ok">&lt; 0.001 km/s</td></tr>
           <tr><td>Sun-synchronous orbit, node drift (integrated)</td><td class="num">0.990 °/day</td><td class="num">0.9856 °/day</td><td class="ok">0.4 %</td></tr>
+          <tr><td>Geostationary orbit tilt growth (Sun and Moon)</td><td class="num">0.95 °/year</td><td class="num">0.75–0.95 °/year</td><td class="ok">in range</td></tr>
+          <tr><td>Force-model gradient vs potential (J2–J6, C22)</td><td class="num">finite differences</td><td class="num">analytic</td><td class="ok">agree</td></tr>
+          <tr><td>Mars arrival altitude, full solar-system gravity</td><td class="num">after corrections</td><td class="num">planned altitude</td><td class="ok">&lt; 10 km</td></tr>
+          <tr><td>Voyager Saturn altitude, full gravity</td><td class="num">after 4 m/s of corrections</td><td class="num">planned altitude</td><td class="ok">&lt; 50 km</td></tr>
           <tr class="group"><td colspan="4">Historical missions, dates found by the optimiser</td></tr>
           <tr><td>Mariner 10, Venus flyby</td><td class="num">6 Feb 1974</td><td class="num">5 Feb 1974</td><td class="ok">1.6 days</td></tr>
           <tr><td>Voyager, launch</td><td class="num">2 Sep 1977</td><td class="num">5 Sep 1977</td><td class="ok">2.2 days</td></tr>
@@ -294,13 +407,13 @@ footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--rule);
         </tbody>
       </table>
     </div>
-    <p>In total: 103 automated checks and 27 pytest tests, plus browser-driven tests that press keys, drag the camera and
+    <p>In total: 136 automated checks and 58 pytest tests, plus browser-driven tests that press keys, drag the camera and
       play missions to confirm the interface behaves as designed.</p>
   </div>
 </section>
 
 <section>
-  <div class="rail"><b>T+5</b>Lessons</div>
+  <div class="rail"><b>T+7</b>Lessons</div>
   <div class="body">
     <h2>What building it taught</h2>
     <div class="lessons">
@@ -308,28 +421,30 @@ footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--rule);
       <div class="lesson"><h3>Search width changes the answer</h3><p>Judged leg by leg, a route that looks expensive early can win later. A 10× wider beam search turned Cassini from worse-than-direct into the historical route.</p></div>
       <div class="lesson"><h3>Know where the maths breaks</h3><p>Galileo's Earth-to-Earth loop took exactly two years, so start and end points coincide and Lambert's problem is undefined. The app flies a nearby loop and says so.</p></div>
       <div class="lesson"><h3>The platform is part of the system</h3><p>An embedded browser crashing in native code, and Windows silently redirecting where Python saves files, were fixed by measuring first and changing architecture second.</p></div>
+      <div class="lesson"><h3>More physics is not automatically better</h3><p>A correction that looks right can be wrong in kind: osculating orbital elements wobble by 10 km from J2 alone, so decay had to be measured from orbit averages. Each new force was added only after it reproduced a known number.</p></div>
+      <div class="lesson"><h3>Real navigation is iteration</h3><p>A route designed in simplified physics cannot be flown as is. Navigators aim, fly, measure and correct; the app does the same with small trajectory-correction burns and reports honestly when a design needs large ones.</p></div>
     </div>
   </div>
 </section>
 
 <section>
-  <div class="rail"><b>T+6</b>Stack &amp; limits</div>
+  <div class="rail"><b>T+8</b>Stack &amp; limits</div>
   <div class="body">
     <h2>Tools, and what the model leaves out</h2>
     <div class="chips">
       <span class="chip">Python 3.13</span><span class="chip">NumPy</span><span class="chip">SciPy · DOP853</span>
-      <span class="chip">Skyfield · JPL DE440s</span><span class="chip">sgp4</span><span class="chip">Three.js · WebGL</span>
+      <span class="chip">Skyfield · JPL DE440s</span><span class="chip">NRLMSIS 2.1</span><span class="chip">EGM96</span><span class="chip">sgp4</span><span class="chip">Three.js · WebGL</span>
       <span class="chip">Plotly.js</span><span class="chip">Microsoft Edge app mode</span><span class="chip">PySide6</span>
       <span class="chip">pytest</span><span class="chip">PyInstaller</span><span class="chip">git</span>
     </div>
     <div class="cols">
       <div><h3 style="font-size:17px;margin-bottom:8px">Model limits</h3><ul>
-        <li>Patched conics: each planet's gravity acts alone; no deep-space burns.</li>
-        <li>Perturbations: J2 and an exponential atmosphere; no Sun or Moon pull.</li>
+        <li>Route design is still patched conics; the full-gravity check corrects it but cannot redesign it. Designs that burn during flybys (Cassini) need large corrections.</li>
+        <li>Earth orbit: gravity to degree 6, no tides or relativity; a single-area "cannonball" spacecraft; full-fidelity runs are slow for low orbits (about 8 s per simulated month).</li>
         <li>Exact resonant loops (start = end) are approximated.</li>
         <li>The assignment's station uses a spherical Earth, as specified.</li></ul></div>
       <div><h3 style="font-size:17px;margin-bottom:8px">Next steps</h3><ul>
-        <li>Deep-space manoeuvres between flybys.</li>
+        <li>Redesign routes directly in full gravity.</li>
         <li>Orbit determination from many noisy observations (least squares).</li>
         <li>Satellite pass predictions for any location.</li>
         <li>Continuous integration for the test suite.</li></ul></div>

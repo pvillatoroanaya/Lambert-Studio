@@ -9,44 +9,22 @@
 <body>
 <div id="app">
 
-  <!-- ============ navigation rail ============ -->
-  <nav class="rail">
-    <div class="brand" title="Lambert Studio">
-      <svg viewBox="0 0 32 32" width="30" height="30"><circle cx="16" cy="16" r="5" fill="#5ac8fa"/><ellipse cx="16" cy="16" rx="14" ry="6.5" fill="none" stroke="#ffb454" stroke-width="1.6" transform="rotate(-28 16 16)"/><circle cx="27.6" cy="10" r="2" fill="#ffb454"/></svg>
-    </div>
-    <button class="nav" data-view="learn" title="Learn orbital mechanics: lessons, sandbox and challenges">
-      <svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4z"/><path d="M7 9v5c0 1.5 2.5 3 5 3s5-1.5 5-3V9"/><path d="M21 7v6"/></svg>
-      <span>Learn</span></button>
-    <button class="nav active" data-view="orbit" title="Orbit determination">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><ellipse cx="12" cy="12" rx="9.5" ry="4.5" transform="rotate(-25 12 12)"/></svg>
-      <span>Orbit</span></button>
-    <button class="nav" data-view="ground" title="Ground track and sky view">
-      <svg viewBox="0 0 24 24"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M3 14c3-5 6 3 9-2s6 2 9-3"/></svg>
-      <span>Track</span></button>
-    <button class="nav" data-view="maneuver" title="Maneuver planner">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.6"/><circle cx="12" cy="12" r="5.5"/><path d="M12 3.2a8.8 8.8 0 1 1-8.3 5.9"/><path d="M17.5 6.5l2.2-2.2M19.7 4.3v2.6M19.7 4.3h-2.6"/></svg>
-      <span>Maneuver</span></button>
-    <button class="nav" data-view="perturb" title="Realistic orbit prediction (J2 and drag)">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.6"/><ellipse cx="12" cy="12" rx="9.5" ry="4.2" transform="rotate(-20 12 12)"/><ellipse cx="12" cy="12" rx="9.5" ry="4.2" transform="rotate(10 12 12)" stroke-dasharray="2 2"/></svg>
-      <span>Perturb</span></button>
-    <button class="nav" data-view="near" title="Satellites around Earth">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><circle cx="19.5" cy="6" r="1.4"/><circle cx="4" cy="16.5" r="1.4"/><circle cx="17" cy="19.5" r="1.4"/></svg>
-      <span>Satellites</span></button>
-    <button class="nav" data-view="flybys" title="Asteroid close approaches">
-      <svg viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M13 10l8-7M15 13l6-3M11 8l3-6"/></svg>
-      <span>Flybys</span></button>
-    <button class="nav" data-view="solar" title="Solar system">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.6"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="10"/><circle cx="18" cy="12" r="1.3" class="fill"/></svg>
-      <span>Solar</span></button>
-    <button class="nav" data-view="mission" title="Interplanetary mission design">
-      <svg viewBox="0 0 24 24"><path d="M4 20c2-9 9-15 16-16"/><circle cx="4" cy="20" r="1.8" class="fill"/><circle cx="20" cy="4" r="1.8" class="fill"/></svg>
-      <span>Mission</span></button>
-    <button class="nav" data-view="arrival" title="Arrival at a giant planet and moon tours">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><ellipse cx="12" cy="12" rx="10" ry="4.2" transform="rotate(-18 12 12)" stroke-dasharray="2.5 2"/><circle cx="20.5" cy="9.2" r="1.4" class="fill"/><circle cx="4" cy="15" r="1.1" class="fill"/></svg>
-      <span>Arrival</span></button>
-    <button class="nav" data-view="lowthrust" title="Ion engines: low-thrust spirals">
-      <svg viewBox="0 0 24 24"><path d="M12 12m-1.5 0a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0M12 12c0-3 4-4 5-1s-2 6-6 6-7-4-6-8 5-7 9-6"/><path d="M19 3l2 2" /></svg>
-      <span>Ion</span></button>
+  <!-- ============ navigation: one labelled row, grouped by topic ============ -->
+  <nav class="rail" aria-label="Sections">
+    <div class="brand">Lambert Studio</div>
+    <button class="nav" data-view="learn" title="Short lessons, interactive diagrams and challenges">Learn</button>
+    <span class="nav-group">Earth orbit</span>
+    <button class="nav active" data-view="orbit" title="Find a satellite's orbit from two ground-station sightings">Orbit determination</button>
+    <button class="nav" data-view="ground" title="Where the satellite is over the Earth, and where the station sees it">Ground track</button>
+    <button class="nav" data-view="maneuver" title="Change orbit with engine burns: Δv, propellant, time">Maneuvers</button>
+    <button class="nav" data-view="perturb" title="Add real forces (Earth's shape, Moon, Sun, air) and see the orbit drift">Orbit prediction</button>
+    <button class="nav" data-view="near" title="Real satellites from CelesTrak">Satellites</button>
+    <span class="nav-group">Deep space</span>
+    <button class="nav" data-view="flybys" title="Upcoming asteroid close approaches from NASA/JPL">Asteroids</button>
+    <button class="nav" data-view="solar" title="Planets at their real positions">Solar system</button>
+    <button class="nav" data-view="mission" title="Plan a trip between planets, with or without gravity assists">Mission design</button>
+    <button class="nav" data-view="arrival" title="Capture at a giant planet and tour its moons">Arrival</button>
+    <button class="nav" data-view="lowthrust" title="Low-thrust spirals with ion engines">Ion engines</button>
   </nav>
 
   <!-- ============ control panel ============ -->
@@ -63,12 +41,15 @@
       </div>
 
       <div id="in-obs">
-        <h3>Ground station <small>ECEF, km</small></h3>
-        <div class="grid3">
-          <label>X<input id="st-x" value="1344.143"></label>
-          <label>Y<input id="st-y" value="6068.601"></label>
-          <label>Z<input id="st-z" value="1429.311"></label>
-        </div>
+        <h3>Ground station</h3>
+        <details class="fold" id="st-more">
+          <summary>Station position (X, Y, Z in km, Earth-fixed)</summary>
+          <div class="grid3">
+            <label>X<input id="st-x" value="1344.143"></label>
+            <label>Y<input id="st-y" value="6068.601"></label>
+            <label>Z<input id="st-z" value="1429.311"></label>
+          </div>
+        </details>
         <h3>Observation 1</h3>
         <div class="grid2">
           <label>Date (UTC)<input id="o1-date" type="date" value="2023-04-02"></label>
@@ -245,7 +226,7 @@
     <!-- PERTURB -->
     <section class="ctl" data-for="perturb" hidden>
       <h2>Realistic orbit prediction</h2>
-      <p class="lede">Add Earth's bulge (J2) and air drag, and see how a real orbit drifts away from the ideal Kepler orbit.</p>
+      <p class="lede">Add the forces a real satellite feels, one by one, and see how its orbit drifts away from the ideal Kepler orbit.</p>
       <div class="seg small" id="pt-source">
         <button class="on" data-s="elements">Orbit below</button>
         <button data-s="solution">My solved orbit</button>
@@ -262,17 +243,41 @@
           <label>Arg. per. (°)<input id="pt-argp" value="0"></label>
         </div>
       </div>
-      <h3>Forces</h3>
-      <label class="switch"><input type="checkbox" id="pt-j2" checked><span></span>J2 — Earth's equatorial bulge</label>
-      <label class="switch"><input type="checkbox" id="pt-drag" checked><span></span>Atmospheric drag</label>
-      <div class="grid3" id="pt-dragbox">
-        <label>Cd<input id="pt-cd" value="2.2"></label>
-        <label>Area (m²)<input id="pt-area" value="1600"></label>
-        <label>Mass (kg)<input id="pt-mass" value="420000"></label>
+      <h3>Forces <small>what pulls on the satellite</small></h3>
+      <label>Earth's gravity<select id="pt-grav">
+        <option value="0">Perfect sphere (Kepler only)</option>
+        <option value="2" selected>J2: equatorial bulge</option>
+        <option value="6">J2–J6: bulge + finer shape (EGM96)</option>
+        <option value="6t">J2–J6 + elliptical equator (C22/S22)</option></select></label>
+      <label class="switch"><input type="checkbox" id="pt-moon"><span></span>Moon's gravity (JPL DE440s)</label>
+      <label class="switch"><input type="checkbox" id="pt-sun"><span></span>Sun's gravity (JPL DE440s)</label>
+      <label class="switch"><input type="checkbox" id="pt-srp"><span></span>Sunlight pressure, with Earth's shadow</label>
+      <label>Atmosphere<select id="pt-atm">
+        <option value="">None</option>
+        <option value="exponential">Simple (fixed exponential, Vallado)</option>
+        <option value="msis" selected>NRLMSIS 2.1 (realistic, follows the Sun)</option></select></label>
+      <label id="pt-act-l">Solar activity<select id="pt-act">
+        <option value="low">Low: solar minimum (F10.7 = 70)</option>
+        <option value="moderate" selected>Moderate (F10.7 = 150)</option>
+        <option value="high">High: solar maximum (F10.7 = 250)</option>
+        <option value="actual">Measured on those dates (needs internet)</option></select></label>
+      <h3>Spacecraft</h3>
+      <details class="fold" id="pt-more">
+        <summary>Drag and sunlight values (Cd, Cr, area, mass)</summary>
+        <div class="grid2" id="pt-dragbox">
+          <label>Drag coefficient Cd<input id="pt-cd" value="2.2"></label>
+          <label>Reflectivity Cr<input id="pt-cr" value="1.3"></label>
+          <label>Area (m²)<input id="pt-area" value="1600"></label>
+          <label>Mass (kg)<input id="pt-mass" value="420000"></label>
+        </div>
+      </details>
+      <div class="grid2">
+        <label>Start date<input id="pt-date" type="date"></label>
+        <label>Duration (days)<input id="pt-days" value="10"></label>
       </div>
-      <label>Duration (days)<input id="pt-days" value="10"></label>
       <button class="primary" id="btn-pt">Propagate</button>
-      <p class="hint">Numerical integration: SciPy DOP853 (8th-order Runge–Kutta). Atmosphere: exponential model (Vallado).</p>
+      <p class="hint">SciPy DOP853 (8th-order Runge–Kutta). The full model costs about 8 s per simulated month for low orbits.
+        Gravity field: EGM96. Sun and Moon: NASA/JPL DE440s. Atmosphere: NRLMSIS 2.1 (US Naval Research Laboratory).</p>
       <div class="err" id="pt-err" hidden></div>
     </section>
 
@@ -346,7 +351,7 @@
           <label>Search length<select id="r-years"><option value="6">6 years</option><option value="12" selected>12 years</option><option value="18">18 years</option></select></label>
           <label>Spacecraft mass (kg)<input id="r-mass" value="2000"></label>
         </div>
-        <button class="primary" id="btn-suggest">✨ Suggest routes for me</button>
+        <button class="primary" id="btn-suggest">Suggest routes for me</button>
         <p class="hint">Compares the route families mission designers use for this trip (direct, Venus–Earth flybys,
           Jupiter flybys…), finds their launch windows and trip times, the rocket each one needs, and recommends one. Takes a few seconds.</p>
         <div id="r-suggest" hidden></div>
@@ -378,14 +383,17 @@
         <label>Arrival<input id="m-ad" type="date" value="2027-08-20"></label>
       </div>
       <button class="primary" id="btn-transfer">Compute transfer</button>
-      <h3>Porkchop search window</h3>
-      <div class="grid2">
-        <label>Depart from<input id="p-d0" type="date" value="2026-08-01"></label>
-        <label>Depart to<input id="p-d1" type="date" value="2027-03-01"></label>
-        <label>Arrive from<input id="p-a0" type="date" value="2027-03-01"></label>
-        <label>Arrive to<input id="p-a1" type="date" value="2028-02-01"></label>
-      </div>
-      <label>Resolution<select id="p-n"><option value="40">Fast (40 × 40)</option><option value="70" selected>Normal (70 × 70)</option><option value="110">Fine (110 × 110)</option></select></label>
+      <h3>Porkchop plot <small>launch cost for every pair of dates</small></h3>
+      <details class="fold" id="p-more">
+        <summary>Search window and resolution</summary>
+        <div class="grid2">
+          <label>Depart from<input id="p-d0" type="date" value="2026-08-01"></label>
+          <label>Depart to<input id="p-d1" type="date" value="2027-03-01"></label>
+          <label>Arrive from<input id="p-a0" type="date" value="2027-03-01"></label>
+          <label>Arrive to<input id="p-a1" type="date" value="2028-02-01"></label>
+        </div>
+        <label>Resolution<select id="p-n"><option value="40">Fast (40 × 40)</option><option value="70" selected>Normal (70 × 70)</option><option value="110">Fine (110 × 110)</option></select></label>
+      </details>
       <button class="ghost wide" id="btn-pork">Compute porkchop plot</button>
       <p class="hint">Tip: click anywhere on the porkchop plot to use those dates.</p>
       <div class="err" id="mission-err" hidden></div>
@@ -403,9 +411,7 @@
       <div class="top-right">
         <span class="fps" id="fps" hidden></span>
         <div class="status" id="status"><span class="dot"></span><span id="status-text">Ready</span></div>
-        <button class="icon" id="btn-settings" title="Display settings and credits">
-          <svg viewBox="0 0 24 24"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7zm8.9 2.4-2-.3a7 7 0 0 0-.8-1.9l1.2-1.6-1.8-1.8-1.6 1.2a7 7 0 0 0-1.9-.8l-.3-2h-2.5l-.3 2a7 7 0 0 0-1.9.8L7.4 5.3 5.6 7.1l1.2 1.6a7 7 0 0 0-.8 1.9l-2 .3v2.5l2 .3c.2.7.4 1.3.8 1.9l-1.2 1.6 1.8 1.8 1.6-1.2c.6.4 1.2.6 1.9.8l.3 2h2.5l.3-2c.7-.2 1.3-.4 1.9-.8l1.6 1.2 1.8-1.8-1.2-1.6c.4-.6.6-1.2.8-1.9l2-.3z"/></svg>
-        </button>
+        <button class="ghost small" id="btn-settings" title="Display settings and credits">Settings</button>
         <div class="menu" id="settings-menu" hidden>
           <label class="switch"><input type="checkbox" data-set="bloom"><span></span>Glow effect (bloom)</label>
           <label class="switch"><input type="checkbox" data-set="milkyway"><span></span>Milky Way background</label>
@@ -599,6 +605,7 @@
 <script src="js/player.js"></script>
 <script src="js/launchers.js"></script>
 <script src="js/route_lesson.js"></script>
+<script src="js/nbody_check.js"></script>
 <script src="js/view_route.js"></script>
 <script src="js/view_mission.js"></script>
 <script src="js/view_arrival.js"></script>

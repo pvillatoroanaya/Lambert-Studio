@@ -18,6 +18,7 @@ import datetime
 import json
 import logging
 import math
+import os
 import pathlib
 import threading
 import time
@@ -47,6 +48,7 @@ import moontour
 import lowthrust
 import dsm
 import uncertainty
+import nbody
 
 # Inside a packaged .exe (PyInstaller) the files live in sys._MEIPASS.
 import sys as _sys
@@ -304,7 +306,44 @@ def api_perturb(req):
             _float_arg(req, "i", "Inclination", 0, 180),
             _float_arg(req, "raan", "RAAN", -360, 360),
             _float_arg(req, "argp", "Argument of perigee", -360, 360))
-    return perturb.propagate_perturbed(r0, v0, days, j2, drag, cd, area, mass)
+    model = req.get("model")
+    if not model:
+        return perturb.propagate_perturbed(r0, v0, days, j2, drag, cd, area, mass)
+
+    # High-fidelity force model (forces.py).
+    if req.get("jd0") is not None:
+        jd0 = _float_arg(req, "jd0", "Start date", 2396760, 2506340)
+    elif req.get("date"):
+        jd0 = _jd_from_date(req["date"], "Start date")
+    else:
+        today = datetime.date.today()
+        jd0 = julian_date(today.year, today.month, today.day, 0, 0, 0.0)
+    zonal = int(_float_arg(model, "zonal_degree", "Gravity field degree", 0, 6))
+    atm = model.get("drag") or None
+    if atm not in (None, "exponential", "msis"):
+        raise ValueError("Atmosphere must be none, exponential or msis.")
+    activity = model.get("activity", "moderate")
+    if activity not in ("low", "moderate", "high", "actual"):
+        raise ValueError("Solar activity must be low, moderate, high or actual.")
+    cr = _float_arg(req, "cr", "Reflectivity Cr", 1.0, 2.0) if req.get("cr") not in (None, "") else 1.3
+    if req.get("lon") not in (None, ""):
+        # Start above a given longitude (geostationary examples): rotate the
+        # state about the polar axis.
+        from time_utils import gmst_from_jd
+        want = math.radians(_float_arg(req, "lon", "Longitude", -360, 360)) + gmst_from_jd(jd0)
+        rot = want - math.atan2(r0[1], r0[0])
+        c, s_ = math.cos(rot), math.sin(rot)
+        R = np.array([[c, -s_, 0], [s_, c, 0], [0, 0, 1]])
+        r0, v0 = R @ r0, R @ v0
+    el = perturb.state_to_elements(r0, v0)
+    if el.get("alt_p") is not None and el["alt_p"] < 2000 and days > 120:
+        raise ValueError("The full force model is slow for low orbits (about 8 s per simulated month): "
+                         "use at most 120 days, or the simple model.")
+    m = {"zonal_degree": zonal, "tesseral": bool(model.get("tesseral")), "sun": bool(model.get("sun")),
+         "moon": bool(model.get("moon")), "srp": bool(model.get("srp")), "drag": atm, "activity": activity}
+    out = perturb.propagate_perturbed(r0, v0, days, cd=cd, area_m2=area, mass_kg=mass, model=m, jd0=jd0, cr=cr)
+    out["jd0"] = jd0
+    return out
 
 
 def _jd_from_date(text, label):
@@ -557,6 +596,35 @@ def api_route_dsm(req):
     return out
 
 
+def api_verify_route(req):
+    """Fly a designed route (or a direct transfer) in full solar-system
+    gravity, with trajectory-correction manoeuvres (nbody.py)."""
+    seq = [p for p in req.get("seq", []) if p]
+    jds = [float(j) for j in req.get("jds", [])]
+    if len(seq) < 2 or len(jds) != len(seq):
+        raise ValueError("Give the route's planets and one date per planet.")
+    for p_ in seq:
+        if p_ not in planets.PLANET_ORDER:
+            raise ValueError(f"Unknown planet '{p_}'.")
+    if any(b <= a for a, b in zip(jds, jds[1:])):
+        raise ValueError("The dates must increase along the route.")
+    legs = req.get("legs") or [{"revs": 0, "branch": 0}] * (len(seq) - 1)
+    opts = [(int(L.get("revs", 0)), int(L.get("branch", 0))) for L in legs]
+    capture = bool(req.get("capture", True))
+    cost, det = flyby.evaluate(seq, jds, capture, flyby._StateCache(), opts, detail=True)
+    if det is None:
+        raise ValueError("This route could not be rebuilt for the check.")
+    det.update(seq=seq, jds=jds, capture=capture,
+               launch_dv=float(flyby._launch_dv(det["vinf_launch"], seq[0])))
+    out = nbody.verify(det)
+    for c in out["tcms"]:
+        c["iso"] = jd_to_iso(c["jd"])
+    for e in out["encounters"]:
+        e["iso_planned"], e["iso_actual"] = jd_to_iso(e["jd_planned"]), jd_to_iso(e["jd_actual"])
+    out["uncorrected"]["iso"] = jd_to_iso(out["uncorrected"]["jd"])
+    return out
+
+
 def api_uncertainty(req):
     station = np.array([_num(v, f"Station {a}") for v, a in zip(req["station"], "XYZ")])
     if np.linalg.norm(station) < 1.0:
@@ -586,6 +654,7 @@ ROUTES = {
     "/api/lowthrust_presets": api_lowthrust_presets,
     "/api/route_dsm": api_route_dsm,
     "/api/uncertainty": api_uncertainty,
+    "/api/verify_route": api_verify_route,
     "/api/solve": api_solve,
     "/api/planets": api_planets,
     "/api/transfer": api_transfer,
@@ -666,9 +735,16 @@ class _Handler(SimpleHTTPRequestHandler):
         return self._api(url.path, req)
 
 
+class _Server(ThreadingHTTPServer):
+    # On Windows, SO_REUSEADDR would let a second copy of the app bind the
+    # same port and silently share it; without it, a busy port is an error
+    # and the launcher picks another one.
+    allow_reuse_address = os.name != "nt"
+
+
 def start_server(port=0):
     """Start the server in a background thread; returns (server, url)."""
-    server = ThreadingHTTPServer(("127.0.0.1", port), _Handler)
+    server = _Server(("127.0.0.1", port), _Handler)
     server.daemon_threads = True
     threading.Thread(target=server.serve_forever, daemon=True).start()
     return server, f"http://127.0.0.1:{server.server_address[1]}/"

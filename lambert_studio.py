@@ -38,6 +38,10 @@ from app_paths import LOG_DIR, EDGE_PROFILE_DIR
 
 log = logging.getLogger("studio")
 
+# The app's own address: http://lambert-studio.localhost:8765/
+HOME_HOST = "lambert-studio.localhost"
+HOME_PORT = 8765
+
 
 def setup_logging():
     LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -206,10 +210,20 @@ def main(argv=None):
     setup_logging()
     log.info("Starting (python %s)", sys.version.split()[0])
     try:
-        _, url = start_server(args.port)
+        _, url = start_server(args.port or HOME_PORT)
+    except OSError:
+        # The usual port is taken (another copy is running): use any free one.
+        try:
+            _, url = start_server(0)
+        except Exception as exc:
+            show_error(f"Could not start the Lambert Studio server:\n{exc}")
+            return 1
     except Exception as exc:
         show_error(f"Could not start the Lambert Studio server:\n{exc}")
         return 1
+    # Browsers send every *.localhost name to this computer, so the app gets a
+    # readable address of its own; the server still listens on 127.0.0.1 only.
+    url = url.replace("127.0.0.1", HOME_HOST)
 
     if args.no_window:
         return run_in_browser(url, open_browser=False)

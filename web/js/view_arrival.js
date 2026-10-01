@@ -8,8 +8,8 @@
   const f = (x, d) => LS.fmt(x, d);
   const DAY = 86400;
   const MOON_SCALE = 8;                      // moons drawn 8x larger than scale
-  const CHART_COLORS = ['#5ac8fa', '#ffb454', '#c792ea', '#6ee7a8'];
-  const KIND_COLOR = { capture: '#ffb454', raised: '#ffd27a', transfer: '#e7edf8' };
+  const CHART_COLORS = ['#5eb3e6', '#eea55a', '#e3cc6a', '#7fcf9f'];
+  const KIND_COLOR = { capture: '#eea55a', raised: '#ffd27a', transfer: '#e9ecf3' };
 
   const view = {
     id: 'arrival',
@@ -184,7 +184,7 @@
 
     // The tour's arcs (each resonant arc repeats itself, so one lap is drawn).
     arcLines = tour.arcs.map((a) => {
-      const color = a.kind === 'resonant' ? tourMoonColor(a) : (KIND_COLOR[a.kind] || '#e7edf8');
+      const color = a.kind === 'resonant' ? tourMoonColor(a) : (KIND_COLOR[a.kind] || '#e9ecf3');
       const line = LS.line(a.samples.map((p) => P3(p[0], p[1], R)), new THREE.Color(color).getHex(), 0.25);
       group.add(line);
       return line;
@@ -196,7 +196,7 @@
       if (e.kind === 'capture') { p = P3(e.rp, 0, R); txt = `Capture burn ${f(e.dv, 2)} km/s`; cls = 'warm'; }
       else if (e.kind === 'raise') { p = P3(-e.ra, 0, R); txt = `Raise burn ${f(e.dv, 2)} km/s`; cls = 'warm'; }
       if (p) {
-        const d = LS.dot(0.12, 0xff6b6b); d.position.copy(p); group.add(d);
+        const d = LS.dot(0.12, 0xe56f6f); d.position.copy(p); group.add(d);
         const lb = LS.label(txt, cls); lb.position.copy(p); group.add(lb);
       }
     });
@@ -223,12 +223,12 @@
   function tourMoonColor(arc) {
     // Resonant arcs belong to the moon met at their start.
     const ev = tour.events.find((e) => e.kind === 'flyby' && Math.abs(e.t - arc.t0) < 1);
-    return ev ? tour.moons[ev.moon].color : '#e7edf8';
+    return ev ? tour.moons[ev.moon].color : '#e9ecf3';
   }
 
   function renderLegend() {
-    const items = [['#ffb454', 'Capture orbit'], ['#ffd27a', 'After the raise burn'],
-      ...Object.entries(tour.moons).map(([n, m]) => [m.color, `Loops that return to ${n}`]), ['#e7edf8', 'Hops between moons']];
+    const items = [['#eea55a', 'Capture orbit'], ['#ffd27a', 'After the raise burn'],
+      ...Object.entries(tour.moons).map(([n, m]) => [m.color, `Loops that return to ${n}`]), ['#e9ecf3', 'Hops between moons']];
     $('legend-arrival').innerHTML = items.map(([c, t]) => `<div><i style="background:${c}"></i>${t}</div>`).join('');
   }
 
@@ -273,7 +273,7 @@
     });
     const path = tour.path;
     traces.push({ x: path.map((p) => p.rp), y: path.map((p) => p.P), type: 'scatter', mode: 'lines+markers',
-      name: 'This tour', line: { color: '#ff8a80', width: 2.5 }, marker: { size: 7, color: '#ff8a80' },
+      name: 'This tour', line: { color: '#ea7f7f', width: 2.5 }, marker: { size: 7, color: '#ea7f7f' },
       text: path.map((p, k) => `${k === 0 ? 'capture' : p.label} · closest ${f(p.rp, 1)} R · period ${f(p.P, 1)} d`),
       hoverinfo: 'text' });
     // Label each moon's contours with their v∞ at the right-hand end.
@@ -282,15 +282,16 @@
       return { x: Math.log10(p[0]), y: Math.log10(p[1]), text: `${c.vinf}`, showarrow: false,
         font: { size: 9, color: moonColor(c.moon) }, xanchor: 'left' };
     });
+    // Round numbers only on the log axes (Plotly's default repeats 2 and 5 in every decade).
+    const TICKS = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
     Plotly.react('ch-tisserand', traces, LS.plotLayout({
       title: { text: 'Tisserand graph: how the tour steps down', x: 0.02, y: 0.97, font: { size: 12.5 } },
-      margin: { l: 54, r: 14, t: 56, b: 40 }, annotations: ann,
-      legend: { orientation: 'h', y: 1.1, x: 0, font: { size: 10.5 } },
-      xaxis: { type: 'log', range: [Math.log10(Math.max(1, rMin * 0.25)), Math.log10(Math.max(...path.map((p) => p.rp)) * 1.6)],
+      margin: { l: 54, r: 14, t: 64, b: 40 }, annotations: ann,
+      xaxis: { type: 'log', tickvals: TICKS, ticktext: TICKS.map(String), range: [Math.log10(Math.max(1, rMin * 0.25)), Math.log10(Math.max(...path.map((p) => p.rp)) * 1.6)],
         title: { text: 'closest approach to the planet (planet radii)', font: { size: 11 } },
-        gridcolor: 'rgba(148,170,210,0.12)', color: '#8b9bbd' },
-      yaxis: { type: 'log', title: { text: 'orbit period (days)', font: { size: 11 } },
-        gridcolor: 'rgba(148,170,210,0.12)', color: '#8b9bbd' },
+        gridcolor: 'rgba(255,255,255,0.06)', color: '#8d95a8' },
+      yaxis: { type: 'log', tickvals: TICKS, ticktext: TICKS.map(String), title: { text: 'orbit period (days)', font: { size: 11 } },
+        gridcolor: 'rgba(255,255,255,0.06)', color: '#8d95a8' },
     }), LS.plotConfig);
   }
 
@@ -311,9 +312,9 @@
     const R = t.radius;
     const items = t.events.map((e, k) => {
       const when = `day ${f(e.t / DAY, 0)}`;
-      let title, text, color = '#6ee7a8';
+      let title, text, color = '#7fcf9f';
       if (e.kind === 'capture') {
-        title = `Capture at ${t.planet}`; color = '#ffb454';
+        title = `Capture at ${t.planet}`; color = '#eea55a';
         text = `Arriving at ${f(e.vinf, 1)} km/s, the spacecraft brakes by <b>${f(e.dv, 2)} km/s</b> at its closest point,
           ${f(e.rp / R, 1)} ${t.planet} radii from the centre. Braking where it moves fastest is the most efficient place
           (the Oberth effect). ${t.planet}'s gravity now holds it in a loose ${f(e.period_days, 0)}-day orbit.`;
@@ -326,12 +327,12 @@
         title = `${e.moon} flyby`; color = t.moons[e.moon].color;
         text = flybyText(e, k);
       } else if (e.kind === 'insertion') {
-        title = `Enter orbit around ${e.moon}`; color = '#ff8a80';
+        title = `Enter orbit around ${e.moon}`; color = '#ea7f7f';
         text = `The spacecraft now reaches ${e.moon} at only ${f(e.vinf, 2)} km/s, so a braking burn of
           <b>${f(e.dv, 2)} km/s</b> puts it into a ${f(e.altitude, 0)} km orbit.
           ${t.direct ? `Doing this on the first pass would have cost ${f(t.direct.dv, 2)} km/s.` : ''}`;
       } else {
-        title = 'Tour complete'; color = '#ff8a80';
+        title = 'Tour complete'; color = '#ea7f7f';
         text = `The orbit now takes ${f(e.period_days, 1)} days, down from ${f(t.events[0].period_days, 0)}: the moons did
           all of that without a drop of fuel.`;
       }
@@ -426,6 +427,6 @@
   };
   view.render = () => s3 && s3.render();
   view.clockLabel = (t) => (tour ? `day ${f(t, 1)} of ${f(tour.duration_days, 0)}` : '—');
-  view.nowLabel = 'Start';
+  view.nowLabel = 'Back to start';
   view.onNow = () => { view.clock.t = 0; };
 })();

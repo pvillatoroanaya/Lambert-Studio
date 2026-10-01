@@ -432,6 +432,36 @@ class Scene3D {
     else this.renderer.render(this.scene, this.camera);
     this._syncLabels();
     this.labels.render(this.scene, this.camera);
+    if ((this._frame = (this._frame || 0) + 1) % 6 === 0) this._declutter();
+  }
+  /* Labels never cover each other or the panels floating over the scene:
+     a label that would overlap one already placed, or a panel, fades out
+     until the camera moves and there is room again. Labels claim space in
+     order of importance: 'key' (Earth), then events (accent, warm), then
+     plain names, then dim hints. Measured every few frames to keep it cheap. */
+  _declutter() {
+    const view = this.container.closest('.view') || this.container.parentElement;
+    const pad = 3;
+    const rank = (el) => {
+      const c = el.classList;
+      return c.contains('key') ? 0 : c.contains('accent') || c.contains('warm') ? 1 : c.contains('dim') ? 3 : 2;
+    };
+    const blockers = [...view.querySelectorAll('.hud > *, .legend, .camtools, .phase')]
+      .filter((el) => el.offsetParent !== null && !el.hidden)
+      .map((el) => el.getBoundingClientRect());
+    const labels = [...this.labels.domElement.children]
+      .filter((o) => o.style.display !== 'none' && o.firstChild)
+      .map((o) => o.firstChild)
+      .sort((a, b) => rank(a) - rank(b));
+    const placed = [];
+    const hit = (r, q) => r.left < q.right + pad && r.right > q.left - pad && r.top < q.bottom + pad && r.bottom > q.top - pad;
+    for (const el of labels) {
+      const r = el.getBoundingClientRect();
+      if (!r.width) continue;
+      const covered = blockers.some((q) => hit(r, q)) || placed.some((q) => hit(r, q));
+      el.classList.toggle('hid', covered);
+      if (!covered) placed.push(r);
+    }
   }
   /* The label renderer only looks at a label's own `visible` flag, so a
      label on a hidden object would still be drawn (hidden planets sit at
@@ -932,7 +962,7 @@ LS.ringTexture = (function () {
   };
 })();
 
-LS.markerRing = function (color = 0x5ac8fa, screenSize = 0.026) {
+LS.markerRing = function (color = 0x5eb3e6, screenSize = 0.026) {
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: LS.ringTexture(), color, sizeAttenuation: false,
     transparent: true, opacity: 0.85, depthWrite: false, depthTest: false }));
   s.scale.set(screenSize, screenSize, 1);
@@ -945,7 +975,7 @@ LS.markerRing = function (color = 0x5ac8fa, screenSize = 0.026) {
    panels, plus a ring marker so it stays visible when zoomed out.
    `size` is the length of the bus in scene units. Call
    LS.aimCraft(craft, point) to point it along its direction of travel. */
-LS.spacecraft = function (size, { color = 0x5ac8fa, label = null } = {}) {
+LS.spacecraft = function (size, { color = 0x5eb3e6, label = null } = {}) {
   const craft = new THREE.Group();
   const model = new THREE.Group();
   // Gold multi-layer insulation. Low metalness: a metal needs an
@@ -1024,18 +1054,32 @@ class Clock {
 }
 LS.Clock = Clock;
 
+/* Every chart legend: one row (or more if needed) just above the plot area,
+   aligned left under the title. */
+LS.legendTop = { orientation: 'h', x: 0, xanchor: 'left', y: 1.02, yanchor: 'bottom',
+  bgcolor: 'rgba(0,0,0,0)', borderwidth: 0, font: { size: 11 } };
+
 /* Plotly layout shared by every 2D chart. */
 LS.plotLayout = function (extra) {
-  const axis = { gridcolor: 'rgba(148,170,210,0.12)', zerolinecolor: 'rgba(148,170,210,0.2)',
-    color: '#8b9bbd', linecolor: 'rgba(148,170,210,0.2)' };
+  const axis = { gridcolor: 'rgba(255,255,255,0.06)', zerolinecolor: 'rgba(255,255,255,0.12)',
+    color: '#8d95a8', linecolor: 'rgba(255,255,255,0.1)' };
   return Object.assign({
     paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
-    font: { color: '#e7edf8', family: 'Segoe UI, system-ui, sans-serif', size: 12 },
+    font: { color: '#e9ecf3', family: 'Segoe UI Variable Text, Segoe UI, system-ui, sans-serif', size: 12 },
     margin: { l: 56, r: 20, t: 44, b: 44 },
     xaxis: Object.assign({}, axis), yaxis: Object.assign({}, axis),
-    legend: { bgcolor: 'rgba(12,19,34,0.8)', bordercolor: 'rgba(148,170,210,0.14)', borderwidth: 1 },
-    hoverlabel: { bgcolor: '#121b2f', bordercolor: '#5ac8fa', font: { color: '#e7edf8' } },
+    legend: Object.assign({}, LS.legendTop),
+    hoverlabel: { bgcolor: '#141824', bordercolor: '#9cc2ff', font: { color: '#e9ecf3' } },
   }, extra || {});
 };
+/* A results panel taller than the view scrolls; it fades out at the bottom
+   while there is more below, so a cut-off line reads as "scroll for more". */
+setInterval(() => {
+  document.querySelectorAll('.hud.wide').forEach((el) => {
+    if (el.offsetParent === null) return;
+    el.classList.toggle('more', el.scrollHeight - el.scrollTop - el.clientHeight > 4);
+  });
+}, 400);
+
 LS.plotConfig = { displaylogo: false, responsive: true,
   modeBarButtonsToRemove: ['lasso2d', 'select2d', 'autoScale2d'] };

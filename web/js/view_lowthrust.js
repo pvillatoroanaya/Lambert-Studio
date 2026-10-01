@@ -102,14 +102,14 @@
       group.add(LS.line(pts, color, 0.55, true));
       const lb = LS.label(text, 'dim'); lb.position.set(0, 0, -r); group.add(lb);
     };
-    circle(r1, 0x5ac8fa, 'start orbit');
-    circle(r2, 0x6ee7a8, 'target orbit');
+    circle(r1, 0x5eb3e6, 'start orbit');
+    circle(r2, 0x7fcf9f, 'target orbit');
 
     // The spiral, coloured from blue (start) to green (end).
     const pts = res.xy.map(P);
     const g = new THREE.BufferGeometry().setFromPoints(pts);
     const col = new Float32Array(pts.length * 3);
-    const c0 = new THREE.Color('#5ac8fa'), c1 = new THREE.Color('#6ee7a8'), c = new THREE.Color();
+    const c0 = new THREE.Color('#5eb3e6'), c1 = new THREE.Color('#7fcf9f'), c = new THREE.Color();
     for (let k = 0; k < pts.length; k++) { c.copy(c0).lerp(c1, k / (pts.length - 1)); c.toArray(col, 3 * k); }
     g.setAttribute('color', new THREE.BufferAttribute(col, 3));
     group.add(new THREE.Line(g, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true,
@@ -142,13 +142,14 @@
     $('hud-lowthrust').innerHTML = `
       <div class="box"><h4>Ion engine</h4>
         ${LS.kv([['Trip time', years(r.duration)], ['Laps around', f(r.revs, r.revs < 10 ? 1 : 0)],
+                 ...(r.power ? [['Thrust', `${f(r.thrust_hist[0] * 1000, 0)} → ${f(r.thrust_hist[r.thrust_hist.length - 1] * 1000, 0)} mN`]] : []),
                  ['Δv', `${f(r.dv, 2)} km/s`], ['Propellant', `${f(r.propellant, 0)} kg (${f(100 * r.propellant / r.mass, 0)}%)`]])}
-        ${bar(r.propellant, maxP, '#6ee7a8')}
+        ${bar(r.propellant, maxP, '#7fcf9f')}
       </div>
       <div class="box"><h4>Chemical rocket (Isp ${f(ch.isp, 0)} s)</h4>
         ${LS.kv([['Trip time', years(ch.time)], ['Δv', `${f(ch.dv, 2)} km/s`],
                  ['Propellant', `${f(ch.propellant, 0)} kg (${f(100 * ch.propellant / r.mass, 0)}%)`]])}
-        ${bar(ch.propellant, maxP, '#ffb454')}
+        ${bar(ch.propellant, maxP, '#eea55a')}
       </div>
       <div class="box"><h4>Now</h4><div id="lt-live"></div></div>`;
   }
@@ -161,20 +162,22 @@
     const pick = (a) => a.filter((_, k) => k % step === 0);
     Plotly.react('ch-lt', [
       { x: pick(t), y: pick(dist), name: body === 'Sun' ? 'Distance from the Sun (AU)' : 'Altitude (km)', type: 'scatter',
-        mode: 'lines', line: { color: '#5ac8fa', width: 2.5 } },
+        mode: 'lines', line: { color: '#5eb3e6', width: 2.5 } },
       { x: pick(t), y: pick(res.speed), name: 'Speed (km/s)', yaxis: 'y2', type: 'scatter', mode: 'lines',
-        line: { color: '#ffb454', width: 2 } },
+        line: { color: '#eea55a', width: 2 } },
       { x: pick(t), y: pick(res.m), name: 'Mass (kg)', yaxis: 'y3', type: 'scatter', mode: 'lines',
-        line: { color: '#6ee7a8', width: 1.5, dash: 'dot' } },
+        line: { color: '#7fcf9f', width: 1.5, dash: 'dot' } },
     ], LS.plotLayout({
       title: { text: 'Pushing forward… and ending up slower', x: 0.02, y: 0.97, font: { size: 12.5 } },
-      margin: { l: 52, r: 96, t: 60, b: 40 },
-      legend: { orientation: 'h', y: 1.12, x: 0, font: { size: 10.5 } },
-      xaxis: { title: { text: 'days', font: { size: 11 } }, gridcolor: 'rgba(148,170,210,0.12)', color: '#8b9bbd',
-        domain: [0, 0.8] },
-      yaxis: { gridcolor: 'rgba(148,170,210,0.12)', color: '#5ac8fa' },
-      yaxis2: { overlaying: 'y', side: 'right', anchor: 'x', color: '#ffb454', showgrid: false },
-      yaxis3: { overlaying: 'y', side: 'right', position: 1, anchor: 'free', color: '#6ee7a8', showgrid: false },
+      margin: { l: 52, r: 96, t: 44, b: 40 }, showlegend: false,
+      xaxis: { title: { text: 'days', font: { size: 11 } }, gridcolor: 'rgba(255,255,255,0.06)', color: '#8d95a8',
+        domain: [0, 0.78] },
+      yaxis: { gridcolor: 'rgba(255,255,255,0.06)', color: '#5eb3e6',
+        title: { text: body === 'Sun' ? 'distance from Sun (AU)' : 'altitude (km)', font: { size: 10.5 } } },
+      yaxis2: { overlaying: 'y', side: 'right', anchor: 'x', color: '#eea55a', showgrid: false,
+        title: { text: 'speed (km/s)', font: { size: 10.5 } } },
+      yaxis3: { overlaying: 'y', side: 'right', position: 1, anchor: 'free', color: '#7fcf9f', showgrid: false,
+        title: { text: 'mass (kg)', font: { size: 10.5 } } },
     }), LS.plotConfig);
   }
 
@@ -199,6 +202,12 @@
         spacecraft ends up <b>${faster ? 'slower' : 'faster'}</b> (${f(r.speed[0], 1)} → ${f(r.speed[r.speed.length - 1], 1)} km/s).
         ${faster ? 'Pushing forward raises the orbit, and higher orbits are slower: the energy goes into height, not speed.'
           : 'Braking lowers the orbit, and lower orbits are faster: falling inward gains speed.'}</p>
+      ${r.power ? `<p><b>Solar power fades with distance.</b> The solar arrays give ${f(r.power[0], 1)} kW at Earth's distance but
+        only a quarter of that at twice the distance (sunlight spreads out as 1/r²). The engine needs up to ${f(r.power[1], 1)} kW,
+        so beyond ${f(Math.sqrt(r.power[0] / r.power[1]), 2)} AU it has to throttle down: the thrust ends at
+        <b>${f(r.thrust_hist[r.thrust_hist.length - 1] * 1000, 0)} mN</b> instead of ${f(r.thrust_hist[0] * 1000, 0)} mN.
+        That is why most missions beyond Jupiter have used nuclear (RTG) power, and why Juno and JUICE need
+        enormous solar arrays at Jupiter.</p>` : ''}
       <p><b>Check:</b> Edelbaum's formula for a slow spiral between circular orbits predicts Δv = |v₁ − v₂| =
         ${f(r.edelbaum_dv, 2)} km/s; the simulation used ${f(r.dv, 2)} km/s.</p>${hist}`;
   }
@@ -238,6 +247,6 @@
   };
   view.render = () => s3 && s3.render();
   view.clockLabel = (t) => (res ? `day ${f(t, 1)} of ${f(res.duration / DAY, 0)}` : '—');
-  view.nowLabel = 'Start';
+  view.nowLabel = 'Back to start';
   view.onNow = () => { view.clock.t = 0; };
 })();

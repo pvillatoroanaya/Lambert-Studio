@@ -14,7 +14,7 @@
   // mean orbital speed km/s, mean distance AU, period days).
   const PL = {
     Venus: { mu: 324859, R: 6051.8, V: 35.02, a: 0.723, T: 224.7, color: '#e3bb76' },
-    Earth: { mu: 398600.4, R: 6378.1, V: 29.78, a: 1.0, T: 365.25, color: '#5ac8fa' },
+    Earth: { mu: 398600.4, R: 6378.1, V: 29.78, a: 1.0, T: 365.25, color: '#5eb3e6' },
     Mars: { mu: 42828.4, R: 3396.2, V: 24.07, a: 1.524, T: 687.0, color: '#e8734a' },
     Jupiter: { mu: 126686534, R: 71492, V: 13.06, a: 5.203, T: 4332.6, color: '#d8a86d' },
     Saturn: { mu: 37931187, R: 60268, V: 9.68, a: 9.537, T: 10759, color: '#e8d18f' },
@@ -33,7 +33,7 @@
   function svg(container, w, h) {
     const s = el('svg', { viewBox: `0 0 ${w} ${h}`, class: 'lw-svg', role: 'img' });
     const defs = el('defs', {}, s);
-    for (const [id, c] of [['w', '#e7edf8'], ['b', '#5ac8fa'], ['g', '#6ee7a8'], ['o', '#ffb454'], ['r', '#ff8a80']]) {
+    for (const [id, c] of [['w', '#e9ecf3'], ['b', '#5eb3e6'], ['g', '#7fcf9f'], ['o', '#eea55a'], ['r', '#ea7f7f']]) {
       const m = el('marker', { id: `lw-${id}`, markerWidth: 8, markerHeight: 8, refX: 6, refY: 4, orient: 'auto' }, defs);
       el('path', { d: 'M0,0 L8,4 L0,8z', fill: c }, m);
     }
@@ -108,11 +108,11 @@
     const alt = 400, R = 6378.1, mu = 398600.4;
     const s = svg(stage, 560, 360);
     const cx = 280, cy = 180, scale = 95 / R;
-    el('circle', { cx, cy, r: R * scale, fill: '#1d4f7a', stroke: '#5ac8fa', 'stroke-opacity': 0.4 }, s);
-    el('rect', { x: cx - 3, y: cy - (R + alt) * scale, width: 6, height: alt * scale, fill: '#8b9bbd' }, s);
-    const path = el('polyline', { fill: 'none', stroke: '#ffb454', 'stroke-width': 2 }, s);
+    el('circle', { cx, cy, r: R * scale, fill: '#1d4f7a', stroke: '#5eb3e6', 'stroke-opacity': 0.4 }, s);
+    el('rect', { x: cx - 3, y: cy - (R + alt) * scale, width: 6, height: alt * scale, fill: '#8d95a8' }, s);
+    const path = el('polyline', { fill: 'none', stroke: '#eea55a', 'stroke-width': 2 }, s);
     const ball = el('circle', { r: 4, fill: '#fff' }, s);
-    text(s, cx, cy - (R + alt) * scale - 8, 'cannon on a 400 km mountain', '#8b9bbd', 10.5, 'middle');
+    text(s, cx, cy - (R + alt) * scale - 8, 'cannon on a 400 km mountain', '#8d95a8', 10.5, 'middle');
     let pts = [], k = 0, verdict = '';
 
     function simulate() {
@@ -178,7 +178,7 @@
       g.innerHTML = '';
       const e = +ecc.value, b = a * Math.sqrt(1 - e * e), c = a * e;
       // Sun at the focus (cx, cy); ellipse centre at cx - c.
-      el('ellipse', { cx: cx - c, cy, rx: a, ry: b * 0.72, fill: 'none', stroke: '#5ac8fa', 'stroke-opacity': 0.6 }, g);
+      el('ellipse', { cx: cx - c, cy, rx: a, ry: b * 0.72, fill: 'none', stroke: '#5eb3e6', 'stroke-opacity': 0.6 }, g);
       // Equal-area sectors: 12 equal slices of TIME.
       for (let k = 0; k < 12; k++) {
         const pts = [[cx, cy]];
@@ -187,11 +187,11 @@
           const E = LS.kepler(M, e);
           pts.push([cx - c + a * Math.cos(E), cy - b * 0.72 * Math.sin(E)]);
         }
-        el('polygon', { points: pts.map((p) => p.join(',')).join(' '), fill: k % 2 ? 'rgba(90,200,250,0.10)' : 'rgba(255,180,84,0.10)',
+        el('polygon', { points: pts.map((p) => p.join(',')).join(' '), fill: k % 2 ? 'rgba(94,179,230,0.10)' : 'rgba(238,165,90,0.10)',
           stroke: 'none' }, g);
       }
-      el('circle', { cx, cy, r: 10, fill: '#ffb454' }, g);
-      text(g, cx, cy + 26, 'Sun', '#ffb454', 11, 'middle');
+      el('circle', { cx, cy, r: 10, fill: '#eea55a' }, g);
+      text(g, cx, cy + 26, 'Sun', '#eea55a', 11, 'middle');
       state.dot = el('circle', { r: 6, fill: '#fff' }, g);
       state.e = e; state.b = b; state.c = c;
       const ratio = (1 + e) / (1 - e);
@@ -228,15 +228,15 @@
       const q = +ratio.value;
       const cx = 160, cy = 165, maxR = 140, s1 = maxR / q;
       el('circle', { cx, cy, r: s1 * 0.95 < 4 ? 4 : s1 * 0.6, fill: '#1d4f7a' }, g);
-      el('circle', { cx, cy, r: s1, fill: 'none', stroke: '#5ac8fa', 'stroke-width': 1.5 }, g);
-      el('circle', { cx, cy, r: maxR, fill: 'none', stroke: '#6ee7a8', 'stroke-width': 1.5 }, g);
+      el('circle', { cx, cy, r: s1, fill: 'none', stroke: '#5eb3e6', 'stroke-width': 1.5 }, g);
+      el('circle', { cx, cy, r: maxR, fill: 'none', stroke: '#7fcf9f', 'stroke-width': 1.5 }, g);
       const a = (s1 + maxR) / 2, c = (maxR - s1) / 2, b = Math.sqrt(s1 * maxR);
-      el('path', { d: `M ${cx + s1} ${cy} A ${a} ${b} 0 0 0 ${cx - maxR} ${cy}`, fill: 'none', stroke: '#ffb454',
+      el('path', { d: `M ${cx + s1} ${cy} A ${a} ${b} 0 0 0 ${cx - maxR} ${cy}`, fill: 'none', stroke: '#eea55a',
         'stroke-width': 2, 'stroke-dasharray': '5 3' }, g);
-      el('circle', { cx: cx + s1, cy, r: 4, fill: '#ff6b6b' }, g);
-      el('circle', { cx: cx - maxR, cy, r: 4, fill: '#ff6b6b' }, g);
-      text(g, cx + s1 + 6, cy - 6, 'burn 1', '#ff8a80', 10.5);
-      text(g, cx - maxR - 4, cy - 8, 'burn 2', '#ff8a80', 10.5, 'end');
+      el('circle', { cx: cx + s1, cy, r: 4, fill: '#e56f6f' }, g);
+      el('circle', { cx: cx - maxR, cy, r: 4, fill: '#e56f6f' }, g);
+      text(g, cx + s1 + 6, cy - 6, 'burn 1', '#ea7f7f', 10.5);
+      text(g, cx - maxR - 4, cy - 8, 'burn 2', '#ea7f7f', 10.5, 'end');
       void c;
       // Chart: total dv against the ratio.
       const X0 = 350, X1 = 600, Y0 = 290, Y1 = 40;
@@ -246,10 +246,10 @@
       el('line', { x1: X0, y1: Y0, x2: X0, y2: Y1, stroke: '#5d6c8c' }, g);
       const pts = [];
       for (let k = 0; k <= 80; k++) { const x = 1.2 * Math.pow(30 / 1.2, k / 80); const [d1, d2] = dv(x); pts.push(`${xs(x)},${ys(d1 + d2)}`); }
-      el('polyline', { points: pts.join(' '), fill: 'none', stroke: '#ffb454', 'stroke-width': 2 }, g);
+      el('polyline', { points: pts.join(' '), fill: 'none', stroke: '#eea55a', 'stroke-width': 2 }, g);
       const [d1, d2] = dv(q);
       el('circle', { cx: xs(q), cy: ys(d1 + d2), r: 5, fill: '#fff' }, g);
-      text(g, X0, Y1 - 12, 'total Δv (km/s) vs how much bigger the orbit is', '#8b9bbd', 10.5);
+      text(g, X0, Y1 - 12, 'total Δv (km/s) vs how much bigger the orbit is', '#8d95a8', 10.5);
       [1, 2, 3, 4].forEach((y) => text(g, X0 - 6, ys(y) + 3, `${y}`, '#5d6c8c', 9.5, 'end'));
       [2, 5, 10, 20].forEach((x) => text(g, xs(x), Y0 + 14, `${x}×`, '#5d6c8c', 9.5, 'middle'));
       const alt2 = r1 * q - 6378.1;
@@ -280,11 +280,11 @@
       const prop = 1 - 1 / ratio;
       g.innerHTML = '';
       el('rect', { x: 20, y: 40, width: 520, height: 44, rx: 6, fill: '#18233b' }, g);
-      el('rect', { x: 20, y: 40, width: 520 * prop, height: 44, rx: 6, fill: '#ffb454' }, g);
-      el('rect', { x: 20 + 520 * prop, y: 40, width: 520 * (1 - prop), height: 44, rx: 6, fill: '#5ac8fa' }, g);
-      text(g, 26, 32, `propellant ${f(100 * prop, 1)}%`, '#ffb454', 12);
-      text(g, 534, 32, `everything else ${f(100 * (1 - prop), 1)}%`, '#5ac8fa', 12, 'end');
-      text(g, 280, 110, `m_start / m_end = e^(Δv / v_exhaust) = e^(${f(+dv.value, 1)} / ${f(ve, 2)}) = ${f(ratio, 2)}`, '#e7edf8', 12, 'middle');
+      el('rect', { x: 20, y: 40, width: 520 * prop, height: 44, rx: 6, fill: '#eea55a' }, g);
+      el('rect', { x: 20 + 520 * prop, y: 40, width: 520 * (1 - prop), height: 44, rx: 6, fill: '#5eb3e6' }, g);
+      text(g, 26, 32, `propellant ${f(100 * prop, 1)}%`, '#eea55a', 12);
+      text(g, 534, 32, `everything else ${f(100 * (1 - prop), 1)}%`, '#5eb3e6', 12, 'end');
+      text(g, 280, 110, `m_start / m_end = e^(Δv / v_exhaust) = e^(${f(+dv.value, 1)} / ${f(ve, 2)}) = ${f(ratio, 2)}`, '#e9ecf3', 12, 'middle');
       readout.innerHTML = `The exhaust leaves at <b>${f(ve, 2)} km/s</b>. To change speed by ${f(+dv.value, 1)} km/s, <b>${f(100 * prop, 0)}%</b>
         of the spacecraft must be propellant. Every extra km/s multiplies the starting mass again, not adds to it:
         that is why mission designers fight for every 0.1 km/s, and why gravity assists matter so much.`;
@@ -302,17 +302,17 @@
     const speed = slider(controls, 'Speed', 10, 120, 5, 50, (x) => `${x} days/s`);
     const s = svg(stage, 560, 330);
     const cx = 200, cy = 165, sc = 95;
-    el('circle', { cx, cy, r: 9, fill: '#ffb454' }, s);
-    el('circle', { cx, cy, r: sc, fill: 'none', stroke: '#5ac8fa', 'stroke-opacity': 0.4 }, s);
+    el('circle', { cx, cy, r: 9, fill: '#eea55a' }, s);
+    el('circle', { cx, cy, r: sc, fill: 'none', stroke: '#5eb3e6', 'stroke-opacity': 0.4 }, s);
     el('circle', { cx, cy, r: sc * 1.524, fill: 'none', stroke: '#e8734a', 'stroke-opacity': 0.4 }, s);
-    const earth = el('circle', { r: 6, fill: '#5ac8fa' }, s);
+    const earth = el('circle', { r: 6, fill: '#5eb3e6' }, s);
     const mars = el('circle', { r: 5, fill: '#e8734a' }, s);
-    const lineE = el('line', { stroke: '#5ac8fa', 'stroke-opacity': 0.5 }, s);
+    const lineE = el('line', { stroke: '#5eb3e6', 'stroke-opacity': 0.5 }, s);
     const lineM = el('line', { stroke: '#e8734a', 'stroke-opacity': 0.5 }, s);
     const lamp = el('circle', { cx: 470, cy: 60, r: 16 }, s);
     const lampText = text(s, 470, 96, '', '#c9d4ea', 11.5, 'middle');
-    const phaseText = text(s, 470, 140, '', '#e7edf8', 13, 'middle');
-    const dayText = text(s, 470, 170, '', '#8b9bbd', 11, 'middle');
+    const phaseText = text(s, 470, 140, '', '#e9ecf3', 13, 'middle');
+    const dayText = text(s, 470, 170, '', '#8d95a8', 11, 'middle');
     const need = 44.3;                               // Hohmann: Mars leads Earth by ~44 degrees at launch
     let t = 0, windows = 0, wasOpen = false;
     const nE = 360 / 365.25, nM = 360 / 687.0;
@@ -330,7 +330,7 @@
       const open = Math.abs(phase - need) < 6;
       if (open && !wasOpen) windows++;
       wasOpen = open;
-      lamp.setAttribute('fill', open ? '#6ee7a8' : '#3a2530');
+      lamp.setAttribute('fill', open ? '#7fcf9f' : '#3a2530');
       lampText.textContent = open ? 'WINDOW OPEN: launch!' : 'window closed';
       phaseText.textContent = `Mars is ${f(phase, 0)}° ahead of Earth`;
       dayText.textContent = `day ${f(t, 0)} · windows so far: ${windows}`;
@@ -373,8 +373,8 @@
     function draw() {
       g.innerHTML = '';
       const cx = 280, cy = 170, sc = 95;
-      el('circle', { cx, cy, r: 8, fill: '#ffb454' }, g);
-      el('circle', { cx, cy, r: sc, fill: 'none', stroke: '#5ac8fa', 'stroke-opacity': 0.35 }, g);
+      el('circle', { cx, cy, r: 8, fill: '#eea55a' }, g);
+      el('circle', { cx, cy, r: sc, fill: 'none', stroke: '#5eb3e6', 'stroke-opacity': 0.35 }, g);
       el('circle', { cx, cy, r: sc * 1.524, fill: 'none', stroke: '#e8734a', 'stroke-opacity': 0.35 }, g);
       let th = +ang.value * Math.PI / 180;
       // Exactly 180 degrees has no unique transfer plane (Lambert's singular case).
@@ -391,9 +391,9 @@
         const r = p / (1 + e * Math.cos(nu));
         pts.push(`${cx + r * Math.cos(nu + w) / AU * sc},${cy - r * Math.sin(nu + w) / AU * sc}`);
       }
-      el('polyline', { points: pts.join(' '), fill: 'none', stroke: '#ffb454', 'stroke-width': 2.2 }, g);
-      el('circle', { cx: cx + sc, cy, r: 6, fill: '#5ac8fa' }, g);
-      text(g, cx + sc + 9, cy + 4, 'Earth at launch (r₁)', '#5ac8fa', 10.5);
+      el('polyline', { points: pts.join(' '), fill: 'none', stroke: '#eea55a', 'stroke-width': 2.2 }, g);
+      el('circle', { cx: cx + sc, cy, r: 6, fill: '#5eb3e6' }, g);
+      text(g, cx + sc + 9, cy + 4, 'Earth at launch (r₁)', '#5eb3e6', 10.5);
       const mx = cx + 1.524 * sc * Math.cos(th), my = cy - 1.524 * sc * Math.sin(th);
       el('circle', { cx: mx, cy: my, r: 5, fill: '#e8734a' }, g);
       text(g, mx + 8, my - 6, 'Mars on arrival (r₂)', '#e8734a', 10.5);
@@ -446,8 +446,8 @@
       const sc = 170 / view;
       // planet and its motion
       el('circle', { cx, cy, r: Math.max(r.P.R * sc, 3), fill: r.P.color }, g);
-      arrow(g, cx - 60, cy + 150, cx + 60, cy + 150, '#ffb454', 'o', 2.5);
-      text(g, cx, cy + 168, `${planet.value} moves this way around the Sun (${f(r.P.V, 1)} km/s)`, '#ffb454', 11, 'middle');
+      arrow(g, cx - 60, cy + 150, cx + 60, cy + 150, '#eea55a', 'o', 2.5);
+      text(g, cx, cy + 168, `${planet.value} moves this way around the Sun (${f(r.P.V, 1)} km/s)`, '#eea55a', 11, 'middle');
       // hyperbola: periapsis direction and velocity (same maths as the 3D close-up)
       const e = 1 + r.rp * r.v * r.v / r.P.mu, a = r.P.mu / (r.v * r.v);
       const half = Math.asin(1 / e);
@@ -462,23 +462,23 @@
       }
       if (r.crash) {
         el('polyline', { points: path.filter((p) => p[2] < 0).map((p) => `${p[0]},${p[1]}`).join(' '), fill: 'none',
-          stroke: '#ff6b6b', 'stroke-width': 2.2 }, g);
+          stroke: '#e56f6f', 'stroke-width': 2.2 }, g);
       } else {
-        el('polyline', { points: path.map((p) => `${p[0]},${p[1]}`).join(' '), fill: 'none', stroke: '#6ee7a8', 'stroke-width': 2.2 }, g);
+        el('polyline', { points: path.map((p) => `${p[0]},${p[1]}`).join(' '), fill: 'none', stroke: '#7fcf9f', 'stroke-width': 2.2 }, g);
       }
       // velocity triangle
       const tx = 560, ty = 220, ts = 170 / Math.max(r.P.V + r.v, 20);
       const T = (vx, vy) => [tx - (r.P.V + r.v) * ts * 0.5 + vx * ts, ty - vy * ts];
       const [ox, oy] = T(0, 0), [ax, ay] = T(r.P.V, 0);
       const [bx, by] = T(...r.before), [cx2, cy2] = T(...r.after);
-      el('circle', { cx: ax, cy: ay, r: r.v * ts, fill: 'none', stroke: '#8b9bbd', 'stroke-dasharray': '3 4', 'stroke-opacity': 0.5 }, g);
-      arrow(g, ox, oy, ax, ay, '#ffb454', 'o', 2.2);
-      arrow(g, ax, ay, bx, by, '#5ac8fa', 'b', 2);
-      if (!r.crash) arrow(g, ax, ay, cx2, cy2, '#6ee7a8', 'g', 2);
-      arrow(g, ox, oy, bx, by, '#8b9bbd', 'w', 1.4, '5 4');
+      el('circle', { cx: ax, cy: ay, r: r.v * ts, fill: 'none', stroke: '#8d95a8', 'stroke-dasharray': '3 4', 'stroke-opacity': 0.5 }, g);
+      arrow(g, ox, oy, ax, ay, '#eea55a', 'o', 2.2);
+      arrow(g, ax, ay, bx, by, '#5eb3e6', 'b', 2);
+      if (!r.crash) arrow(g, ax, ay, cx2, cy2, '#7fcf9f', 'g', 2);
+      arrow(g, ox, oy, bx, by, '#8d95a8', 'w', 1.4, '5 4');
       if (!r.crash) arrow(g, ox, oy, cx2, cy2, '#ffffff', 'w', 2.4);
-      text(g, tx, 60, 'Velocity triangle', '#5ac8fa', 11.5, 'middle');
-      text(g, tx, 76, 'planet + v∞ = speed around the Sun', '#8b9bbd', 10, 'middle');
+      text(g, tx, 60, 'Velocity triangle', '#5eb3e6', 11.5, 'middle');
+      text(g, tx, 76, 'planet + v∞ = speed around the Sun', '#8d95a8', 10, 'middle');
       if (r.crash) {
         readout.innerHTML = `<b class="bad">Crash!</b> Aiming ${f(Math.abs(+aim.value), 1)} radii to the side at ${f(r.v, 1)} km/s,
           ${planet.value}'s gravity pulls the spacecraft into the planet. Aim further out.`;
@@ -526,9 +526,9 @@
         el('rect', { x: 150, y, width: 380 * frac, height: 22, rx: 5, fill: color }, g);
         text(g, 140, y + 15, label, '#c9d4ea', 11.5, 'end');
       };
-      bar(30, pIon / m0, '#6ee7a8', `ion: ${f(pIon, 0)} kg`);
-      bar(80, pChem / m0, '#ffb454', `chemical: ${f(pChem, 0)} kg`);
-      text(g, 150, 18, `propellant needed by a ${m0} kg spacecraft`, '#8b9bbd', 10.5);
+      bar(30, pIon / m0, '#7fcf9f', `ion: ${f(pIon, 0)} kg`);
+      bar(80, pChem / m0, '#eea55a', `chemical: ${f(pChem, 0)} kg`);
+      text(g, 150, 18, `propellant needed by a ${m0} kg spacecraft`, '#8d95a8', 10.5);
       readout.innerHTML = `The ion engine needs <b>${f(pIon, 0)} kg</b> of xenon instead of ${f(pChem, 0)} kg of chemical propellant,
         but it has to fire for about <b>${f(time, 0)} days</b> (${f(time / 365.25, 1)} years) without stopping; the chemical engine
         does it in minutes. More thrust means more electrical power, and bigger solar panels.`;
@@ -552,11 +552,11 @@
       const x0 = 40, y0 = 190, len = 40 + 460 * (+range.value / 40000);
       const spread = Math.min(Math.max(+angle.value * 12, 0.012), 0.6);
       el('path', { d: `M${x0},${y0} L${x0 + len},${y0 - len * 0.3 - len * spread} L${x0 + len},${y0 - len * 0.3 + len * spread} Z`,
-        fill: 'rgba(255,138,128,0.18)', stroke: '#ff8a80', 'stroke-opacity': 0.5 }, g);
-      el('circle', { cx: x0, cy: y0, r: 6, fill: '#6ee7a8' }, g);
-      text(g, x0, y0 + 20, 'station', '#6ee7a8', 10.5, 'middle');
+        fill: 'rgba(255,138,128,0.18)', stroke: '#ea7f7f', 'stroke-opacity': 0.5 }, g);
+      el('circle', { cx: x0, cy: y0, r: 6, fill: '#7fcf9f' }, g);
+      text(g, x0, y0 + 20, 'station', '#7fcf9f', 10.5, 'middle');
       el('circle', { cx: x0 + len, cy: y0 - len * 0.3, r: 5, fill: '#fff' }, g);
-      text(g, x0 + len - 8, y0 - len * 0.3 - len * spread - 8, `±${f(err, 2)} km`, '#ff8a80', 12, 'end');
+      text(g, x0 + len - 8, y0 - len * 0.3 - len * spread - 8, `±${f(err, 2)} km`, '#ea7f7f', 12, 'end');
       readout.innerHTML = `A tiny angle error becomes a big position error far away: <b>${f(+angle.value, 3)}°</b> at
         ${f(+range.value, 0)} km is <b>±${f(err, 2)} km</b> sideways (distance × angle in radians). That uncertainty in position
         becomes an uncertainty in the orbit's size and period, and so in where the satellite will be tomorrow.`;

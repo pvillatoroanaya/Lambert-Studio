@@ -14,8 +14,8 @@
 
 (function () {
   const $ = (id) => document.getElementById(id);
-  const LEG_CSS = ['#5ac8fa', '#ffb454', '#c792ea', '#6ee7a8', '#ff8a80'];
-  const EVENT_CSS = { launch: '#5ac8fa', flyby: '#6ee7a8', arrival: '#ffb454', dsm: '#ff8a80' };
+  const LEG_CSS = ['#5eb3e6', '#eea55a', '#e3cc6a', '#7fcf9f', '#ea7f7f'];
+  const EVENT_CSS = { launch: '#5eb3e6', flyby: '#7fcf9f', arrival: '#eea55a', dsm: '#ea7f7f' };
   const SIZE = { Mercury: 0.03, Venus: 0.045, Earth: 0.048, Mars: 0.036,
     Jupiter: 0.2, Saturn: 0.17, Uranus: 0.11, Neptune: 0.11 };
   const AU_KM = 1.495978707e8;

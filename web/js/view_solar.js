@@ -68,7 +68,7 @@
         sizeAttenuation: false, depthWrite: false, blending: THREE.AdditiveBlending }));
       pin.scale.set(0.022, 0.022, 1);
       m.add(pin);
-      const lb = LS.label(name);
+      const lb = LS.label(name, name === 'Earth' ? 'key' : '');
       m.add(lb);
       labels.push(lb);
       planetsGroup.add(m);
@@ -179,7 +179,7 @@
       astCloud.visible = $('sol-ast').checked;
       s3.scene.add(astCloud);
       const pha = rows.filter((r) => r[9]).length;
-      $('sol-status').textContent = `${n.toLocaleString()} asteroids (${pha.toLocaleString()} potentially hazardous, orange) · source: NASA/JPL SBDB` +
+      $('sol-status').textContent = `${n.toLocaleString('en-US')} asteroids (${pha.toLocaleString('en-US')} potentially hazardous, orange) · source: NASA/JPL SBDB` +
         ` · planet positions: ${LS.eph.source} · planet textures: Solar System Scope (CC BY 4.0)`;
     } catch (e) {
       $('sol-status').textContent = e.message;
@@ -207,10 +207,10 @@
     transferGroup = new THREE.Group();
     s3.scene.add(transferGroup);
     const pts = t.track_au.map((p) => LS.sv3(p));
-    transferGroup.add(LS.tube(pts, 0.006, 0x5ac8fa));
-    const d = LS.dot(0.018, 0x6ee7a8); d.position.copy(pts[0]); transferGroup.add(d);
+    transferGroup.add(LS.tube(pts, 0.006, 0x5eb3e6));
+    const d = LS.dot(0.018, 0x7fcf9f); d.position.copy(pts[0]); transferGroup.add(d);
     const dl = LS.label(`${t.departure} · depart`, 'dim'); dl.position.copy(pts[0]); transferGroup.add(dl);
-    const a = LS.dot(0.018, 0xff6b6b); a.position.copy(pts[pts.length - 1]); transferGroup.add(a);
+    const a = LS.dot(0.018, 0xe56f6f); a.position.copy(pts[pts.length - 1]); transferGroup.add(a);
     const al = LS.label(`${t.arrival} · arrive`, 'dim'); al.position.copy(pts[pts.length - 1]); transferGroup.add(al);
     craft = LS.spacecraft(0.016, { label: 'spacecraft' });
     transferGroup.add(craft);

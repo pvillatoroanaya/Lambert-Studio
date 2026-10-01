@@ -129,13 +129,13 @@
     const dists = pts.map((v) => v.length());
     const iCa = dists.indexOf(Math.min(...dists));
     const span = Math.max(...dists);
-    pathGroup.add(LS.tube(pts, Math.max(span * 0.002, 0.08), 0xffb454, false, 0.9));
+    pathGroup.add(LS.tube(pts, Math.max(span * 0.002, 0.08), 0xeea55a, false, 0.9));
 
     const ca = pts[iCa];
-    const caLine = LS.line([new THREE.Vector3(), ca], 0xff6b6b, 0.8, true);
+    const caLine = LS.line([new THREE.Vector3(), ca], 0xe56f6f, 0.8, true);
     caLine.material.dashSize = span * 0.01; caLine.material.gapSize = span * 0.008; caLine.computeLineDistances();
     pathGroup.add(caLine);
-    const caDot = LS.dot(Math.max(span * 0.004, 0.2), 0xff6b6b); caDot.position.copy(ca); pathGroup.add(caDot);
+    const caDot = LS.dot(Math.max(span * 0.004, 0.2), 0xe56f6f); caDot.position.copy(ca); pathGroup.add(caDot);
     const caLbl = LS.label(`closest: ${LS.fmt(a.dist_ld, 2)} LD`, 'warm'); caLbl.position.copy(ca); pathGroup.add(caLbl);
 
     rock = new THREE.Sprite(new THREE.SpriteMaterial({ map: LS.spriteTexture(), color: 0xffffff,

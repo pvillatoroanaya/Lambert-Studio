@@ -36,7 +36,7 @@ BODIES = {"Sun": MU_SUN, "Earth": MU_EARTH}
 # Published values (NASA / ESA / JPL fact sheets), rounded.
 PRESETS = [
     {"key": "dawn", "label": "Dawn: Earth's orbit to Vesta's", "body": "Sun", "r1": 1.0, "r2": 2.362,
-     "unit": "AU", "mass": 1217.7, "thrust_mN": 91.0, "isp": 3100.0,
+     "unit": "AU", "mass": 1217.7, "thrust_mN": 91.0, "isp": 3100.0, "power": [10.3, 2.6],
      "history": "Dawn (launched 2007) carried 425 kg of xenon for its NSTAR ion engines (one firing at a time, "
                 "up to 91 mN, Isp up to 3,100 s). It changed its speed by about 11 km/s in total, more than any "
                 "other spacecraft's engines at the time, and became the first to orbit two bodies: Vesta and Ceres. "
@@ -52,7 +52,7 @@ PRESETS = [
                 "geostationary orbit on xenon thrusters alone. They save about half their launch mass, at the "
                 "price of months of spiralling instead of a few hours."},
     {"key": "mars", "label": "An ion spacecraft to Mars' orbit", "body": "Sun", "r1": 1.0, "r2": 1.524,
-     "unit": "AU", "mass": 1500.0, "thrust_mN": 180.0, "isp": 3000.0,
+     "unit": "AU", "mass": 1500.0, "thrust_mN": 180.0, "isp": 3000.0, "power": [10.0, 4.5],
      "history": "Electric propulsion is studied for Mars cargo missions: slower than a chemical transfer, but "
                 "able to deliver much more mass for the same launch."},
 ]
@@ -66,8 +66,15 @@ def _hohmann(mu, r1, r2):
     return dv1 + dv2, math.pi * math.sqrt(a ** 3 / mu)
 
 
-def spiral(body, r1, r2, mass, thrust_N, isp, n_out=1500, chem_isp=320.0):
-    """Spiral from a circular orbit of radius r1 to r2 [km]."""
+def spiral(body, r1, r2, mass, thrust_N, isp, n_out=1500, chem_isp=320.0, power=None):
+    """Spiral from a circular orbit of radius r1 to r2 [km].
+
+    power = (array power at 1 AU, maximum engine input power) in kW makes
+    the thrust solar-limited around the Sun: the arrays give P/r^2, and the
+    engine runs at full thrust only while that covers its maximum input
+    (thrust proportional to power at constant Isp). Dawn: 10.3 kW arrays
+    at 1 AU, NSTAR maximum input about 2.6 kW, so thrust falls beyond ~2 AU.
+    """
     if body not in BODIES:
         raise ValueError(f"Unknown central body '{body}'.")
     mu = BODIES[body]
@@ -78,15 +85,23 @@ def spiral(body, r1, r2, mass, thrust_N, isp, n_out=1500, chem_isp=320.0):
     if not (mass > 0 and thrust_N > 0 and isp > 0):
         raise ValueError("Mass, thrust and Isp must be positive.")
     ve = isp * G0                                   # exhaust speed [km/s]
-    mdot = thrust_N / (isp * 9.80665)               # kg/s
     sign = 1.0 if r2 > r1 else -1.0
+    solar = power is not None and body == "Sun"
+    if solar and not (power[0] > 0 and power[1] > 0):
+        raise ValueError("Solar array and engine power must be positive.")
+
+    def thrust_at(r):
+        if not solar:
+            return thrust_N
+        return thrust_N * min(1.0, power[0] / (r / AU) ** 2 / power[1])
 
     def rhs(t, y):
         r, th, vr, vt, m = y
         v = math.hypot(vr, vt)
-        acc = sign * thrust_N / m / 1000.0          # km/s^2
+        T = thrust_at(r)
+        acc = sign * T / m / 1000.0                 # km/s^2
         return [vr, vt / r, vt * vt / r - mu / (r * r) + acc * vr / v,
-                -vr * vt / r + acc * vt / v, -mdot]
+                -vr * vt / r + acc * vt / v, -T / (isp * 9.80665)]
 
     def reached(t, y):
         r, _, vr, vt, _ = y
@@ -104,7 +119,7 @@ def spiral(body, r1, r2, mass, thrust_N, isp, n_out=1500, chem_isp=320.0):
     dv_e = abs(v1 - math.sqrt(mu / r2))
     # Refuse spirals that would take absurdly long (or would take a long
     # time to compute): estimate the time and the number of laps first.
-    t_est = dv_e / (thrust_N / mass / 1000.0)
+    t_est = dv_e / (min(thrust_at(r1), thrust_at(r2)) / mass / 1000.0)
     laps_est = t_est / (2 * math.pi * math.sqrt(math.sqrt(r1 * r2) ** 3 / mu))
     if t_est > 40 * 365.25 * 86400:
         raise ValueError(f"With this thrust the spiral would take about {t_est / 3.156e7:.0f} years. "
@@ -112,7 +127,7 @@ def spiral(body, r1, r2, mass, thrust_N, isp, n_out=1500, chem_isp=320.0):
     if laps_est > 20000:
         raise ValueError(f"With this thrust the spacecraft would circle about {laps_est:,.0f} times "
                          f"({t_est / 3.156e7:.1f} years). Increase the thrust.")
-    t_max = 3 * dv_e / (thrust_N / mass / 1000.0) + 10 * 2 * math.pi * math.sqrt(r1 ** 3 / mu)
+    t_max = 3 * t_est + 10 * 2 * math.pi * math.sqrt(r1 ** 3 / mu)
     sol = solve_ivp(rhs, (0.0, t_max), [r1, 0.0, 0.0, v1, mass], method="DOP853",
                     rtol=1e-9, atol=1e-9, events=(reached, empty), dense_output=True)
     if sol.status == -1:
@@ -140,7 +155,8 @@ def spiral(body, r1, r2, mass, thrust_N, isp, n_out=1500, chem_isp=320.0):
         "t": ts.tolist(), "xy": (xy / (AU if body == "Sun" else 1.0)).round(6 if body == "Sun" else 1).tolist(),
         "r": r.tolist(), "m": m.tolist(), "speed": np.hypot(vr, vt).tolist(),
         "duration": t_end, "revs": revs, "propellant": mass - m_end, "final_mass": m_end,
-        "dv": dv_low, "edelbaum_dv": dv_e, "accel0": thrust_N / mass,
+        "dv": dv_low, "edelbaum_dv": dv_e, "accel0": thrust_at(r1) / mass,
+        "thrust_hist": [thrust_at(x) for x in r], "power": list(power) if solar else None,
         "chem": {"dv": dv_h, "time": t_h, "isp": chem_isp, "propellant": mass - m_chem_final,
                  "final_mass": m_chem_final},
         "unit": "AU" if body == "Sun" else "km", "scale": AU if body == "Sun" else 1.0,
@@ -150,6 +166,7 @@ def spiral(body, r1, r2, mass, thrust_N, isp, n_out=1500, chem_isp=320.0):
 def run_preset(key, **override):
     p = dict(next(x for x in PRESETS if x["key"] == key), **override)
     s = AU if p["unit"] == "AU" else 1.0
-    out = spiral(p["body"], p["r1"] * s, p["r2"] * s, p["mass"], p["thrust_mN"] / 1000.0, p["isp"])
+    out = spiral(p["body"], p["r1"] * s, p["r2"] * s, p["mass"], p["thrust_mN"] / 1000.0, p["isp"],
+                 power=p.get("power"))
     out["preset"] = p
     return out

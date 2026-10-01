@@ -192,3 +192,45 @@ def test_uncertainty(api):
     d = js["data"]
     assert d["elements"]["a"]["nominal"] == pytest.approx(28184.19, abs=0.01)
     assert d["sensitivity"]["angle"]["a_std"] > d["sensitivity"]["range"]["a_std"]
+
+
+# ----------------------------------------------------------------------
+# high-fidelity physics: full Earth force model, full solar-system gravity
+# ----------------------------------------------------------------------
+
+def test_perturb_full_model_geo(api):
+    js = api("/api/perturb", {"source": "elements", "days": 120, "alt_p": 35786, "alt_a": 35786, "i": 0, "raan": 0,
+                              "argp": 0, "lon": 45, "cd": 2.2, "area": 30, "mass": 3000, "cr": 1.3, "date": "2026-10-01",
+                              "model": {"zonal_degree": 6, "tesseral": True, "sun": True, "moon": True, "srp": True}})
+    assert js["ok"]
+    d = js["data"]
+    assert d["lon"][0] == pytest.approx(45.0, abs=0.01)
+    assert 0.1 < d["i"][-1] < 0.5                        # luni-solar tilt after ~4 months
+    forces = {b["force"].split(" ")[0] for b in d["breakdown"]}
+    assert {"Moon", "Sun", "Sunlight"} <= forces
+
+
+def test_perturb_full_model_rejects_long_leo(api):
+    js = api("/api/perturb", {"source": "elements", "days": 200, "alt_p": 400, "alt_a": 400, "i": 51.6, "raan": 0,
+                              "argp": 0, "cd": 2.2, "area": 10, "mass": 1000, "date": "2026-10-01",
+                              "model": {"zonal_degree": 6, "drag": "msis", "activity": "moderate"}})
+    assert not js["ok"] and "120 days" in js["error"]
+
+
+def test_verify_route_mars(api):
+    js = api("/api/verify_route", {"seq": ["Earth", "Mars"], "jds": [2461345.5, 2461637.5], "capture": True})
+    assert js["ok"]
+    d = js["data"]
+    assert d["uncorrected"]["miss_km"] > 1e4
+    assert abs(d["encounters"][-1]["alt_actual"] - d["encounters"][-1]["alt_planned"]) < 10
+    assert abs(d["total_dv"] - d["design_total_dv"]) < 0.1
+
+
+@pytest.mark.parametrize("body, message", [
+    ({"seq": ["Earth"], "jds": [2461000]}, "one date per planet"),
+    ({"seq": ["Earth", "Mars"], "jds": [2461000, 2460000]}, "increase"),
+    ({"seq": ["Earth", "Pluto"], "jds": [2461000, 2461300]}, "Unknown planet"),
+])
+def test_verify_route_rejects_bad_input(api, body, message):
+    js = api("/api/verify_route", body)
+    assert not js["ok"] and message in js["error"]
