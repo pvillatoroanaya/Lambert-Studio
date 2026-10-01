@@ -31,10 +31,34 @@ import time
 import traceback
 import webbrowser
 
+from app_paths import LOG_DIR, EDGE_PROFILE_DIR
+
+
 import studio_server
 from studio_server import start_server
 
-from app_paths import LOG_DIR, EDGE_PROFILE_DIR
+
+def relaunch_with_output_files(argv):
+    """
+    run_studio.bat starts pythonw (and the stand-alone .exe is windowed), so
+    the process starts without stdout/stderr. The Fortran NRLMSIS atmosphere
+    model checks for them when the process starts and aborts the whole
+    process on its first calculation if they are missing (exit code
+    0xC0000409) -- which killed the server the moment Orbit prediction
+    opened. Patching the streams later does not help, so in that case the
+    app starts itself again with real output files attached from the first
+    moment, and waits for that copy. Returns the exit code, or None when the
+    streams are already there and this process should simply carry on.
+    """
+    if sys.stdout is not None and sys.stderr is not None:
+        return None
+    if os.environ.get("LAMBERT_STUDIO_CHILD"):
+        return None                                     # never relaunch twice
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    cmd = [sys.executable] + ([] if getattr(sys, "frozen", False) else [os.path.abspath(__file__)]) + list(argv)
+    env = dict(os.environ, LAMBERT_STUDIO_CHILD="1")
+    with open(LOG_DIR / "native_output.log", "ab") as sink:
+        return subprocess.call(cmd, stdin=subprocess.DEVNULL, stdout=sink, stderr=sink, env=env)
 
 log = logging.getLogger("studio")
 
@@ -198,6 +222,9 @@ def run_in_browser(url, open_browser=True):
 
 
 def main(argv=None):
+    code = relaunch_with_output_files(sys.argv[1:] if argv is None else argv)
+    if code is not None:
+        return code
     parser = argparse.ArgumentParser(description="Lambert Studio")
     g = parser.add_mutually_exclusive_group()
     g.add_argument("--qt", action="store_true", help="use the embedded Qt window")
