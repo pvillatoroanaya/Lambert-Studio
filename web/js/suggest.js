@@ -113,19 +113,6 @@
     ['GEO comsat', 6000, 'A large geostationary communications satellite: ≈5,000–7,000 kg at launch.'],
   ].map(([l, v, n]) => ({ label: l, note: n, apply: () => set({ 'mv-mass': v }) })));
 
-  /* ---------------- Perturb tab ---------------- */
-
-  chips($('pt-more'), 'beforebegin', 'Spacecraft (sets drag data)', [
-    ['ISS', [2.2, 1600, 420000], 'International Space Station: ≈420,000 kg; ≈1,600 m² average cross-section with its solar arrays (an estimate: the real value changes with array orientation).'],
-    ['Hubble', [2.2, 60, 11110], 'Hubble Space Telescope: 11,110 kg at launch; ≈60 m² average cross-section, an estimate (13.2 m long, 4.2 m wide, plus solar arrays).'],
-    ['Starlink v1.5', [2.2, 10, 306], 'SpaceX Starlink v1.5: ≈306 kg; the ≈10 m² cross-section is an estimate for flying edge-on to reduce drag.'],
-    ['CubeSat 3U', [2.2, 0.03, 4], 'A 3U CubeSat: ≈4 kg, 10 × 10 × 30 cm, so ≈0.03 m² in its worst orientation.'],
-  ].map(([l, [cd, a, m], n]) => ({
-    label: l,
-    note: n + ' Cd = 2.2 is the standard drag coefficient for satellites (Vallado).',
-    apply: () => { set({ 'pt-cd': cd, 'pt-area': a, 'pt-mass': m }); if (!$('pt-atm').value) $('pt-atm').value = 'msis'; },
-  })));
-
   /* ---------------- Mission tab ---------------- */
 
   const suggestBox = document.createElement('div');

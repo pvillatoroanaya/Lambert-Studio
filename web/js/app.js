@@ -33,6 +33,12 @@
         view.failed = true;
         const webgl = /WebGL/i.test(String(e.message));
         LS.status(webgl ? '3D graphics unavailable' : e.message, 'error');
+        if (id === 'landing') {
+          // The start page still works as a plain page without 3D.
+          document.getElementById('landing').classList.add('no3d');
+          view.show();
+          return;
+        }
         const box = document.querySelector(`.view[data-view="${id}"] .empty`) || document.createElement('div');
         box.className = 'empty';
         box.hidden = false;
