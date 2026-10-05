@@ -72,8 +72,8 @@
     for (const name of LS.planetTable.order) {
       const st = LS.planetTable.elements[name];
       const file = name === 'Earth' ? 'earth_day_hd.jpg' : `${name.toLowerCase()}.jpg`;
-      const m = new THREE.Mesh(new THREE.SphereGeometry(SIZE[name], 64, 48),
-        new THREE.MeshStandardMaterial({ map: LS.texture(`textures/${file}`), roughness: 1 }));
+      const m = new THREE.Mesh(new THREE.SphereGeometry(SIZE[name], 128, 96),
+        LS.planetMaterial(name, file));
       if (name === 'Saturn') {
         const inner = SIZE.Saturn * 1.24, outer = SIZE.Saturn * 2.27;
         const g = new THREE.RingGeometry(inner, outer, 160, 1);

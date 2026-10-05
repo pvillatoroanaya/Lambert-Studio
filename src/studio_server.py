@@ -24,11 +24,12 @@ import threading
 import time
 import traceback
 import urllib.parse
+import urllib.request
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 
 import numpy as np
 
-from constants import R_EARTH, AU, MU_EARTH, JD_J2000
+from constants import AU, MU_EARTH, JD_J2000
 from time_utils import julian_date, gmst_from_jd, time_of_flight
 from coord_utils import topocentric_to_geocentric
 from lambert_solver import lambert_universal
@@ -41,18 +42,15 @@ import satellites
 import asteroids
 import ephemeris
 import maneuvers
-import perturb
 import flyby
 import launchers
-import moontour
-import lowthrust
 import dsm
 import uncertainty
 import nbody
 
 # Inside a packaged .exe (PyInstaller) the files live in sys._MEIPASS.
 import sys as _sys
-WEB_DIR = pathlib.Path(getattr(_sys, "_MEIPASS", pathlib.Path(__file__).resolve().parent)) / "web"
+WEB_DIR = pathlib.Path(getattr(_sys, "_MEIPASS", pathlib.Path(__file__).resolve().parent.parent)) / "web"
 
 
 # ----------------------------------------------------------------------
@@ -284,68 +282,6 @@ def api_maneuver(req):
     return plan
 
 
-def api_perturb_presets(_req=None):
-    return {"presets": [{"key": k, **v} for k, v in perturb.PRESETS.items()]}
-
-
-def api_perturb(req):
-    source = req.get("source", "preset")
-    days = _float_arg(req, "days", "Duration (days)", 0.01, 365)
-    j2, drag = bool(req.get("j2", True)), bool(req.get("drag", False))
-    cd = _float_arg(req, "cd", "Drag coefficient", 0.1, 10)
-    area = _float_arg(req, "area", "Area", 1e-4, 1e5)
-    mass = _float_arg(req, "mass", "Mass", 0.01, 1e7)
-    if source == "solution":
-        if not req.get("r") or not req.get("v"):
-            raise ValueError("Solve an orbit in the Orbit tab first.")
-        r0, v0 = np.asarray(req["r"], float), np.asarray(req["v"], float)
-    else:
-        r0, v0 = perturb.orbit_from_elements(
-            _float_arg(req, "alt_p", "Perigee altitude", 100, 500000),
-            _float_arg(req, "alt_a", "Apogee altitude", 100, 500000),
-            _float_arg(req, "i", "Inclination", 0, 180),
-            _float_arg(req, "raan", "RAAN", -360, 360),
-            _float_arg(req, "argp", "Argument of perigee", -360, 360))
-    model = req.get("model")
-    if not model:
-        return perturb.propagate_perturbed(r0, v0, days, j2, drag, cd, area, mass)
-
-    # High-fidelity force model (forces.py).
-    if req.get("jd0") is not None:
-        jd0 = _float_arg(req, "jd0", "Start date", 2396760, 2506340)
-    elif req.get("date"):
-        jd0 = _jd_from_date(req["date"], "Start date")
-    else:
-        today = datetime.date.today()
-        jd0 = julian_date(today.year, today.month, today.day, 0, 0, 0.0)
-    zonal = int(_float_arg(model, "zonal_degree", "Gravity field degree", 0, 6))
-    atm = model.get("drag") or None
-    if atm not in (None, "exponential", "msis"):
-        raise ValueError("Atmosphere must be none, exponential or msis.")
-    activity = model.get("activity", "moderate")
-    if activity not in ("low", "moderate", "high", "actual"):
-        raise ValueError("Solar activity must be low, moderate, high or actual.")
-    cr = _float_arg(req, "cr", "Reflectivity Cr", 1.0, 2.0) if req.get("cr") not in (None, "") else 1.3
-    if req.get("lon") not in (None, ""):
-        # Start above a given longitude (geostationary examples): rotate the
-        # state about the polar axis.
-        from time_utils import gmst_from_jd
-        want = math.radians(_float_arg(req, "lon", "Longitude", -360, 360)) + gmst_from_jd(jd0)
-        rot = want - math.atan2(r0[1], r0[0])
-        c, s_ = math.cos(rot), math.sin(rot)
-        R = np.array([[c, -s_, 0], [s_, c, 0], [0, 0, 1]])
-        r0, v0 = R @ r0, R @ v0
-    el = perturb.state_to_elements(r0, v0)
-    if el.get("alt_p") is not None and el["alt_p"] < 2000 and days > 120:
-        raise ValueError("The full force model is slow for low orbits (about 8 s per simulated month): "
-                         "use at most 120 days, or the simple model.")
-    m = {"zonal_degree": zonal, "tesseral": bool(model.get("tesseral")), "sun": bool(model.get("sun")),
-         "moon": bool(model.get("moon")), "srp": bool(model.get("srp")), "drag": atm, "activity": activity}
-    out = perturb.propagate_perturbed(r0, v0, days, cd=cd, area_m2=area, mass_kg=mass, model=m, jd0=jd0, cr=cr)
-    out["jd0"] = jd0
-    return out
-
-
 def _jd_from_date(text, label):
     y, m, d = _parse_date(text, label)
     return julian_date(y, m, d, 0, 0, 0.0)
@@ -462,6 +398,37 @@ def api_satellite_groups(_req=None):
                        for k, v in satellites.GROUPS.items()]}
 
 
+_SOURCES = {"time": 0.0, "data": None}
+_SOURCE_SITES = (("celestrak", "https://celestrak.org/"), ("jpl", "https://ssd-api.jpl.nasa.gov/"))
+
+
+def _reachable(url):
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "LambertStudio"})
+        with urllib.request.urlopen(req, timeout=3):
+            return True
+    except urllib.error.HTTPError:
+        return True                      # the server answered
+    except Exception:
+        return False
+
+
+def api_sources(_req=None):
+    """What the start page shows: which data sources are available right
+    now (checked in parallel, remembered for five minutes) and a few counts."""
+    if _SOURCES["data"] is None or time.time() - _SOURCES["time"] > 300:
+        found = {}
+        threads = [threading.Thread(target=lambda k=k, u=u: found.__setitem__(k, _reachable(u)))
+                   for k, u in _SOURCE_SITES]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        _SOURCES.update(time=time.time(), data=found)
+    return {"online": _SOURCES["data"], "ephemeris": ephemeris.status(),
+            "planets": len(planets.PLANET_ORDER), "satellite_groups": len(satellites.GROUPS)}
+
+
 def api_neo(req):
     group = req.get("group", "pha")
     out = {"elements": None, "approaches": None, "errors": []}
@@ -505,76 +472,11 @@ def api_log(req):
 
 
 # ----------------------------------------------------------------------
-# arrival tours, low thrust, deep-space maneuvers, launchers, uncertainty
+# deep-space maneuvers, launchers, uncertainty
 # ----------------------------------------------------------------------
 
 def api_launchers(_req=None):
     return launchers.curves()
-
-
-def api_tour_presets(_req=None):
-    return {"presets": moontour.PRESETS,
-            "moons": {p: moontour.moons_of(p) for p in ("Jupiter", "Saturn", "Uranus", "Earth")},
-            "radius": {p: planets.PLANET_STYLE[p]["radius"] for p in ("Jupiter", "Saturn", "Uranus", "Earth")}}
-
-
-def api_tour(req):
-    if req.get("preset"):
-        keys = [p["key"] for p in moontour.PRESETS]
-        if req["preset"] not in keys:
-            raise ValueError(f"Unknown tour example '{req['preset']}'.")
-        return moontour.plan_preset(req["preset"])
-    planet = req.get("planet")
-    if planet not in ("Jupiter", "Saturn", "Uranus", "Earth"):
-        raise ValueError("Choose Jupiter, Saturn, Uranus or Earth.")
-    R = planets.PLANET_STYLE[planet]["radius"]
-    moons = [m for m in req.get("moons", []) if m]
-    goal = req.get("goal", "orbit")
-    if goal not in ("orbit", "period"):
-        raise ValueError("The goal must be 'orbit' or 'period'.")
-    target = req.get("target") if goal == "orbit" else None
-    if goal == "orbit" and not target:
-        raise ValueError("Choose the moon to orbit.")
-    vinf = _float_arg(req, "vinf", "Arrival speed v∞ (km/s)", 0.5, 20)
-    rp = _float_arg(req, "rp_radii", "Capture closest approach (planet radii)", 1.02, 200)
-    period = _float_arg(req, "period_days", "First orbit period (days)", 1, 2000)
-    raise_r = req.get("raise_radii")
-    raise_r = _float_arg(req, "raise_radii", "Raised closest approach (planet radii)", 1.02, 500) \
-        if raise_r not in (None, "", 0, "0") else None
-    years = _float_arg(req, "years", "Tour length limit (years)", 0.1, 10)
-    goal_p = _float_arg(req, "goal_period", "Target orbit period (days)", 0.5, 1000) if goal == "period" else None
-    ins_alt = _float_arg(req, "insertion_alt", "Final orbit altitude (km)", 10, 20000) \
-        if req.get("insertion_alt") not in (None, "") else 500.0
-    return moontour.plan_tour(planet, moons, target, vinf, rp * R, period, rp_raise=raise_r * R if raise_r else None,
-                              goal=goal, goal_period_days=goal_p, insertion_alt=ins_alt, max_years=years)
-
-
-def api_lowthrust_presets(_req=None):
-    return {"presets": lowthrust.PRESETS}
-
-
-def api_lowthrust(req):
-    if req.get("preset"):
-        if req["preset"] not in [p["key"] for p in lowthrust.PRESETS]:
-            raise ValueError(f"Unknown example '{req['preset']}'.")
-        return lowthrust.run_preset(req["preset"])
-    body = req.get("body", "Sun")
-    if body not in ("Sun", "Earth"):
-        raise ValueError("The central body must be the Sun or Earth.")
-    if body == "Sun":
-        r1 = _float_arg(req, "r1", "Start orbit radius (AU)", 0.2, 40) * AU
-        r2 = _float_arg(req, "r2", "Target orbit radius (AU)", 0.2, 40) * AU
-    else:
-        r1 = _float_arg(req, "r1", "Start orbit altitude (km)", 150, 400000) + R_EARTH
-        r2 = _float_arg(req, "r2", "Target orbit altitude (km)", 150, 400000) + R_EARTH
-    mass = _float_arg(req, "mass", "Spacecraft mass (kg)", 1, 100000)
-    thrust = _float_arg(req, "thrust_mN", "Thrust (mN)", 1, 100000)
-    isp = _float_arg(req, "isp", "Specific impulse Isp (s)", 100, 20000)
-    # Keep the integration reasonable (tens of thousands of laps at most).
-    acc = thrust / 1000.0 / mass
-    if body == "Earth" and acc < 1e-6:
-        raise ValueError("That thrust is too small for this mass (it would take decades); increase the thrust.")
-    return lowthrust.spiral(body, r1, r2, mass, thrust / 1000.0, isp)
 
 
 def api_route_dsm(req):
@@ -648,15 +550,12 @@ def api_uncertainty(req):
 
 ROUTES = {
     "/api/launchers": api_launchers,
-    "/api/tour": api_tour,
-    "/api/tour_presets": api_tour_presets,
-    "/api/lowthrust": api_lowthrust,
-    "/api/lowthrust_presets": api_lowthrust_presets,
     "/api/route_dsm": api_route_dsm,
     "/api/uncertainty": api_uncertainty,
     "/api/verify_route": api_verify_route,
     "/api/solve": api_solve,
     "/api/planets": api_planets,
+    "/api/sources": api_sources,
     "/api/transfer": api_transfer,
     "/api/porkchop": api_porkchop,
     "/api/satellites": api_satellites,
@@ -670,8 +569,6 @@ ROUTES = {
     "/api/route_suggest": api_route_suggest,
     "/api/suggest_window": api_suggest_window,
     "/api/route_presets": api_route_presets,
-    "/api/perturb": api_perturb,
-    "/api/perturb_presets": api_perturb_presets,
     "/api/ping": api_ping,
     "/api/bye": api_bye,
     "/api/log": api_log,

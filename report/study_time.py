@@ -20,8 +20,14 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker
 
 ROOT = pathlib.Path(__file__).resolve().parent
-sys.path.insert(0, str(ROOT.parent))
-import flyby, interplanetary, nbody, perturb                                 # noqa: E402
+sys.path.insert(0, str(ROOT.parent / "src"))
+import flyby, interplanetary, nbody                                           # noqa: E402
+try:
+    import perturb                                                           # noqa: E402
+except ImportError:
+    sys.exit("This study needs the Earth force model (perturb.py, forces.py), which was removed from the app "
+             "on 2026-10-03. Restore both files from git (commit c706fd3) to run it again; the saved results "
+             "in study_results.json are unaffected.")
 import studio_server as srv                                                  # noqa: E402
 from time_utils import julian_date                                           # noqa: E402
 

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2f7bff"/>
+      <stop offset="1" stop-color="#0a1f5c"/>
+    </linearGradient>
+    <radialGradient id="planet" cx="0.35" cy="0.3" r="0.9">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.45" stop-color="#bcd6ff"/>
+      <stop offset="1" stop-color="#5b8fe8"/>
+    </radialGradient>
+    <radialGradient id="sat" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#fff6d6"/>
+      <stop offset="1" stop-color="#ffb938"/>
+    </radialGradient>
+    <clipPath id="front"><rect x="0" y="128" width="256" height="128"/></clipPath>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#bg)"/>
+  <rect x="8" y="8" width="240" height="120" rx="56" fill="#ffffff" opacity="0.07"/>
+  <!-- orbit, back half (behind the planet) -->
+  <g transform="rotate(-28 128 128)">
+    <ellipse cx="128" cy="128" rx="98" ry="36" fill="none" stroke="#ffffff" stroke-opacity="0.45" stroke-width="7"/>
+  </g>
+  <!-- planet -->
+  <circle cx="128" cy="128" r="52" fill="url(#planet)"/>
+  <circle cx="128" cy="128" r="52" fill="none" stroke="#ffffff" stroke-opacity="0.35" stroke-width="2"/>
+  <!-- orbit, front half (in front of the planet) -->
+  <g transform="rotate(-28 128 128)">
+    <g clip-path="url(#front)">
+      <ellipse cx="128" cy="128" rx="98" ry="36" fill="none" stroke="#ffffff" stroke-width="8"/>
+    </g>
+    <circle cx="206" cy="150" r="17" fill="#ffb938" opacity="0.30"/>
+    <circle cx="206" cy="150" r="11" fill="url(#sat)"/>
+  </g>
+</svg>

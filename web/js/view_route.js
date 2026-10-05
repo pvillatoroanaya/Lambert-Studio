@@ -205,8 +205,8 @@
     for (const name of LS.planetTable.order) {
       const st = LS.planetTable.elements[name];
       const file = name === 'Earth' ? 'earth_day_hd.jpg' : `${name.toLowerCase()}.jpg`;
-      const m = new THREE.Mesh(new THREE.SphereGeometry(SIZE[name], 48, 32),
-        new THREE.MeshStandardMaterial({ map: LS.texture(`textures/${file}`), roughness: 1 }));
+      const m = new THREE.Mesh(new THREE.SphereGeometry(SIZE[name], 96, 64),
+        LS.planetMaterial(name, file));
       const pin = new THREE.Sprite(new THREE.SpriteMaterial({ map: LS.spriteTexture(), color: st.color,
         sizeAttenuation: false, depthWrite: false, blending: THREE.AdditiveBlending }));
       pin.scale.set(0.022, 0.022, 1);

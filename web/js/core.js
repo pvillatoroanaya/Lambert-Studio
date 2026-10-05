@@ -318,7 +318,7 @@ LS.setSXYZ = (arr, k, p) => LS.setXYZ(arr, k, p, LS.helioScale(p));
 
 /* User display settings, remembered between sessions on this computer. */
 LS.settings = (function () {
-  const defaults = { bloom: true, milkyway: true, fps: false, compress: true };
+  const defaults = { bloom: true, milkyway: true, fps: false, compress: true, quality: 'auto', fx: true };
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem('ls-settings') || '{}'); } catch (e) { /* ignore */ }
   return Object.assign({}, defaults, saved);
@@ -341,7 +341,16 @@ class Scene3D {
       // have an integrated one.
       const r = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true,
         powerPreference: 'high-performance' });
-      r.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      // Which graphics chip did the browser give us? A laptop's integrated
+      // chip cannot supersample like a dedicated card, so quality starts
+      // lower there (see LS.applyQuality) and adapts to the frame rate.
+      const gl = r.getContext();
+      const info = gl.getExtension('WEBGL_debug_renderer_info');
+      const gpuName = info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : '';
+      LS.gpu = { name: gpuName, discrete: /nvidia|geforce|rtx|gtx|radeon rx|radeon pro|arc a/i.test(gpuName) };
+      LS.aniso = r.capabilities.getMaxAnisotropy();
+      Scene3D.shared = r;
+      LS.applyQuality(true);
       // If the GPU driver resets, the scene can be rebuilt by reloading.
       r.domElement.addEventListener('webglcontextlost', (e) => {
         e.preventDefault();
@@ -367,12 +376,19 @@ class Scene3D {
 
     // Glow ("bloom"): only the brightest pixels -- the Sun, satellites,
     // highlighted markers -- bleed light into their surroundings.
+    // ONE glow pipeline (and one set of multisampled buffers) is shared by
+    // every view: a private pipeline per view would keep a full-size
+    // multisampled buffer alive for each tab ever opened.
     this.composer = null;
     if (THREE.EffectComposer && THREE.UnrealBloomPass) {
-      this.composer = new THREE.EffectComposer(this.renderer);
-      this.composer.addPass(new THREE.RenderPass(this.scene, this.camera));
-      this.bloom = new THREE.UnrealBloomPass(new THREE.Vector2(256, 256), 0.6, 0.4, 0.86);
-      this.composer.addPass(this.bloom);
+      if (!Scene3D.composer) {
+        const target = new THREE.WebGLRenderTarget(256, 256, { type: THREE.HalfFloatType, samples: LS.gpu.discrete ? 4 : 2 });
+        Scene3D.composer = new THREE.EffectComposer(this.renderer, target);
+        Scene3D.renderPass = new THREE.RenderPass(this.scene, this.camera);
+        Scene3D.composer.addPass(Scene3D.renderPass);
+        Scene3D.composer.addPass(new THREE.UnrealBloomPass(new THREE.Vector2(256, 256), 0.6, 0.4, 0.86));
+      }
+      this.composer = Scene3D.composer;
     }
 
     // Background: the Milky Way panorama, or plain stars.
@@ -411,7 +427,7 @@ class Scene3D {
     if (!w || !h) return;
     if (this.active) this.renderer.setSize(w, h);
     this.labels.setSize(w, h);
-    if (this.composer) {
+    if (this.composer && this.active) {
       this.composer.setPixelRatio(this.renderer.getPixelRatio());
       this.composer.setSize(w, h);
     }
@@ -428,7 +444,11 @@ class Scene3D {
     if (this.mode === 'orbit' && !this.anim) this.controls.update();
     this.sky.position.copy(this.camera.position);      // the sky is always "at infinity"
     this.stars.position.copy(this.camera.position);
-    if (this.composer && LS.settings.bloom) this.composer.render();
+    if (this.composer && LS.settings.bloom) {
+      Scene3D.renderPass.scene = this.scene;
+      Scene3D.renderPass.camera = this.camera;
+      this.composer.render();
+    }
     else this.renderer.render(this.scene, this.camera);
     this._syncLabels();
     this.labels.render(this.scene, this.camera);
@@ -586,14 +606,33 @@ class Scene3D {
 
   /* Save the current view as a PNG. The canvas is only readable right
      after drawing, so draw once and read it in the same step. */
+  /* Save the current view as a PNG, drawn again at up to 3840 pixels wide
+     (or 3x the window, whichever is larger) instead of the window's size. */
   saveImage() {
-    this.render();
+    const r = this.renderer;
+    const w = this.container.clientWidth, h = this.container.clientHeight;
+    const basePr = r.getPixelRatio();
+    const maxSide = Math.min(r.capabilities.maxTextureSize, 7680);
+    const pr = Math.min(Math.max(3840 / w, 3), maxSide / Math.max(w, h), 6);
+    r.setPixelRatio(pr);
+    if (this.composer) { this.composer.setPixelRatio(pr); this.composer.setSize(w, h); }
+    r.setSize(w, h);
+    let url;
+    try {
+      this.render();
+      url = r.domElement.toDataURL('image/png');
+    } finally {
+      r.setPixelRatio(basePr);
+      r.setSize(w, h);
+      if (this.composer) { this.composer.setPixelRatio(basePr); this.composer.setSize(w, h); }
+      this.render();
+    }
     const a = document.createElement('a');
-    a.href = this.renderer.domElement.toDataURL('image/png');
+    a.href = url;
     const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
     a.download = `lambert-studio-${stamp}.png`;
     a.click();
-    LS.status('Image saved to your Downloads folder');
+    LS.status(`Image saved to your Downloads folder (${Math.round(w * pr)} × ${Math.round(h * pr)} px)`);
   }
 
   /* Objects the camera can follow: [{label, obj: () => Object3D | null}] */
@@ -755,13 +794,54 @@ window.addEventListener('keydown', (e) => { if (e.key === 'Shift') LS.scenes.for
 window.addEventListener('keyup', (e) => { if (e.key === 'Shift') LS.scenes.forEach((s) => { s._shift = false; }); });
 LS.Scene3D = Scene3D;
 
+/* Graphics quality. 'auto' (default) draws as sharp as the graphics chip
+   can keep smooth: up to 2x the screen's pixels on a dedicated card, less on
+   an integrated chip, and the app lowers or raises it by itself while it
+   runs (see the frame loop in app.js). 'max' is fixed and as sharp as
+   possible; 'smooth' is plain screen resolution. */
+LS.quality = { pr: 1, max: 1, min: 1 };
+LS.applyQuality = function (initial) {
+  const r = Scene3D.shared;
+  if (!r) return;
+  const q = LS.quality, dpr = window.devicePixelRatio || 1, disc = LS.gpu && LS.gpu.discrete;
+  const mode = LS.settings.quality;
+  if (mode === 'max') { q.max = disc ? 2.5 : 2; q.min = q.max; }
+  else if (mode === 'smooth') { q.max = q.min = 1; }
+  else { q.max = disc ? 2 : Math.max(1, Math.min(dpr, 1.5)); q.min = 1; }
+  q.pr = q.max;
+  r.setPixelRatio(q.pr);
+  if (!initial && Scene3D.current) Scene3D.current.resize();
+};
+/* Change the drawing resolution while running (used by the frame-rate governor). */
+LS.setPixelRatio = function (pr) {
+  const r = Scene3D.shared, q = LS.quality;
+  pr = Math.min(q.max, Math.max(q.min, pr));
+  if (!r || Math.abs(pr - q.pr) < 0.01) return false;
+  q.pr = pr;
+  r.setPixelRatio(pr);
+  if (Scene3D.current) Scene3D.current.resize();
+  return true;
+};
+
 const _tex = {};
 LS.texture = function (path) {
   if (!_tex[path]) {
     _tex[path] = new THREE.TextureLoader().load(path);
-    _tex[path].anisotropy = 8;
+    _tex[path].anisotropy = LS.aniso || 16;
   }
   return _tex[path];
+};
+
+/* Surface of a planet or moon. Rocky worlds also get relief shading (the
+   picture's brightness doubles as a bump map), so craters and mountain
+   ranges catch the light at the terminator instead of looking painted on. */
+const _RELIEF = { mercury: 0.9, moon: 0.7, mars: 0.6 };
+LS.planetMaterial = function (name, file, extra = {}) {
+  const map = LS.texture(`textures/${file || name.toLowerCase() + '.jpg'}`);
+  const relief = _RELIEF[name.toLowerCase()];
+  const params = Object.assign({ map, roughness: 1, metalness: 0 }, extra);
+  if (relief) { params.bumpMap = map; params.bumpScale = relief; }
+  return new THREE.MeshStandardMaterial(params);
 };
 
 LS.stars = function (radius, count = 6000) {
@@ -802,7 +882,7 @@ LS.glow = function (radius, color, power = 3.0, strength = 1.0) {
         float f = pow(1.0 - abs(dot(vN, vV)), p) * s; gl_FragColor = vec4(c, f); }`,
     side: THREE.FrontSide, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
   });
-  const m = new THREE.Mesh(new THREE.SphereGeometry(radius, 64, 48), mat);
+  const m = new THREE.Mesh(new THREE.SphereGeometry(radius, 96, 72), mat);
   m.userData.noPick = true;          // decoration: clicks go to the body underneath
   return m;
 };
@@ -819,6 +899,7 @@ LS.earth = function () {
     dayMap: { value: LS.texture('textures/earth_day_hd.jpg') },
     nightMap: { value: LS.texture('textures/earth_night.jpg') },
     specMap: { value: LS.texture('textures/earth_specular.jpg') },
+    cloudMap: { value: LS.texture('textures/earth_clouds.png') },
     sunDir: { value: new THREE.Vector3(1, 0, 0) },
   };
   const surface = new THREE.Mesh(new THREE.SphereGeometry(1, 160, 120), new THREE.ShaderMaterial({
@@ -834,7 +915,7 @@ LS.earth = function () {
         #include <logdepthbuf_vertex>
       }`,
     fragmentShader: `${LOGDEPTH_F}
-      uniform sampler2D dayMap; uniform sampler2D nightMap; uniform sampler2D specMap; uniform vec3 sunDir;
+      uniform sampler2D dayMap; uniform sampler2D nightMap; uniform sampler2D specMap; uniform sampler2D cloudMap; uniform vec3 sunDir;
       varying vec2 vUv; varying vec3 vN; varying vec3 vP;
       void main(){
         #include <logdepthbuf_fragment>
@@ -844,8 +925,10 @@ LS.earth = function () {
         vec3 night = texture2D(nightMap, vUv).rgb;
         float water = texture2D(specMap, vUv).r;
         float daylight = smoothstep(-0.10, 0.22, d);
-        vec3 col = day * (0.035 + 1.08 * max(d, 0.0));
-        col += night * vec3(1.0, 0.82, 0.55) * 1.7 * (1.0 - daylight);          // city lights
+        float cloud = texture2D(cloudMap, vUv).a;
+        float shade = texture2D(cloudMap, vUv + vec2(0.0010, -0.0005)).a;      // cloud shadow, offset away from the Sun
+        vec3 col = day * (0.035 + 1.08 * max(d, 0.0)) * (1.0 - 0.34 * shade * smoothstep(0.0, 0.35, d));
+        col += night * vec3(1.0, 0.82, 0.55) * 1.7 * (1.0 - daylight) * (1.0 - 0.55 * cloud);   // city lights, dimmed by cloud
         vec3 H = normalize(L + V);
         col += vec3(1.0, 0.93, 0.8) * pow(max(dot(N, H), 0.0), 48.0) * water * 0.6 * step(0.0, d); // sun glint
         float rim = pow(1.0 - max(dot(N, V), 0.0), 2.6);
@@ -855,11 +938,12 @@ LS.earth = function () {
   }));
   spin.add(surface);
   const clouds = new THREE.Mesh(
-    new THREE.SphereGeometry(1.008, 96, 72),
+    new THREE.SphereGeometry(1.008, 160, 120),
     new THREE.MeshLambertMaterial({ map: LS.texture('textures/earth_clouds.png'), transparent: true, opacity: 0.5, depthWrite: false }));
   clouds.userData.noPick = true;
   spin.add(clouds);
   group.add(LS.glow(1.025, 0x4da6ff, 2.6, 1.0));
+  group.add(LS.glow(1.07, 0x6fb4ff, 4.2, 0.55));              // thin outer haze of the atmosphere
   const setSun = (dir) => uniforms.sunDir.value.copy(dir).normalize();
   return { group, spin, clouds, surface, setSun };
 };
@@ -903,8 +987,11 @@ LS.sun = function (radius) {
 LS.line = function (points, color, opacity = 1, dashed = false) {
   const g = new THREE.BufferGeometry().setFromPoints(points);
   const m = dashed
-    ? new THREE.LineDashedMaterial({ color, dashSize: 0.12, gapSize: 0.08, transparent: true, opacity })
-    : new THREE.LineBasicMaterial({ color, transparent: opacity < 1, opacity });
+    ? new THREE.LineDashedMaterial({ color, dashSize: 0.12, gapSize: 0.08, transparent: true, opacity,
+      blending: THREE.AdditiveBlending, depthWrite: false })
+    // additive blending makes every path read as a light trace (holographic look)
+    : new THREE.LineBasicMaterial({ color, transparent: true, opacity,
+      blending: THREE.AdditiveBlending, depthWrite: false });
   const l = new THREE.Line(g, m);
   if (dashed) l.computeLineDistances();
   return l;
@@ -971,28 +1058,61 @@ LS.markerRing = function (color = 0x5eb3e6, screenSize = 0.026) {
   return s;
 };
 
-/* A small spacecraft: gold-foil bus, white high-gain dish, two solar
-   panels, plus a ring marker so it stays visible when zoomed out.
-   `size` is the length of the bus in scene units. Call
-   LS.aimCraft(craft, point) to point it along its direction of travel. */
+/* Solar-panel cells: dark blue squares with fine silver grid lines. */
+LS.panelTexture = (function () {
+  let t = null;
+  return function () {
+    if (t) return t;
+    const c = document.createElement('canvas'); c.width = 256; c.height = 128;
+    const g = c.getContext('2d');
+    g.fillStyle = '#17346b'; g.fillRect(0, 0, 256, 128);
+    const grd = g.createLinearGradient(0, 0, 256, 128);
+    grd.addColorStop(0, 'rgba(120,170,255,0.25)'); grd.addColorStop(1, 'rgba(0,0,0,0.25)');
+    g.fillStyle = grd; g.fillRect(0, 0, 256, 128);
+    g.strokeStyle = 'rgba(190,205,230,0.85)'; g.lineWidth = 2;
+    for (let x = 0; x <= 256; x += 32) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 128); g.stroke(); }
+    for (let y = 0; y <= 128; y += 32) { g.beginPath(); g.moveTo(0, y); g.lineTo(256, y); g.stroke(); }
+    g.strokeStyle = 'rgba(190,205,230,0.35)'; g.lineWidth = 1;
+    for (let x = 16; x < 256; x += 32) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 128); g.stroke(); }
+    t = new THREE.CanvasTexture(c);
+    t.anisotropy = LS.aniso || 16;
+    return t;
+  };
+})();
+
+/* A small spacecraft: gold-foil bus with a thruster, a white high-gain dish
+   with its feed, a magnetometer boom, and two gridded solar wings, plus a
+   ring marker so it stays visible when zoomed out. `size` is the length of
+   the bus in scene units. Call LS.aimCraft(craft, point) to point it along
+   its direction of travel. */
 LS.spacecraft = function (size, { color = 0x5eb3e6, label = null } = {}) {
   const craft = new THREE.Group();
   const model = new THREE.Group();
   // Gold multi-layer insulation. Low metalness: a metal needs an
   // environment to reflect, and without one it renders almost black.
-  const foil = new THREE.MeshStandardMaterial({ color: 0xd4a94f, metalness: 0.15, roughness: 0.5, emissive: 0x2a1c06 });
-  const white = new THREE.MeshStandardMaterial({ color: 0xdfe6ee, metalness: 0.1, roughness: 0.6, side: THREE.DoubleSide });
-  const panel = new THREE.MeshStandardMaterial({ color: 0x1d3f7a, metalness: 0.3, roughness: 0.5, emissive: 0x06142b });
+  const foil = new THREE.MeshStandardMaterial({ color: 0xd4a94f, metalness: 0.15, roughness: 0.42, emissive: 0x2a1c06 });
+  const white = new THREE.MeshStandardMaterial({ color: 0xdfe6ee, metalness: 0.1, roughness: 0.5, side: THREE.DoubleSide });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x2a2f3a, metalness: 0.5, roughness: 0.45 });
+  const panelMap = LS.panelTexture();
+  const panel = new THREE.MeshStandardMaterial({ map: panelMap, color: 0xffffff, metalness: 0.45, roughness: 0.32, emissive: 0x06142b });
   const bus = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 1), foil);
-  const dish = new THREE.Mesh(new THREE.SphereGeometry(0.55, 24, 12, 0, Math.PI * 2, 0, Math.PI / 3.2), white);
+  const dish = new THREE.Mesh(new THREE.SphereGeometry(0.55, 48, 20, 0, Math.PI * 2, 0, Math.PI / 3.2), white);
   dish.rotation.x = -Math.PI / 2;            // opening faces backwards (towards Earth, roughly)
   dish.position.z = -0.75;
-  const boom = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 2.9, 6), white);
+  const feed = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.42, 8), white);
+  feed.rotation.x = Math.PI / 2; feed.position.z = -1.0;
+  const horn = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.1, 16), dark);
+  horn.rotation.x = -Math.PI / 2; horn.position.z = -1.24;
+  const nozzle = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.26, 20, 1, true), dark);
+  nozzle.rotation.x = Math.PI / 2; nozzle.position.z = 0.62;
+  const boom = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 2.9, 10), white);
   boom.rotation.z = Math.PI / 2;
+  const mag = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.9, 6), dark);
+  mag.rotation.x = Math.PI / 2; mag.position.set(0, 0.32, 0.55);
   const wingGeo = new THREE.BoxGeometry(1.1, 0.03, 0.55);
   const left = new THREE.Mesh(wingGeo, panel); left.position.x = -1.05;
   const right = new THREE.Mesh(wingGeo, panel); right.position.x = 1.05;
-  model.add(bus, dish, boom, left, right);
+  model.add(bus, dish, feed, horn, nozzle, boom, mag, left, right);
   model.scale.setScalar(size);
   craft.add(model, LS.markerRing(color));
   if (label) craft.add(LS.label(label, 'accent'));

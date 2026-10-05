@@ -1,0 +1,445 @@
+<title>Lambert Studio Project Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Layout: a single reading column for text, figures that run wider, tables that scroll on their own.
+   Palette: cool ink and paper, the app's own blue for structure, amber (the app's "deep space" colour) for flags. */
+:root {
+  --bg: #f4f7fc;
+  --paper: #ffffff;
+  --ink: #0e1a33;
+  --soft: #34435f;
+  --muted: #5a6c8d;
+  --line: #d9e1ef;
+  --accent: #1d5fe0;
+  --accent-wash: #e8f0fe;
+  --amber: #b45a08;
+  --amber-wash: #fdf1e3;
+  --ok: #138a55;
+  --ok-wash: #e4f6ec;
+  --shot: #070b16;
+  --font: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0a0f1d; --paper: #111a2f; --ink: #e8eefb; --soft: #c3cfe6; --muted: #93a4c4; --line: #26334f;
+    --accent: #6aa6ff; --accent-wash: #16264a; --amber: #f0a45a; --amber-wash: #2e2012; --ok: #5fd09a; --ok-wash: #11301f;
+    --shot: #03050b; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0a0f1d; --paper: #111a2f; --ink: #e8eefb; --soft: #c3cfe6; --muted: #93a4c4; --line: #26334f;
+  --accent: #6aa6ff; --accent-wash: #16264a; --amber: #f0a45a; --amber-wash: #2e2012; --ok: #5fd09a; --ok-wash: #11301f;
+  --shot: #03050b; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 15px; line-height: 1.62; }
+.doc { max-width: 960px; margin-inline: auto; padding-inline: 20px; padding-block: 28px 64px; display: flex; flex-direction: column; gap: 44px; }
+.doc > section { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+h1, h2, h3 { font-family: var(--font); color: var(--ink); text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2rem, 5.2vw, 3.1rem); line-height: 1.04; font-weight: 600; letter-spacing: -0.03em; }
+h2 { font-size: 1.55rem; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; padding-top: 6px; border-top: 2px solid var(--ink); }
+h3 { font-size: 1.04rem; font-weight: 600; letter-spacing: -0.005em; margin-top: 8px; }
+p { margin: 0; max-width: 72ch; color: var(--soft); }
+p b, li b, td b { color: var(--ink); font-weight: 600; }
+ul, ol { margin: 0; padding-left: 1.25em; display: flex; flex-direction: column; gap: 6px; color: var(--soft); max-width: 74ch; }
+a { color: var(--accent); }
+code, .mono { font-family: var(--mono); font-size: 0.86em; }
+code { background: var(--accent-wash); padding: 1px 6px; border-radius: 4px; color: var(--ink); }
+.kicker { font-family: var(--mono); font-size: 0.74rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+
+/* masthead */
+.mast { display: flex; flex-direction: column; gap: 14px; padding-bottom: 6px; }
+.mast .sub { font-size: 1.12rem; color: var(--soft); max-width: 62ch; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 22px; font-family: var(--mono); font-size: 0.76rem; color: var(--muted); letter-spacing: 0.02em; }
+.toc { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 0.86rem; padding-top: 14px; border-top: 1px solid var(--line); }
+.toc a { text-decoration: none; color: var(--muted); }
+.toc a:hover { color: var(--accent); }
+
+/* figures */
+figure { margin: 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+figure img { display: block; width: 100%; height: auto; border-radius: 10px; background: var(--shot); border: 1px solid var(--line); }
+figcaption { font-size: 0.82rem; color: var(--muted); line-height: 1.45; max-width: 80ch; }
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+
+/* tables */
+.tw { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
+table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+th, td { text-align: left; vertical-align: top; padding: 9px 13px; border-bottom: 1px solid var(--line); }
+th { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 600; background: var(--bg); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono); font-size: 0.84rem; white-space: nowrap; }
+td { color: var(--soft); }
+td:first-child { color: var(--ink); }
+
+/* status marks */
+.tag { display: inline-block; font-family: var(--mono); font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.tag.ok { background: var(--ok-wash); color: var(--ok); }
+.tag.open { background: var(--amber-wash); color: var(--amber); }
+.tag.info { background: var(--accent-wash); color: var(--accent); }
+
+/* callouts */
+.note { padding: 12px 16px; border-radius: 10px; background: var(--accent-wash); color: var(--soft); max-width: 78ch; }
+.note.warn { background: var(--amber-wash); }
+.note b { color: var(--ink); }
+
+/* facts list */
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); overflow: hidden; }
+.facts div { padding: 14px 16px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); margin: -1px -1px 0 0; }
+.facts dt { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.facts dd { margin: 4px 0 0; font-size: 1.15rem; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.facts dd small { display: block; font-size: 0.78rem; font-weight: 400; color: var(--muted); margin-top: 2px; }
+.facts { margin: 0; }
+
+/* architecture diagram */
+.arch { display: grid; grid-template-columns: 1fr 28px 1fr 28px 1fr; align-items: stretch; gap: 0; }
+.arch .box { border: 1px solid var(--line); background: var(--paper); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.arch .box h4 { margin: 0; font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); }
+.arch .box p { font-size: 0.84rem; line-height: 1.45; }
+.arch .link { display: grid; place-items: center; color: var(--muted); font-family: var(--mono); font-size: 1.1rem; }
+.sources { display: flex; flex-wrap: wrap; gap: 8px; }
+.sources span { font-family: var(--mono); font-size: 0.74rem; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--paper); color: var(--soft); }
+
+/* timeline */
+.tl { display: flex; flex-direction: column; border-left: 2px solid var(--line); margin-left: 6px; padding-left: 0; }
+.tl > div { position: relative; padding: 0 0 18px 22px; }
+.tl > div::before { content: ""; position: absolute; left: -7px; top: 6px; width: 12px; height: 12px; border-radius: 50%; background: var(--bg); border: 2px solid var(--accent); }
+.tl .d { font-family: var(--mono); font-size: 0.74rem; letter-spacing: 0.06em; color: var(--accent); font-weight: 600; text-transform: uppercase; }
+.tl .t { font-weight: 600; color: var(--ink); }
+.tl p { font-size: 0.9rem; }
+
+/* demo script */
+.steps { counter-reset: s; list-style: none; padding: 0; gap: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); overflow: hidden; max-width: none; }
+.steps li { counter-increment: s; display: grid; grid-template-columns: 54px 1fr; gap: 0 14px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.steps li:last-child { border-bottom: 0; }
+.steps li::before { content: counter(s); font-family: var(--mono); font-weight: 600; color: var(--accent); font-size: 1.3rem; line-height: 1.2; }
+.steps .do { color: var(--ink); font-weight: 600; }
+.steps .say { color: var(--soft); font-size: 0.9rem; margin-top: 2px; display: block; }
+.steps .t { font-family: var(--mono); font-size: 0.7rem; color: var(--muted); letter-spacing: 0.05em; }
+
+.qa { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.qa > div { padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); display: flex; flex-direction: column; gap: 6px; }
+.qa .q { font-weight: 600; color: var(--ink); }
+.qa .a { font-size: 0.9rem; color: var(--soft); }
+
+.check { list-style: none; padding: 0; }
+.check li { position: relative; padding-left: 28px; }
+.check li::before { content: ""; position: absolute; left: 2px; top: 5px; width: 14px; height: 14px; border: 2px solid var(--accent); border-radius: 4px; }
+
+.foot { font-size: 0.8rem; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; max-width: 80ch; }
+
+@media (max-width: 760px) {
+  .two, .three, .qa { grid-template-columns: 1fr; }
+  .arch { grid-template-columns: 1fr; gap: 6px; }
+  .arch .link { transform: rotate(90deg); height: 22px; }
+  .steps li { grid-template-columns: 34px 1fr; }
+}
+@media print {
+  :root { --bg: #fff; }
+  body { font-size: 11.5px; }
+  .doc { max-width: none; padding: 0; gap: 26px; }
+  .toc { display: none; }
+  h2 { break-after: avoid; }
+  figure, .tw, .steps li, .qa > div, .tl > div, .note, .facts { break-inside: avoid; }
+}
+</style>
+
+<main class="doc">
+
+<header class="mast">
+  <span class="kicker">Project report &middot; 4 October 2026</span>
+  <h1>Lambert Studio</h1>
+  <p class="sub">An application for orbit determination and interplanetary mission design, built on Lambert's problem. This report records how it was built, what was found along the way, how well it performs, and how to present it.</p>
+  <div class="meta"><span>Version 1.0</span><span>Windows desktop app and Python source</span><span>Physics validated against textbook and NASA/JPL references</span></div>
+  <nav class="toc" aria-label="Contents">
+    <a href="#summary">Summary</a><a href="#app">The application</a><a href="#how">How it works</a><a href="#proof">Validation</a><a href="#process">Build process</a><a href="#findings">Findings and fixes</a><a href="#perf">Performance</a><a href="#visual">Visual quality</a><a href="#present">Presenting it</a><a href="#limits">Limits</a><a href="#credits">Credits</a><a href="#appendix">Appendix</a>
+  </nav>
+</header>
+
+<figure>
+  <img src="{{img:landing}}" alt="The Lambert Studio start page: a live 3D Earth with satellites on the right, the title, module shortcuts and a system readout on the left.">
+  <figcaption>The start page. The Earth turns in real 3D; the readout on the left shows live data-source status and the UTC clock.</figcaption>
+</figure>
+
+<section id="summary">
+  <h2>Summary</h2>
+  <p><b>Lambert Studio</b> turns two measurements into an answer. Given two sightings of a satellite from a ground station, it finds the satellite's complete orbit. Given two planets and a launch date, it plans the transfer, including routes that use gravity assists, and it draws everything in 3D with real planetary positions from NASA/JPL.</p>
+  <p>It grew from a university assignment on <b>Lambert's problem</b> (Curtis, <i>Orbital Mechanics for Engineering Students</i>). The assignment deliverable, a single Python file, is kept and still passes its own self-test. The Studio is the extended version: a desktop application with a web-based interface, a physics engine in Python, live satellite and asteroid data, an interactive Learn section, and a standalone Windows build that runs without Python.</p>
+  <dl class="facts">
+    <div><dt>Validation</dt><dd>117 checks<small>all passing; 83 run inside the single-file hand-in</small></dd></div>
+    <div><dt>Automated tests</dt><dd>39<small>17 physics groups, 22 server API tests</small></dd></div>
+    <div><dt>Views</dt><dd>8 + start page<small>orbit, ground track, maneuvers, satellites, asteroids, solar system, missions, learn</small></dd></div>
+    <div><dt>Code</dt><dd>~7,100 lines Python<small>~6,500 lines JavaScript, ~900 CSS</small></dd></div>
+    <div><dt>Server API</dt><dd>23 routes<small>local only, 127.0.0.1</small></dd></div>
+    <div><dt>Standalone app</dt><dd>186 MB<small>107 MB zipped, no Python needed</small></dd></div>
+  </dl>
+</section>
+
+<section id="app">
+  <h2>The application</h2>
+  <p>Every view shares one layout: a labelled control panel on the left, a 3D or chart area on the right, and a time bar for anything that moves. The sidebar groups the views by topic, blue for Earth orbit and amber for deep space.</p>
+  <div class="tw"><table>
+    <thead><tr><th>View</th><th>What you do</th><th>What you see</th></tr></thead>
+    <tbody>
+      <tr><td>Orbit determination</td><td>Enter two sightings (azimuth, elevation, range) or two position vectors</td><td>The full orbit in 3D, its elements, live altitude and speed, an uncertainty study</td></tr>
+      <tr><td>Ground track</td><td>Use the solved orbit</td><td>The track over a world map and the station's sky view on one timeline</td></tr>
+      <tr><td>Maneuvers</td><td>Pick Hohmann, bi-elliptic or plane change</td><td>Delta-v per burn, propellant, animated transfer, comparison of options</td></tr>
+      <tr><td>Satellites</td><td>Switch constellations on and off, search by name</td><td>About 900 real satellites at their current positions (CelesTrak)</td></tr>
+      <tr><td>Asteroids</td><td>Choose an upcoming close approach</td><td>The flyby path past Earth and the Moon (NASA/JPL CNEOS and Horizons)</td></tr>
+      <tr><td>Solar system</td><td>Focus a planet, toggle true-scale distances</td><td>The planets at their real positions (JPL DE440s) and 2,549 hazardous asteroids</td></tr>
+      <tr><td>Mission design</td><td>Pick two planets and dates, or a gravity-assist route</td><td>A porkchop plot, a plain-language route explanation, and a full-screen mission playback</td></tr>
+      <tr><td>Learn</td><td>Read eight short lessons, answer quizzes, try challenges</td><td>Interactive diagrams and automatically checked challenges</td></tr>
+    </tbody>
+  </table></div>
+  <div class="two">
+    <figure><img src="{{img:orbit}}" alt="Orbit determination view with the solved orbit around Earth."><figcaption>Orbit determination: the orbit solved from two sightings, with its elements and live values.</figcaption></figure>
+    <figure><img src="{{img:mission}}" alt="Mission design view with a porkchop plot for Earth to Mars."><figcaption>Mission design: 4,862 independent Lambert solutions make the porkchop plot; the dark eye is the cheapest launch window.</figcaption></figure>
+  </div>
+  <figure><img src="{{img:route}}" alt="Full-screen playback of the Voyager route from Earth to Jupiter to Saturn."><figcaption>Mission playback of the Voyager route (Earth, Jupiter, Saturn), with mission time, spacecraft speed against solar escape speed, and the Delta-v used so far.</figcaption></figure>
+  <div class="two">
+    <figure><img src="{{img:earthclose}}" alt="Close view of the Earth at night with city lights and a glowing atmosphere."><figcaption>Earth from low altitude: NASA Black Marble city lights under cloud, with the atmosphere's haze at the limb.</figcaption></figure>
+    <figure><img src="{{img:moon}}" alt="The Moon with real crater and highland detail."><figcaption>The Moon from NASA's Lunar Reconnaissance Orbiter data, with relief shading.</figcaption></figure>
+  </div>
+  <div class="three">
+    <figure><img src="{{img:near}}" alt="Satellites view."><figcaption>Satellites</figcaption></figure>
+    <figure><img src="{{img:solar}}" alt="Solar system view."><figcaption>Solar system</figcaption></figure>
+    <figure><img src="{{img:ground}}" alt="Ground track view."><figcaption>Ground track and sky</figcaption></figure>
+  </div>
+  <div class="three">
+    <figure><img src="{{img:maneuver}}" alt="Maneuver planner."><figcaption>Maneuver planner</figcaption></figure>
+    <figure><img src="{{img:flybys}}" alt="Asteroid flybys."><figcaption>Asteroid flybys</figcaption></figure>
+    <figure><img src="{{img:learn}}" alt="Learn section."><figcaption>Learn section</figcaption></figure>
+  </div>
+</section>
+
+<section id="how">
+  <h2>How it works</h2>
+  <p>The physics lives in Python and the picture lives in the browser. A small local server connects them. Nothing leaves the computer except requests for public data.</p>
+  <div class="arch">
+    <div class="box"><h4>Interface</h4><p>HTML, CSS and JavaScript. Three.js draws the 3D scenes on one shared renderer; Plotly draws the charts.</p></div>
+    <div class="link">&harr;</div>
+    <div class="box"><h4>Local server</h4><p>23 JSON routes on 127.0.0.1. Validates every input and returns plain errors a person can act on.</p></div>
+    <div class="link">&harr;</div>
+    <div class="box"><h4>Physics engine</h4><p>Python with NumPy and SciPy: Lambert solver, orbit elements, patched-conic flybys, an n-body check.</p></div>
+  </div>
+  <div class="sources"><span>JPL DE440s ephemeris</span><span>CelesTrak satellite elements</span><span>JPL Small-Body Database</span><span>JPL CNEOS close approaches</span><span>JPL Horizons paths</span></div>
+  <p>The app opens in an Edge window (app mode, no browser chrome). On the standalone build the same code runs from a packaged folder with its own Python, so the audience needs nothing installed.</p>
+  <h3>The methods</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Part</th><th>Method</th></tr></thead>
+    <tbody>
+      <tr><td>Lambert's problem</td><td>Universal-variable formulation (Curtis, Algorithm 5.2) with Stumpff functions and a bracketed root finder; multi-revolution solutions for long transfers</td></tr>
+      <tr><td>Orbit from sightings</td><td>Azimuth, elevation and range become a position in the station frame, then in the Earth-fixed and inertial frames; two positions and the time between them feed the solver</td></tr>
+      <tr><td>Planet positions</td><td>NASA/JPL DE440s through Skyfield, with a built-in approximation if the file is missing</td></tr>
+      <tr><td>Interplanetary transfers</td><td>The same Lambert solver around the Sun; launch energy C3, arrival speed, capture burn; porkchop plots over a grid of dates</td></tr>
+      <tr><td>Gravity assists</td><td>Patched conics, up to four flybys, loops around the Sun allowed, optimisation of dates, plus a deep-space burn variant (Juno-style)</td></tr>
+      <tr><td>Course check</td><td>The designed route is flown again under full solar-system gravity with trajectory-correction burns</td></tr>
+      <tr><td>Satellites</td><td>Kepler motion with the J2 secular drift, compared against SGP4 in the validation suite</td></tr>
+      <tr><td>Uncertainty</td><td>Monte Carlo: the orbit is re-solved thousands of times with random measurement errors</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="proof">
+  <h2>Validation</h2>
+  <p>The validation suite (<code>src/validation.py</code>) holds 117 checks. They compare results against the textbook example, against known mission figures, and against physical invariants. All pass. These are the results a reviewer is most likely to ask about.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Check</th><th class="n">Result</th><th>Reference or criterion</th></tr></thead>
+    <tbody>
+      <tr><td>Assignment orbit, semi-major axis</td><td class="n">28,184.19 km</td><td>Matches the assignment data</td></tr>
+      <tr><td>Eccentricity, inclination</td><td class="n">0.768209 &middot; 20.339&deg;</td><td>Matches the assignment data</td></tr>
+      <tr><td>RAAN, argument of perigee, true anomaly</td><td class="n">359.490&deg; &middot; 179.231&deg; &middot; 126.010&deg;</td><td>Matches the assignment data</td></tr>
+      <tr><td>Period, perigee and apogee altitude</td><td class="n">13 h 04 min &middot; 155 km &middot; 43,457 km</td><td>Matches the assignment data</td></tr>
+      <tr><td>Mars transfer 2026, total delta-v</td><td class="n">5.6704 km/s</td><td>Design value 5.6788 km/s, tolerance 0.05 km/s</td></tr>
+      <tr><td>Voyager, total course corrections</td><td class="n">4.2 m/s</td><td>Criterion: below 50 m/s</td></tr>
+      <tr><td>Voyager, Saturn closest approach after corrections</td><td class="n">12,054 km</td><td>Equals the planned value within 50 km</td></tr>
+      <tr><td>Mars trip flown uncorrected in full gravity</td><td class="n">misses by &gt;10,000 km</td><td>After corrections it arrives within 10 km of the planned altitude</td></tr>
+      <tr><td>Juno deep-space burn route</td><td class="n">Earth flyby within a month</td><td>Real flyby: 9 October 2013; launch C3 close to the real 31.1 km&sup2;/s&sup2;</td></tr>
+      <tr><td>No measurement error, uncertainty study</td><td class="n">spread = 0</td><td>Doubling the angle error doubles the spread</td></tr>
+    </tbody>
+  </table></div>
+  <p>The same run is available to anyone with the source: <code>python src/validation.py</code>. The single-file hand-in carries its own copy (<code>python course/lambert_problem_solver.py --selftest</code>, 83 of the checks).</p>
+</section>
+
+<section id="process">
+  <h2>Build process</h2>
+  <p>Work on the Studio ran from 29 September to 4 October, from a working assignment to a packaged application. The history below comes from the project's git log and the working notes.</p>
+  <div class="tl">
+    <div><div class="d">29 Sep</div><div class="t">Safe start</div><p>Backed up the original folder, restored missing modules, and kept the assignment's single-file build as the hand-in path. Built the new interface (Python server, Three.js and Plotly front end) with the solar system, satellites and asteroids.</p></div>
+    <div><div class="d">30 Sep</div><div class="t">Mission design grows</div><p>Multi-revolution Lambert solutions, repeat flybys (Galileo, Cassini presets), mission playback, route suggestions with launch windows, a flyby close-up, the Learn section, deep-space burns, launch-vehicle curves and an uncertainty study. First case-study report and LinkedIn carousel.</p></div>
+    <div><div class="d">1 Oct</div><div class="t">Fidelity and reports</div><p>Higher-fidelity forces and a full solar-system gravity check. Reports in English and Spanish. A full input sweep of every view found and fixed a set of input errors.</p></div>
+    <div><div class="d">3 Oct</div><div class="t">Focus and redesign</div><p>Removed three views that were more than the project needed. Redesigned the interface (bright theme, start page, icon sidebar, section cards), reorganised the files into <code>src</code>, <code>web</code>, <code>course</code>, <code>tools</code>, added an app icon, built the standalone Windows app, and raised 3D quality with NASA textures.</p></div>
+    <div><div class="d">4 Oct</div><div class="t">Performance and this report</div><p>Found and fixed the cause of lag on the laptop's integrated graphics, and wrote this report.</p></div>
+  </div>
+  <h3>Decisions that shaped it</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Decision</th><th>Reason</th></tr></thead>
+    <tbody>
+      <tr><td>Keep the single-file hand-in alongside the Studio</td><td>The assignment requires one Python file; the generated file is rebuilt from the same modules and tested on its own</td></tr>
+      <tr><td>Python for physics, a web page for the interface</td><td>NumPy and SciPy for the numerics; Three.js and Plotly for graphics that a desktop toolkit cannot match</td></tr>
+      <tr><td>Edge app-mode window instead of an embedded Qt browser</td><td>The Qt web engine crashed on this machine; Edge is kept current by Windows and uses the dedicated graphics card</td></tr>
+      <tr><td>App data in the user's home folder</td><td>The Microsoft Store build of Python silently redirects writes under AppData into a hidden package folder</td></tr>
+      <tr><td>One shared 3D renderer for every view</td><td>Browsers allow about 16 graphics contexts per page and drop the oldest; separate renderers per view caused reloads</td></tr>
+      <tr><td>Remove Orbit prediction, Arrival and Ion engines</td><td>Scope: the project reads better with fewer, stronger views</td></tr>
+      <tr><td>Dark 3D windows inside a bright interface</td><td>Planets and orbits need a dark background; the surrounding interface stays light and calm</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="findings">
+  <h2>Findings and fixes</h2>
+  <p>This table lists the problems found during the work, with their cause and outcome. Entries marked <span class="tag open">open</span> are still unresolved or only partly verified.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Problem</th><th>Cause</th><th>Outcome</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>Qt window crashed with a native error</td><td>A fault inside Qt WebEngine on this machine</td><td>Edge app mode is the default; Qt stays as an option</td><td><span class="tag ok">fixed</span></td></tr>
+      <tr><td>PySide6 failed to install in the default Python</td><td>Windows 260-character path limit with the Store build of Python</td><td>Project uses its own environment in the user folder</td><td><span class="tag ok">fixed</span></td></tr>
+      <tr><td>Saved data seemed to vanish</td><td>Store Python redirects AppData writes</td><td>Data lives in <code>.lambert_studio</code> in the home folder</td><td><span class="tag ok">fixed</span></td></tr>
+      <tr><td>A physics library aborted the app when started without a console</td><td>A Fortran runtime exits when it has no output stream</td><td>Launcher gives it output files; the feature was later removed with its view</td><td><span class="tag ok">fixed</span></td></tr>
+      <tr><td>Orbit view reloaded the whole app after several tabs</td><td>More than about 11 graphics contexts; the browser dropped one</td><td>One shared renderer for all views</td><td><span class="tag ok">fixed</span></td></tr>
+      <tr><td>Window opened partly off screen</td><td>Edge remembered a window position from an earlier run that was larger than the usable screen</td><td>Launcher fits the window to the screen and clears the saved position</td><td><span class="tag ok">fixed</span></td></tr>
+      <tr><td>"Translate this page?" popup over the start page</td><td>The system language is Spanish, the page is English</td><td>Translation switched off for the app profile</td><td><span class="tag ok">fixed</span></td></tr>
+      <tr><td>Start page could be skipped by a stray Enter key</td><td>A keyboard shortcut I added reacted to Enter</td><td>Shortcut removed; keys 1 to 6 remain</td><td><span class="tag ok">fixed</span></td></tr>
+      <tr><td>The app lagged after the quality upgrade</td><td>Edge ran on the integrated Intel chip; 2x resolution plus 8x smoothing; every view kept its own large glow buffers; blur effects over moving 3D</td><td>Launcher requests the RTX 4070; one shared glow pipeline; quality adapts to the frame rate; blur removed; a Graphics quality setting</td><td><span class="tag ok">fixed</span></td></tr>
+      <tr><td>Speed menu unreadable (white on white) in the time bar and playback</td><td>Controls outside the dark 3D area picked up the light theme</td><td>Dark palette scoped to the time bar and playback</td><td><span class="tag ok">fixed</span></td></tr>
+      <tr><td>Report study script crashed after the view removals</td><td>It depended on the removed force model</td><td>Script now stops with a message saying how to restore the files; saved results unaffected</td><td><span class="tag ok">fixed</span></td></tr>
+      <tr><td>An intermittent "Error" on the Galileo route in one headless run</td><td>Not found; not reproduced in more than ten retries</td><td>Request logging and a retry were added</td><td><span class="tag open">open</span></td></tr>
+      <tr><td>Quick close and relaunch of the exe sometimes closed the window within seconds</td><td>Seen only when the app was killed and restarted back to back; a clean launch stayed open for 40 seconds</td><td>Wait a few seconds between closing and reopening</td><td><span class="tag open">open</span></td></tr>
+    </tbody>
+  </table></div>
+  <div class="note warn"><b>Testing lessons.</b> A screenshot tool that is not display-scaling aware captured only the top-left 80% of the screen and made a correct window look oversized. Closing every Edge process by name also closed the user's own browser. Both are avoided now: captures declare DPI awareness, and only the app's own profile is touched.</div>
+</section>
+
+<section id="perf">
+  <h2>Performance</h2>
+  <p>The laptop has an Intel UHD chip and an NVIDIA RTX 4070. Windows gave Edge the Intel chip by default, so the app now asks for the RTX at launch. Frame rate was measured in a hidden Edge window of 1,500 by 900 pixels, five readings per view, with the app's own frame counter. The counter tops out at 144 frames per second.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Setup</th><th>Graphics chip</th><th class="n">Drawing resolution</th><th class="n">Landing</th><th class="n">Orbit</th><th class="n">Satellites</th><th class="n">Solar system</th></tr></thead>
+    <tbody>
+      <tr><td>Current, Auto</td><td>Intel UHD</td><td class="n">1.0&times;</td><td class="n">144</td><td class="n">144</td><td class="n">144</td><td class="n">144</td></tr>
+      <tr><td>Current, Auto</td><td>RTX 4070</td><td class="n">2.0&times;</td><td class="n">144</td><td class="n">142&ndash;144</td><td class="n">144</td><td class="n">144</td></tr>
+      <tr><td>Earlier maximum setting</td><td>Intel UHD</td><td class="n">2.0&times;</td><td class="n">66&ndash;76</td><td class="n">67&ndash;71</td><td class="n">not run</td><td class="n">not run</td></tr>
+    </tbody>
+  </table></div>
+  <p>The Graphics quality setting offers Auto (default), Maximum and Smooth. Auto starts sharp on the RTX, starts lower on integrated graphics, and lowers or raises the resolution within a second or two as the frame rate changes.</p>
+  <div class="note"><b>What this does not show.</b> The numbers come from a hidden window with no display synchronisation. They show relative cost, not what the real window feels like on battery or with other programs open.</div>
+</section>
+
+<section id="visual">
+  <h2>Visual quality</h2>
+  <p>Textures come from NASA's public imagery. Rendering adds supersampling on capable graphics cards, 4x multisampling in the glow pass (2x on integrated graphics), full anisotropic filtering, and higher-detail spheres. The camera button saves the current view as a PNG up to about 3,840 pixels wide.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Texture</th><th class="n">Before</th><th class="n">Now</th><th>Source</th></tr></thead>
+    <tbody>
+      <tr><td>Moon</td><td class="n">1,024 &times; 512</td><td class="n">8,192 &times; 4,096</td><td>NASA Lunar Reconnaissance Orbiter, Scientific Visualization Studio</td></tr>
+      <tr><td>Earth by day</td><td class="n">5,400 &times; 2,700</td><td class="n">8,192 &times; 4,096</td><td>NASA Blue Marble with topography and bathymetry</td></tr>
+      <tr><td>Earth by night</td><td class="n">3,600 &times; 1,800</td><td class="n">8,192 &times; 4,096</td><td>NASA Black Marble city lights</td></tr>
+      <tr><td>Clouds</td><td class="n">1,024 &times; 512</td><td class="n">4,096 &times; 2,048</td><td>NASA Blue Marble cloud map</td></tr>
+      <tr><td>Other planets</td><td class="n">2,048 &times; 1,024</td><td class="n">2,048 &times; 1,024</td><td>Solar System Scope (CC BY 4.0)</td></tr>
+    </tbody>
+  </table></div>
+  <p>Realism details: cloud shadows fall on the surface and dim the city lights at night, the atmosphere has a thin outer haze, the Moon, Mercury and Mars have relief shading, and the spacecraft model has gridded solar panels, a dish with its feed, a thruster and a magnetometer boom.</p>
+</section>
+
+<section id="present">
+  <h2>Presenting it professionally</h2>
+  <h3>The thirty-second pitch</h3>
+  <p>"Lambert's problem asks which orbit connects two positions in a given time. I built an application around it. Give it two sightings of a satellite and it finds the orbit. Give it two planets and a date and it plans the trip, with real NASA positions and gravity assists. Every result is checked against textbook and mission figures."</p>
+
+  <h3>A six-minute demonstration</h3>
+  <ol class="steps">
+    <li><div><span class="do">Start page <span class="t">0:00</span></span><span class="say">Let the Earth turn. Point at the readout: real data sources, live clock. Say what the app does in one sentence, then press Start.</span></div></li>
+    <li><div><span class="do">Orbit determination <span class="t">0:40</span></span><span class="say">The assignment data is already solved. Show the two sightings, the 3D orbit, and the elements: a = 28,184.19 km, e = 0.768, i = 20.3&deg;. Say these match the assignment answers.</span></div></li>
+    <li><div><span class="do">Uncertainty <span class="t">1:40</span></span><span class="say">Open "How certain is this orbit?" and run the simulations. Explain that small measurement errors grow along the track.</span></div></li>
+    <li><div><span class="do">Mission design: porkchop plot <span class="t">2:30</span></span><span class="say">Earth to Mars. Explain the dark eye as the cheapest window and note that every pixel is a separate Lambert solution. Mention that launch windows return every 26 months.</span></div></li>
+    <li><div><span class="do">Gravity-assist route and playback <span class="t">3:30</span></span><span class="say">Open the Voyager route and press the play button for the mission playback. Let the flyby close-up play. Say that flybys change speed without fuel.</span></div></li>
+    <li><div><span class="do">Full-gravity check <span class="t">4:40</span></span><span class="say">Press "Check in full solar-system gravity". Explain that the simple model is corrected by small burns and that Voyager needs about 4 m/s in total.</span></div></li>
+    <li><div><span class="do">Close <span class="t">5:20</span></span><span class="say">Show Satellites or Learn for a few seconds, then return to the start page. Offer the single-file hand-in and the validation suite as proof.</span></div></li>
+  </ol>
+
+  <h3>Questions to expect</h3>
+  <div class="qa">
+    <div><span class="q">Why is Lambert's problem useful?</span><span class="a">It is the core of orbit determination from two positions and of every transfer calculation. The same solver works around the Earth and around the Sun.</span></div>
+    <div><span class="q">How accurate is it?</span><span class="a">The assignment orbit matches the reference to the digits shown. The Mars case is within 0.01 km/s of a design value, and a full-gravity re-flight lands within 10 km after small corrections.</span></div>
+    <div><span class="q">What is "patched conics"?</span><span class="a">Each leg is a Sun-centred ellipse and each flyby a planet-centred hyperbola, joined at the planet's sphere of influence. It is the standard first design step. The full-gravity check measures what it leaves out.</span></div>
+    <div><span class="q">Is the data real?</span><span class="a">Planet positions are NASA/JPL DE440s, satellites are CelesTrak, asteroids are JPL. Offline, the app uses saved copies and says so.</span></div>
+    <div><span class="q">Could it fly a real mission?</span><span class="a">No. It is a design and teaching tool. Real missions add launch constraints, ephemeris refinement, and operations the app does not model.</span></div>
+    <div><span class="q">What did you build, and what did you use?</span><span class="a">The solver, validation and application are the project's own. The libraries and data sources are listed in the credits, and AI assistance in building is disclosed there.</span></div>
+    <div><span class="q">What does it need to run?</span><span class="a">The Windows app needs nothing installed. From source: Python 3.10 or newer and the packages in <code>requirements.txt</code>.</span></div>
+    <div><span class="q">Why did you remove three views?</span><span class="a">They went beyond the topic. Fewer views made the application easier to explain and to run.</span></div>
+  </div>
+
+  <h3>Before you present</h3>
+  <ul class="check">
+    <li>Plug the laptop in. On battery Windows may switch to the integrated chip.</li>
+    <li>Close other heavy programs and browser windows.</li>
+    <li>Open the app from the desktop shortcut and wait for the start page. The readout should show READY and ONLINE.</li>
+    <li>Press Start once and confirm an orbit appears, then return home with the house icon.</li>
+    <li>In Settings, check Graphics quality is on Auto. Turn on "Show frame rate" if you want to watch it.</li>
+    <li>Keep this report as a PDF and the single-file hand-in on a USB stick as a fallback.</li>
+    <li>If the network is down, say so: the app uses saved data and labels it "saved copy".</li>
+  </ul>
+</section>
+
+<section id="limits">
+  <h2>Limits and open items</h2>
+  <ul>
+    <li><b>Design tool, not flight software.</b> Patched conics and the n-body check are first-design methods.</li>
+    <li><b>Windows and Edge.</b> The standalone build is Windows only and needs Microsoft Edge installed (it ships with Windows).</li>
+    <li><b>Graphics memory.</b> The 8K textures use several hundred megabytes of graphics memory; Smooth quality lowers the load on weaker machines.</li>
+    <li><b>Not yet profiled by hand.</b> Performance was measured in a hidden window. A full session on battery power and on the integrated chip alone has not been timed.</li>
+    <li><b>Two open items</b> remain in the findings table: the one-off route error and the quick-relaunch behaviour.</li>
+    <li><b>Reports.</b> The earlier case-study report and LinkedIn carousel in the <code>report</code> folder still describe views that were later removed and show the old interface. Regenerate them before sharing.</li>
+  </ul>
+</section>
+
+<section id="credits">
+  <h2>Credits and licences</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Item</th><th>Source</th><th>Licence or terms</th></tr></thead>
+    <tbody>
+      <tr><td>Earth, Moon and cloud imagery</td><td>NASA Visible Earth, Blue Marble and Black Marble; NASA Scientific Visualization Studio (LRO)</td><td>NASA public imagery, credit given</td></tr>
+      <tr><td>Planet textures</td><td>Solar System Scope</td><td>CC BY 4.0</td></tr>
+      <tr><td>Planet and Moon positions</td><td>NASA/JPL DE440s through Skyfield</td><td>Public</td></tr>
+      <tr><td>Asteroids, close approaches, paths</td><td>JPL Small-Body Database, CNEOS, Horizons</td><td>Public API</td></tr>
+      <tr><td>Satellite element sets</td><td>CelesTrak</td><td>Public data</td></tr>
+      <tr><td>3D, charts</td><td>Three.js, Plotly</td><td>MIT</td></tr>
+      <tr><td>Numerics and packaging</td><td>NumPy, SciPy, Skyfield, sgp4, PyInstaller</td><td>Open source</td></tr>
+      <tr><td>Method</td><td>H. D. Curtis, <i>Orbital Mechanics for Engineering Students</i>, Lambert's problem (Algorithm 5.2)</td><td>Textbook reference</td></tr>
+    </tbody>
+  </table></div>
+  <p>This application was built with the assistance of Claude Code from Anthropic. The author directed the work, chose the scope and design, and tested the results.</p>
+</section>
+
+<section id="appendix">
+  <h2>Appendix</h2>
+  <h3>Project layout</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Folder</th><th>Contents</th></tr></thead>
+    <tbody>
+      <tr><td><code>src/</code></td><td>All Python modules: physics, server, window launcher, course GUI</td></tr>
+      <tr><td><code>web/</code></td><td>The interface: HTML, CSS, JavaScript, NASA textures</td></tr>
+      <tr><td><code>course/</code></td><td>The assignment hand-in, <code>lambert_problem_solver.py</code>, generated from the modules</td></tr>
+      <tr><td><code>tools/</code></td><td>Build scripts for the Windows app, the single file, and the icon</td></tr>
+      <tr><td><code>tests/</code></td><td>The pytest suite</td></tr>
+      <tr><td><code>report/</code></td><td>Case-study report, carousel, LinkedIn post, and this report</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Commands</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Task</th><th>Command</th></tr></thead>
+    <tbody>
+      <tr><td>Start the app</td><td><code>run_studio.bat</code> or the desktop shortcut</td></tr>
+      <tr><td>Run all tests</td><td><code>python -m pytest</code></td></tr>
+      <tr><td>Run the validation suite</td><td><code>python src/validation.py</code></td></tr>
+      <tr><td>Rebuild the single-file hand-in</td><td><code>python tools/build_single_file.py</code></td></tr>
+      <tr><td>Build the Windows app</td><td><code>python tools/build_exe.py</code></td></tr>
+      <tr><td>Regenerate the icon</td><td><code>python tools/make_icon.py</code></td></tr>
+    </tbody>
+  </table></div>
+  <p class="foot">Lambert Studio, version 1.0. Figures in this report come from the project's own validation run, test run, git history and measurements made on 3 and 4 October 2026.</p>
+</section>
+
+</main>

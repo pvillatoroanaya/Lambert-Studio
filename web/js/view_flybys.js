@@ -37,8 +37,8 @@
     const el = LS.label('Earth', 'accent'); earthPin.add(el);
     s3.scene.add(earthPin);
 
-    moon = new THREE.Mesh(new THREE.SphereGeometry(1737.4 / LS.R_EARTH, 48, 32),
-      new THREE.MeshPhongMaterial({ map: LS.texture('textures/moon.jpg'), shininess: 2 }));
+    moon = new THREE.Mesh(new THREE.SphereGeometry(1737.4 / LS.R_EARTH, 160, 112),
+      LS.planetMaterial('Moon', 'moon.jpg'));
     const mp = new THREE.Sprite(new THREE.SpriteMaterial({ map: LS.spriteTexture(), color: 0xc8cfdc,
       sizeAttenuation: false, depthWrite: false, blending: THREE.AdditiveBlending }));
     mp.scale.set(0.02, 0.02, 1);

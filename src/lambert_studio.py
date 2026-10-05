@@ -105,6 +105,45 @@ def find_edge():
     return next((c for c in candidates if c and os.path.exists(c)), None)
 
 
+def window_size(want_w=1480, want_h=920):
+    """The preferred window size, shrunk to fit the usable part of the screen
+    (the screen minus the taskbar and the window's own title bar)."""
+    try:
+        import ctypes
+        from ctypes import wintypes
+        rect = wintypes.RECT()
+        ctypes.windll.user32.SystemParametersInfoW(0x0030, 0, ctypes.byref(rect), 0)   # SPI_GETWORKAREA
+        w, h = rect.right - rect.left, rect.bottom - rect.top
+        if w > 400 and h > 300:
+            return min(want_w, w - 24), min(want_h, h - 24)
+    except Exception:                                   # not Windows, or no screen information
+        pass
+    return want_w, want_h
+
+
+def prepare_profile(profile):
+    """
+    Edge remembers where an app window was and which pages it offered to
+    translate, and those memories override the launch options. A window
+    saved bigger than today's screen (another monitor, another scaling)
+    would open cut off, and a Spanish system asks "translate this page?"
+    over every English page. Forget both before each start. Edge is not
+    running yet, so it will not overwrite the file.
+    """
+    import json
+    path = pathlib.Path(profile) / "Default" / "Preferences"
+    try:
+        prefs = json.loads(path.read_text(encoding="utf-8"))
+        prefs.get("browser", {}).pop("app_window_placement", None)
+        prefs["translate"] = {**prefs.get("translate", {}), "enabled": False}
+        blocked = prefs.setdefault("translate_blocked_languages", [])
+        if "en" not in blocked:
+            blocked.append("en")
+        path.write_text(json.dumps(prefs, separators=(",", ":")), encoding="utf-8")
+    except (OSError, ValueError):
+        pass                                            # first run: no profile yet
+
+
 def run_edge(edge, url):
     """
     Open the interface as a standalone Edge window and keep the server
@@ -113,10 +152,18 @@ def run_edge(edge, url):
     on the Edge process: Edge may hand the window to another process.
     """
     profile = EDGE_PROFILE_DIR
+    prepare_profile(profile)
+    width, height = window_size()
     proc = subprocess.Popen([
         edge, f"--app={url}", f"--user-data-dir={profile}",
-        "--window-size=1480,920", "--no-first-run", "--no-default-browser-check",
-        "--disable-extensions", "--disable-sync", "--disable-features=msEdgeStartupBoost",
+        f"--window-size={width},{height}", "--window-position=8,8",
+        "--no-first-run", "--no-default-browser-check",
+        "--disable-extensions", "--disable-sync",
+        # Laptops with two graphics chips give a browser the weak integrated one
+        # by default; ask for the dedicated card (a no-op if there is only one).
+        "--force_high_performance_gpu", "--ignore-gpu-blocklist",
+        # no "translate this page?" bubble on systems that are not set to English
+        "--disable-features=msEdgeStartupBoost,Translate,TranslateUI,msEdgeTranslate",
     ])
     log.info("Edge app window started (pid %s)", proc.pid)
 

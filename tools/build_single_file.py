@@ -6,7 +6,7 @@ this size in one file is unworkable, and hand-copying a merged copy
 guarantees it drifts out of sync -- so the single file is GENERATED from
 the modules.
 
-    python3 build_single_file.py   ->   lambert_problem_solver.py
+    python3 tools/build_single_file.py   ->   course/lambert_problem_solver.py
 
 The generated script:
     * launches the GUI when run with no arguments
@@ -22,8 +22,9 @@ unavailable but --selftest, --report and --dashboard still work.
 import re
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
-OUTPUT = HERE / "lambert_problem_solver.py"
+ROOT = Path(__file__).resolve().parent.parent
+HERE = ROOT / "src"                      # the modules that are merged
+OUTPUT = ROOT / "course" / "lambert_problem_solver.py"
 
 # Dependency order: every name a later module needs must already exist.
 MODULES = [

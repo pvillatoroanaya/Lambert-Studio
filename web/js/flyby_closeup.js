@@ -128,8 +128,8 @@
       return g;
     }
     earth = null;
-    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 96, 64),
-      new THREE.MeshStandardMaterial({ map: LS.texture(`textures/${name.toLowerCase()}.jpg`), roughness: 1 }));
+    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 160, 112),
+      LS.planetMaterial(name, `${name.toLowerCase()}.jpg`));
     g.add(m);
     if (name === 'Saturn') {
       const inner = 1.24, outer = 2.27;

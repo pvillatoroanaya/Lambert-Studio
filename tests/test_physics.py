@@ -11,16 +11,16 @@ import sys
 
 import pytest
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 import validation as V  # noqa: E402
 
 GROUPS = [
     V.test_stumpff, V.test_curtis_elements, V.test_curtis_lambert, V.test_invariants,
     V.test_multirev_lambert, V.test_frames, V.test_planets, V.test_interplanetary,
-    V.test_ephemeris, V.test_maneuvers, V.test_perturbations, V.test_gravity_assists,
+    V.test_ephemeris, V.test_maneuvers, V.test_gravity_assists,
     V.test_repeat_flybys, V.test_satellite_model,
-    V.test_launchers, V.test_moon_tours, V.test_low_thrust, V.test_deep_space_maneuver, V.test_orbit_uncertainty,
-    V.test_force_model, V.test_full_gravity,
+    V.test_launchers, V.test_deep_space_maneuver, V.test_orbit_uncertainty,
+    V.test_full_gravity,
 ]
 
 

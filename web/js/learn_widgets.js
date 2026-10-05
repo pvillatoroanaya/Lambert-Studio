@@ -506,38 +506,6 @@
     });
   };
 
-  /* ---------------- 8. Ion vs chemical ---------------- */
-
-  W.ion = function (container) {
-    const { controls, stage, readout } = frame(container);
-    const dv = slider(controls, 'Δv needed', 1, 15, 0.1, 6, (x) => `${f(x, 1)} km/s`);
-    const thrust = slider(controls, 'Ion thrust', 10, 1000, 10, 90, (x) => `${x} mN`);
-    const isp = slider(controls, 'Ion Isp', 1000, 5000, 100, 3100, (x) => `${x} s`);
-    const s = svg(stage, 560, 150);
-    const g = el('g', {}, s);
-    const m0 = 1200;
-    function draw() {
-      g.innerHTML = '';
-      const ve = +isp.value * G0, veC = 320 * G0;
-      const pIon = m0 * (1 - Math.exp(-+dv.value / ve)), pChem = m0 * (1 - Math.exp(-+dv.value / veC));
-      const time = pIon * ve * 1000 / (+thrust.value / 1000) / 86400;      // days of firing
-      const bar = (y, frac, color, label) => {
-        el('rect', { x: 150, y, width: 380, height: 22, rx: 5, fill: '#18233b' }, g);
-        el('rect', { x: 150, y, width: 380 * frac, height: 22, rx: 5, fill: color }, g);
-        text(g, 140, y + 15, label, '#c9d4ea', 11.5, 'end');
-      };
-      bar(30, pIon / m0, '#7fcf9f', `ion: ${f(pIon, 0)} kg`);
-      bar(80, pChem / m0, '#eea55a', `chemical: ${f(pChem, 0)} kg`);
-      text(g, 150, 18, `propellant needed by a ${m0} kg spacecraft`, '#8d95a8', 10.5);
-      readout.innerHTML = `The ion engine needs <b>${f(pIon, 0)} kg</b> of xenon instead of ${f(pChem, 0)} kg of chemical propellant,
-        but it has to fire for about <b>${f(time, 0)} days</b> (${f(time / 365.25, 1)} years) without stopping; the chemical engine
-        does it in minutes. More thrust means more electrical power, and bigger solar panels.`;
-    }
-    [dv, thrust, isp].forEach((c) => c.addEventListener('input', draw));
-    draw();
-    return { stop() {} };
-  };
-
   /* ---------------- 9. Measurement errors ---------------- */
 
   W.errors = function (container) {

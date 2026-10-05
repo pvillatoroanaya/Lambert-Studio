@@ -11,7 +11,7 @@ import urllib.request
 
 import pytest
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 import studio_server  # noqa: E402
 
 
@@ -109,13 +109,10 @@ def test_route_rejects_bad_input(api, seq):
     assert not js["ok"] and js["error"]
 
 
-def test_maneuver_and_perturbation(api):
+def test_maneuver(api):
     m = api("/api/maneuver", {"kind": "hohmann", "mass": 1000, "isp": 320, "alt1": 300, "alt2": 35786,
                               "i1": 0, "i2": 0, "altb": 100000})
     assert m["ok"] and m["data"]["total_dv"] == pytest.approx(3.893, abs=0.002)
-    p = api("/api/perturb", {"source": "elements", "days": 2, "j2": True, "drag": False, "cd": 2.2, "area": 10,
-                             "mass": 1000, "alt_p": 700, "alt_a": 700, "i": 98.19, "raan": 0, "argp": 0})
-    assert p["ok"] and p["data"]["summary"]["raan_rate_analytic"] == pytest.approx(0.9856, rel=0.01)
 
 
 def test_satellites_online(api):
@@ -126,50 +123,12 @@ def test_satellites_online(api):
 
 
 # ----------------------------------------------------------------------
-# arrival tours, ion engines, deep-space burns, launchers, uncertainty
+# deep-space burns, launchers, uncertainty
 # ----------------------------------------------------------------------
 
 def test_launchers(api):
     js = api("/api/launchers")
     assert js["ok"] and "Atlas V 551" in js["data"]["curves"]
-
-
-@pytest.mark.parametrize("key", ["juice", "galileo", "europa", "cassini", "titan"])
-def test_tour_presets(api, key):
-    js = api("/api/tour", {"preset": key})
-    assert js["ok"]
-    d = js["data"]
-    assert d["n_flybys"] >= 1 and d["arcs"] and d["tisserand"]
-    if d["goal"] == "orbit":
-        assert d["insertion_dv"] < d["direct"]["dv"]
-    else:
-        assert d["final_period_days"] <= d["goal_period_days"] + 1e-6
-
-
-@pytest.mark.parametrize("body, message", [
-    ({"planet": "Mars"}, "Jupiter"),
-    ({"planet": "Jupiter", "moons": ["Titan"], "goal": "period", "goal_period": 20, "vinf": 6, "rp_radii": 10,
-      "period_days": 200, "years": 3}, "not a moon"),
-    ({"planet": "Jupiter", "moons": ["Ganymede"], "goal": "orbit", "target": "Ganymede", "vinf": 6, "rp_radii": 0.5,
-      "period_days": 200, "years": 3}, "between"),
-])
-def test_tour_rejects_bad_input(api, body, message):
-    js = api("/api/tour", body)
-    assert not js["ok"] and message in js["error"]
-
-
-@pytest.mark.parametrize("key", ["dawn", "bepi", "geo", "mars"])
-def test_lowthrust_presets(api, key):
-    js = api("/api/lowthrust", {"preset": key})
-    assert js["ok"]
-    d = js["data"]
-    assert d["propellant"] < d["chem"]["propellant"]
-    assert abs(d["dv"] - d["edelbaum_dv"]) / d["edelbaum_dv"] < 0.03
-
-
-def test_lowthrust_rejects_bad_input(api):
-    js = api("/api/lowthrust", {"body": "Earth", "r1": 500, "r2": 35786, "mass": 1000, "thrust_mN": 0.5, "isp": 1500})
-    assert not js["ok"] and "Thrust" in js["error"]
 
 
 def test_route_dsm_juno(api):
@@ -195,27 +154,8 @@ def test_uncertainty(api):
 
 
 # ----------------------------------------------------------------------
-# high-fidelity physics: full Earth force model, full solar-system gravity
+# high-fidelity physics: full solar-system gravity
 # ----------------------------------------------------------------------
-
-def test_perturb_full_model_geo(api):
-    js = api("/api/perturb", {"source": "elements", "days": 120, "alt_p": 35786, "alt_a": 35786, "i": 0, "raan": 0,
-                              "argp": 0, "lon": 45, "cd": 2.2, "area": 30, "mass": 3000, "cr": 1.3, "date": "2026-10-01",
-                              "model": {"zonal_degree": 6, "tesseral": True, "sun": True, "moon": True, "srp": True}})
-    assert js["ok"]
-    d = js["data"]
-    assert d["lon"][0] == pytest.approx(45.0, abs=0.01)
-    assert 0.1 < d["i"][-1] < 0.5                        # luni-solar tilt after ~4 months
-    forces = {b["force"].split(" ")[0] for b in d["breakdown"]}
-    assert {"Moon", "Sun", "Sunlight"} <= forces
-
-
-def test_perturb_full_model_rejects_long_leo(api):
-    js = api("/api/perturb", {"source": "elements", "days": 200, "alt_p": 400, "alt_a": 400, "i": 51.6, "raan": 0,
-                              "argp": 0, "cd": 2.2, "area": 10, "mass": 1000, "date": "2026-10-01",
-                              "model": {"zonal_degree": 6, "drag": "msis", "activity": "moderate"}})
-    assert not js["ok"] and "120 days" in js["error"]
-
 
 def test_verify_route_mars(api):
     js = api("/api/verify_route", {"seq": ["Earth", "Mars"], "jds": [2461345.5, 2461637.5], "capture": True})

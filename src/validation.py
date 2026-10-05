@@ -394,21 +394,6 @@ def test_maneuvers():
                b["total_dv"] < hh["total_dv"], f"{b['total_dv']:.4f} vs {hh['total_dv']:.4f} km/s")
 
 
-def test_perturbations():
-    """Numerically integrated J2 drift of the node must match the
-    analytic secular rate (Sun-synchronous orbit: about +0.9856 deg/day)."""
-    import perturb
-    r0, v0 = perturb.orbit_from_elements(700, 700, 98.19)
-    out = perturb.propagate_perturbed(r0, v0, 5, use_j2=True, use_drag=False)
-    s = out["summary"]
-    check("J2 RAAN rate: integrated vs analytic", s["raan_rate"], s["raan_rate_analytic"],
-          0.01, "", relative=True)
-    check("Sun-synchronous RAAN rate", s["raan_rate_analytic"], 0.9856, 0.01, " deg/day", relative=True)
-    # With no perturbation switched on, the integrator must reproduce Kepler.
-    plain = perturb.propagate_perturbed(r0, v0, 1, use_j2=False, use_drag=False)
-    check("Integrator with no perturbations = Kepler", plain["summary"]["max_diff"], 0.0, 1e-3, " km")
-
-
 def test_gravity_assists():
     """
     Patched-conic route optimiser against history: searching only from
@@ -526,49 +511,6 @@ def test_launchers():
                launchers.capacity("Atlas V 551 + Star 48", 157.0) is None)
 
 
-def test_moon_tours():
-    """Moon tours: every flyby within the moon's bending limit and above its
-    minimum altitude, v-infinity conserved on resonant flybys, resonant
-    periods exact, and the tour much cheaper than inserting on first pass."""
-    import moontour as mt
-    t = mt.plan_preset("juice")
-    fbs = [e for e in t["events"] if e["kind"] == "flyby"]
-    check_true("JUICE-style tour: every flyby within the maximum bend",
-               all(e["turn_deg"] <= e["max_turn_deg"] + 1e-6 for e in fbs), f"{len(fbs)} flybys")
-    check_true("JUICE-style tour: every flyby above the minimum altitude",
-               all(e["altitude"] >= mt.MOONS[e["moon"]][4] - 1e-6 for e in fbs))
-    check_true("Tour saves more than 3 km/s vs inserting on the first pass",
-               t["direct"]["dv"] - t["insertion_dv"] > 3.0,
-               f"{t['direct']['dv']:.2f} -> {t['insertion_dv']:.2f} km/s")
-    # A resonant flyby keeps v-infinity: re-deriving it from the new orbit gives the same value.
-    worst = 0.0
-    for e in fbs:
-        if e["res"]:
-            m = mt.get_moon(e["moon"])
-            a = (e["rp"] + e["ra"]) / 2
-            ecc = (e["ra"] - e["rp"]) / (e["ra"] + e["rp"])
-            worst = max(worst, abs(mt.pump_from_orbit(m, a, ecc)[0] - e["vinf"]))
-            N, M = e["res"]
-            check("Resonant orbit period = N/M x moon period", e["period_days"], N / M * m.T / 86400, 1e-6, " d")
-            break
-    check("v-infinity conserved through a resonant flyby", worst, 0.0, 1e-6, " km/s")
-    c = mt.plan_preset("cassini")
-    check_true("Cassini-style tour reaches Titan's period (16 d) with flybys only", c["final_period_days"] <= 16.0,
-               f"{c['final_period_days']:.2f} d, {c['n_flybys']} flybys")
-
-
-def test_low_thrust():
-    """Low-thrust spirals: the integrated delta-v matches Edelbaum's
-    analytic |v1 - v2| for slow spirals, and the propellant obeys the
-    rocket equation."""
-    import lowthrust
-    for key in ("dawn", "geo"):
-        r = lowthrust.run_preset(key)
-        check(f"{key}: spiral delta-v vs Edelbaum", r["dv"], r["edelbaum_dv"], 0.03, "", relative=True)
-        dv_rocket = r["isp"] * 9.80665e-3 * math.log(r["mass"] / r["final_mass"])
-        check(f"{key}: rocket equation consistency", r["dv"], dv_rocket, 1e-9, " km/s")
-
-
 def test_deep_space_maneuver():
     """Juno's dV-EGA, re-optimised in Juno's real launch period
     (5-26 Aug 2011): Earth flyby within a month of the real 9 Oct 2013,
@@ -597,57 +539,6 @@ def test_orbit_uncertainty():
     r2 = uncertainty.monte_carlo(st, ob, 0.02, 0.0, 0.0, n=4000)
     check("Doubling the angle error doubles the spread of a", r2["elements"]["a"]["std"] / r1["elements"]["a"]["std"],
           2.0, 0.1)
-
-
-def test_force_model():
-    """High-fidelity Earth force model: accelerations equal the gradient of
-    the potential, the geostationary equilibrium longitudes (75 E, 105 W),
-    the eclipse length of a low orbit, luni-solar tilt growth of a
-    geostationary orbit (~0.75-0.95 deg/year), and drag that follows solar
-    activity (NRLMSIS 2.1)."""
-    import forces as F
-    import perturb as P
-    from constants import R_EARTH
-    rng = np.random.default_rng(3)
-    fm = F.ForceModel(2461000.5, 1, zonal_degree=6)
-    worst = 0.0
-    for _ in range(50):
-        u = rng.normal(size=3)
-        r = u / np.linalg.norm(u) * rng.uniform(6700, 45000)
-        a = np.array(fm.accel(0.0, *r, 0, 0, 0)) + MU_EARTH * r / np.linalg.norm(r) ** 3
-        h = 1e-3
-        g = np.array([(F.potential_zonal(*(r + h * e), 6) - F.potential_zonal(*(r - h * e), 6)) / (2 * h)
-                      for e in np.eye(3)])
-        worst = max(worst, np.linalg.norm(a - g) / np.linalg.norm(g))
-    check("J2..J6 acceleration = gradient of the potential", worst, 0.0, 1e-6)
-    lam = 0.5 * math.degrees(math.atan2(F.S22, F.C22))
-    check("Geostationary stable point (EGM96 C22/S22)", (lam + 90) % 360, 75.07, 0.5, " deg E")
-    r0 = R_EARTH + 400.0
-    ecl = sum(1 - F.shadow(r0 * math.cos(t), r0 * math.sin(t), 0.0, r0, (1.496e8, 0.0, 0.0))
-              for t in np.linspace(0, 2 * math.pi, 7200, endpoint=False)) / 7200
-    period = 2 * math.pi * math.sqrt(r0 ** 3 / MU_EARTH)
-    check("Eclipse per orbit at 400 km (Sun in the orbit plane)", ecl * period / 60, 36.1, 0.3, " min")
-    jd0 = julian_date(2026, 10, 1, 0, 0, 0.0)
-    th = math.radians(45.0) + gmst_from_jd(jd0)
-    rg, vg = 42164.17, math.sqrt(MU_EARTH / 42164.17)
-    geo = P.propagate_perturbed(np.array([rg * math.cos(th), rg * math.sin(th), 0.0]),
-                                np.array([-vg * math.sin(th), vg * math.cos(th), 0.0]), 365, area_m2=30, mass_kg=3000,
-                                model={"zonal_degree": 6, "tesseral": True, "sun": True, "moon": True, "srp": True},
-                                jd0=jd0)
-    check_true("GEO: Sun and Moon tilt the orbit 0.7-1.0 deg in a year", 0.7 <= geo["i"][-1] <= 1.0,
-               f"{geo['i'][-1]:.3f} deg")
-    check_true("GEO: starting at 45 E it drifts toward the 75 E stable point", geo["lon"][-1] > 60,
-               f"45 -> {geo['lon'][-1]:.1f} deg")
-    rates = {}
-    for act in ("low", "high"):
-        r_, v_ = P.orbit_from_elements(415, 425, 51.6)
-        o = P.propagate_perturbed(r_, v_, 10, cd=2.2, area_m2=1600, mass_kg=420000,
-                                  model={"zonal_degree": 2, "drag": "msis", "activity": act}, jd0=jd0)
-        a_ = np.array(o["a"])
-        n1 = max(1, len(a_) // 150)
-        rates[act] = (a_[:n1].mean() - a_[-n1:].mean()) / 10.0
-    check_true("NRLMSIS: decay at solar maximum > 4x solar minimum", rates["high"] > 4 * rates["low"] > 0,
-               f"{rates['low'] * 1000:.0f} vs {rates['high'] * 1000:.0f} m/day")
 
 
 def test_full_gravity():
@@ -687,16 +578,12 @@ def run_validation():
     test_interplanetary()
     _optional("DE440s ephemeris", test_ephemeris)
     _optional("Manoeuvres", test_maneuvers)
-    _optional("Perturbations", test_perturbations)
     _optional("Gravity assists", test_gravity_assists)
     _optional("Repeat flybys", test_repeat_flybys)
     _optional("Satellite model", test_satellite_model)
     _optional("Launch vehicles", test_launchers)
-    _optional("Moon tours", test_moon_tours)
-    _optional("Low thrust", test_low_thrust)
     _optional("Deep-space maneuver (Juno)", test_deep_space_maneuver)
     _optional("Orbit uncertainty", test_orbit_uncertainty)
-    _optional("High-fidelity force model", test_force_model)
     _optional("Full solar-system gravity", test_full_gravity)
 
     width = 58

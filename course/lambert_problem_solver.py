@@ -2668,21 +2668,6 @@ def test_maneuvers():
                b["total_dv"] < hh["total_dv"], f"{b['total_dv']:.4f} vs {hh['total_dv']:.4f} km/s")
 
 
-def test_perturbations():
-    """Numerically integrated J2 drift of the node must match the
-    analytic secular rate (Sun-synchronous orbit: about +0.9856 deg/day)."""
-    import perturb
-    r0, v0 = perturb.orbit_from_elements(700, 700, 98.19)
-    out = perturb.propagate_perturbed(r0, v0, 5, use_j2=True, use_drag=False)
-    s = out["summary"]
-    check("J2 RAAN rate: integrated vs analytic", s["raan_rate"], s["raan_rate_analytic"],
-          0.01, "", relative=True)
-    check("Sun-synchronous RAAN rate", s["raan_rate_analytic"], 0.9856, 0.01, " deg/day", relative=True)
-    # With no perturbation switched on, the integrator must reproduce Kepler.
-    plain = perturb.propagate_perturbed(r0, v0, 1, use_j2=False, use_drag=False)
-    check("Integrator with no perturbations = Kepler", plain["summary"]["max_diff"], 0.0, 1e-3, " km")
-
-
 def test_gravity_assists():
     """
     Patched-conic route optimiser against history: searching only from
@@ -2800,49 +2785,6 @@ def test_launchers():
                launchers.capacity("Atlas V 551 + Star 48", 157.0) is None)
 
 
-def test_moon_tours():
-    """Moon tours: every flyby within the moon's bending limit and above its
-    minimum altitude, v-infinity conserved on resonant flybys, resonant
-    periods exact, and the tour much cheaper than inserting on first pass."""
-    import moontour as mt
-    t = mt.plan_preset("juice")
-    fbs = [e for e in t["events"] if e["kind"] == "flyby"]
-    check_true("JUICE-style tour: every flyby within the maximum bend",
-               all(e["turn_deg"] <= e["max_turn_deg"] + 1e-6 for e in fbs), f"{len(fbs)} flybys")
-    check_true("JUICE-style tour: every flyby above the minimum altitude",
-               all(e["altitude"] >= mt.MOONS[e["moon"]][4] - 1e-6 for e in fbs))
-    check_true("Tour saves more than 3 km/s vs inserting on the first pass",
-               t["direct"]["dv"] - t["insertion_dv"] > 3.0,
-               f"{t['direct']['dv']:.2f} -> {t['insertion_dv']:.2f} km/s")
-    # A resonant flyby keeps v-infinity: re-deriving it from the new orbit gives the same value.
-    worst = 0.0
-    for e in fbs:
-        if e["res"]:
-            m = mt.get_moon(e["moon"])
-            a = (e["rp"] + e["ra"]) / 2
-            ecc = (e["ra"] - e["rp"]) / (e["ra"] + e["rp"])
-            worst = max(worst, abs(mt.pump_from_orbit(m, a, ecc)[0] - e["vinf"]))
-            N, M = e["res"]
-            check("Resonant orbit period = N/M x moon period", e["period_days"], N / M * m.T / 86400, 1e-6, " d")
-            break
-    check("v-infinity conserved through a resonant flyby", worst, 0.0, 1e-6, " km/s")
-    c = mt.plan_preset("cassini")
-    check_true("Cassini-style tour reaches Titan's period (16 d) with flybys only", c["final_period_days"] <= 16.0,
-               f"{c['final_period_days']:.2f} d, {c['n_flybys']} flybys")
-
-
-def test_low_thrust():
-    """Low-thrust spirals: the integrated delta-v matches Edelbaum's
-    analytic |v1 - v2| for slow spirals, and the propellant obeys the
-    rocket equation."""
-    import lowthrust
-    for key in ("dawn", "geo"):
-        r = lowthrust.run_preset(key)
-        check(f"{key}: spiral delta-v vs Edelbaum", r["dv"], r["edelbaum_dv"], 0.03, "", relative=True)
-        dv_rocket = r["isp"] * 9.80665e-3 * math.log(r["mass"] / r["final_mass"])
-        check(f"{key}: rocket equation consistency", r["dv"], dv_rocket, 1e-9, " km/s")
-
-
 def test_deep_space_maneuver():
     """Juno's dV-EGA, re-optimised in Juno's real launch period
     (5-26 Aug 2011): Earth flyby within a month of the real 9 Oct 2013,
@@ -2873,6 +2815,32 @@ def test_orbit_uncertainty():
           2.0, 0.1)
 
 
+def test_full_gravity():
+    """Patched-conic routes flown in full solar-system gravity with
+    trajectory-correction manoeuvres: the uncorrected design misses, the
+    corrected flight meets every encounter as planned for a total delta-v
+    close to the design, with realistic correction budgets."""
+    import flyby
+    import nbody
+    w = (julian_date(2026, 9, 1, 0, 0, 0.0), julian_date(2027, 1, 1, 0, 0, 0.0))
+    d = flyby.optimise(["Earth", "Mars"], w, True, max_days=400)
+    d["launch_dv"] = float(flyby._launch_dv(d["vinf_launch"], "Earth"))
+    v = nbody.verify(d)
+    check_true("Mars 2026: the uncorrected design misses Mars by > 10,000 km", v["uncorrected"]["miss_km"] > 1e4,
+               f"{v['uncorrected']['miss_km']:,.0f} km")
+    e = v["encounters"][-1]
+    check("Mars 2026: arrival altitude after corrections", e["alt_actual"], e["alt_planned"], 10.0, " km")
+    check("Mars 2026: total delta-v vs design", v["total_dv"], v["design_total_dv"], 0.05, " km/s")
+    w = (julian_date(1977, 1, 1, 0, 0, 0.0), julian_date(1978, 6, 30, 0, 0, 0.0))
+    d = flyby.optimise(["Earth", "Jupiter", "Saturn"], w, False, max_days=3.5 * 365.25)
+    d["launch_dv"] = float(flyby._launch_dv(d["vinf_launch"], "Earth"))
+    v = nbody.verify(d)
+    check_true("Voyager: course corrections below 50 m/s in total", v["tcm_total"] < 0.05,
+               f"{v['tcm_total'] * 1000:.1f} m/s")
+    e = v["encounters"][-1]
+    check("Voyager: Saturn closest approach after corrections", e["alt_actual"], e["alt_planned"], 50.0, " km")
+
+
 def run_validation():
     test_stumpff()
     test_curtis_elements()
@@ -2884,15 +2852,13 @@ def run_validation():
     test_interplanetary()
     _optional("DE440s ephemeris", test_ephemeris)
     _optional("Manoeuvres", test_maneuvers)
-    _optional("Perturbations", test_perturbations)
     _optional("Gravity assists", test_gravity_assists)
     _optional("Repeat flybys", test_repeat_flybys)
     _optional("Satellite model", test_satellite_model)
     _optional("Launch vehicles", test_launchers)
-    _optional("Moon tours", test_moon_tours)
-    _optional("Low thrust", test_low_thrust)
     _optional("Deep-space maneuver (Juno)", test_deep_space_maneuver)
     _optional("Orbit uncertainty", test_orbit_uncertainty)
+    _optional("Full solar-system gravity", test_full_gravity)
 
     width = 58
     print("=" * 78)

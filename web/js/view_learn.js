@@ -181,42 +181,6 @@
       ],
     },
     {
-      id: 'arrival', title: 'Arriving: capture and moon tours', mins: 5, widget: null,
-      intro: `Reaching a planet is only half the job: to stay, the spacecraft must brake, because it arrives much faster than an
-        orbit allows. And braking costs fuel, lots of it.`,
-      body: `<p><b>Capture:</b> the braking burn is made at the closest point, where the spacecraft moves fastest. A change of
-        speed there changes the orbit's energy the most (the <b>Oberth effect</b>), so a small burn is enough to be caught
-        into a huge, loose orbit.</p>
-        <p><b>Moon tours:</b> then the moons take over. Each flyby of a big moon bends the path and reshapes the orbit, free
-        of charge. Choosing orbits that bring the spacecraft back to the same moon (resonances) lets designers repeat this
-        dozens of times. Galileo, Cassini (127 Titan flybys) and JUICE all do it.</p>
-        <p><b>The Tisserand graph</b> (in the Arrival tab) is the map of every orbit each moon can give at each relative speed:
-        tours "climb down" it, hopping between moons, until they can arrive gently at the target moon.</p>`,
-      after: '',
-      tries: [['Plan JUICE\'s tour to Ganymede (Arrival tab)', () => goto('arrival')]],
-      quiz: [
-        { q: 'Why is the capture burn made at the closest point to the planet?', options: ['The planet\'s atmosphere helps', 'The spacecraft is fastest there, so the burn changes its energy the most (Oberth effect)', 'Only there can the engine be pointed'], a: 1,
-          why: 'Energy change ≈ v × Δv, so the same Δv does most where v is largest.' },
-        { q: 'JUICE takes 3.5 years touring Jupiter\'s moons before orbiting Ganymede because…', options: ['It needs time to take photos', 'The tour slows it down relative to Ganymede, so the final braking burn is small', 'Ganymede is hard to find'], a: 1,
-          why: 'In the example tour, entering Ganymede orbit on the first pass would cost ~4.9 km/s; after the tour, ~1.2 km/s.' },
-      ],
-    },
-    {
-      id: 'ion', title: 'Ion engines: the tortoise wins', mins: 4, widget: 'ion',
-      intro: `An ion engine uses electricity (from solar panels) to accelerate charged xenon atoms to 20–40 km/s, ten times
-        faster than a chemical exhaust. The push is tiny, about the weight of two sheets of paper, but it never stops.`,
-      body: `<p>By the rocket equation, faster exhaust means far less propellant. Dawn carried 425 kg of xenon and changed its
-        speed by about 11 km/s in total: with chemical propellant that would have needed a spacecraft many times bigger.
-        The price is time: months or years of continuous thrust, spiralling slowly outward.</p>`,
-      after: `<p>Surprise: an ion spacecraft pushing <i>forward</i> to climb to a higher orbit ends up moving <i>slower</i>, for
-        the same reason as in the Hohmann lesson. See it in the Ion tab's chart.</p>`,
-      tries: [['Fly Dawn\'s spiral (Ion tab)', () => goto('lowthrust')]],
-      quiz: [
-        { q: 'Ion engines save propellant because…', options: ['Xenon is light', 'Their exhaust is about 10× faster than a chemical engine\'s', 'They only work in space'], a: 1,
-          why: 'Propellant needed depends on Δv / v_exhaust; a 10× faster exhaust means far less propellant for the same Δv.' },
-      ],
-    },
-    {
       id: 'uncert', title: 'How sure are we? Orbit determination', mins: 4, widget: 'errors',
       intro: `The orbit you solve in the Orbit tab comes from two measurements, and every measurement has errors. How much do
         small errors matter?`,
@@ -236,7 +200,6 @@
 
   /* ---------------- challenges ---------------- */
 
-  const AU = 1.495978707e8;
   const CHALLENGES = [
     { id: 'geo', title: 'Geostationary on a budget', goal: 'Transfer from a 300 km orbit to geostationary altitude (35,786 km) for less than 4.0 km/s.',
       hint: 'Maneuver tab. Where you launch from matters: look at the inclinations.', event: 'maneuver',
@@ -253,35 +216,15 @@
       hint: 'Only a giant planet can do it. Pass close, behind it.', event: 'sandbox', check: (r) => r && r.gain >= 10 },
     { id: 'brake', title: 'Free brakes', goal: 'In the flyby sandbox, lose at least 5 km/s in a single flyby.',
       hint: 'Pass in front of the planet.', event: 'sandbox', check: (r) => r && r.gain <= -5 },
-    { id: 'moon', title: 'Moon hopper', goal: 'End a moon tour in orbit around a moon with a final braking burn below 1.2 km/s.',
-      hint: 'Arrival tab: try the examples, or add a second moon to the flybys.', event: 'tour-result',
-      check: (t) => t.insertion_dv !== null && t.insertion_dv < 1.2 },
-    { id: 'ion', title: 'Patience pays', goal: 'Reach Mars\' orbit (1.52 AU or beyond) with an ion engine in under 400 days, using less than 25% of the mass as propellant.',
-      hint: 'Ion tab: more thrust shortens the trip; a higher Isp saves propellant.', event: 'lowthrust-result',
-      check: (r) => r.body === 'Sun' && r.r2 >= 1.52 * AU && r.duration / 86400 < 400 && r.propellant / r.mass < 0.25 },
     { id: 'track', title: 'Tracking pro', goal: 'Keep the one-week prediction error of the assignment orbit below 100 km.',
       hint: 'Orbit tab → How certain is this orbit? What if the sensors were better?', event: 'mc-result',
       check: (r) => r.per_orbit[r.per_orbit.length - 1].along_std < 100 },
     { id: 'navigator', title: 'Navigator', goal: 'Fly a gravity-assist route in full solar-system gravity with less than 10 m/s of course corrections.',
       hint: 'Mission tab → a route → Check in full solar-system gravity. Clean designs need the least correcting.',
       event: 'nbody', check: (v) => v.encounters.length >= 2 && v.tcm_total < 0.010 },
-    { id: 'weather', title: 'Space weather', goal: 'Show an orbit decaying at least 3 times faster at solar maximum than at solar minimum.',
-      hint: 'Perturb tab: the two "same orbit at solar minimum / maximum" examples, 30 days each.', event: 'perturb-result',
-      check: (r) => {
-        const s = r.summary;
-        if (s.atmosphere !== 'msis' || s.days_run < 20) return false;
-        // Orbit-averaged size at the start and the end (the instantaneous
-        // value wobbles by ~10 km every orbit because of J2).
-        const n = Math.max(1, Math.floor(r.a.length / 20));
-        const avg = (arr) => arr.reduce((x, y) => x + y, 0) / arr.length;
-        weatherRates[s.activity] = (avg(r.a.slice(0, n)) - avg(r.a.slice(-n))) / s.days_run;
-        return weatherRates.low > 0 && weatherRates.high > 3 * weatherRates.low;
-      } },
     { id: 'quiz', title: 'Quiz master', goal: 'Answer every quiz question in the lessons correctly.', event: 'quiz',
       check: () => allQuiz() },
   ];
-
-  const weatherRates = {};
 
   function allQuiz() {
     return LESSONS.every((L) => L.quiz.every((_, k) => progress.quiz[`${L.id}-${k}`] === true));

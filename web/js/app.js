@@ -20,11 +20,14 @@
     $('tb-now').textContent = view.nowLabel || 'Now';
     active = view;
     LS.activeView = view;
+    if (LS.governorPause) LS.governorPause(3);
 
     if (!started.has(id)) {
       started.add(id);
       try {
         await view.init();
+        // The first time the Orbit view opens, solve the example so there is an orbit on screen.
+        if (id === 'orbit') setTimeout(() => $('btn-solve').click(), 0);
       } catch (e) {
         console.error(e);
         view.failed = true;
@@ -80,6 +83,32 @@
     if (e.key === 'Escape') $('modal').hidden = true;
   });
 
+  /* ---------------- frame-rate governor ---------------- */
+
+  // In 'auto' quality the drawing resolution follows the frame rate: if the
+  // last second averaged under ~40 fps, draw fewer pixels; after several
+  // smooth seconds, try a little sharper again. Pauses right after a view
+  // opens (shaders and textures are still being prepared then).
+  let govFrames = 0, govTime = 0, govHold = 3, calm = 0;
+  function governor(dt) {
+    if (LS.settings.quality !== 'auto' || document.hidden) return;
+    govFrames++; govTime += dt;
+    if (govTime < 1) return;
+    const fps = govFrames / govTime;
+    govFrames = 0; govTime = 0;
+    if (govHold > 0) { govHold -= 1; return; }
+    const q = LS.quality;
+    if (fps < 40 && q.pr > q.min) {
+      LS.setPixelRatio(Math.max(q.min, q.pr * (fps < 25 ? 0.75 : 0.88)));
+      calm = 0;
+    } else if (fps > 56) {
+      if (++calm >= 6 && q.pr < q.max) { LS.setPixelRatio(q.pr * 1.1); calm = 0; govHold = 2; }
+    } else {
+      calm = 0;
+    }
+  }
+  LS.governorPause = (s = 3) => { govHold = s; };
+
   /* ---------------- animation loop ---------------- */
 
   let last = performance.now(), barTimer = 0, fpsFrames = 0, fpsTime = 0;
@@ -94,8 +123,9 @@
     }
     if (LS.settings.fps) {
       fpsFrames++; fpsTime += dt;
-      if (fpsTime >= 0.5) { $('fps').textContent = `${Math.round(fpsFrames / fpsTime)} fps`; fpsFrames = 0; fpsTime = 0; }
+      if (fpsTime >= 0.5) { $('fps').textContent = `${Math.round(fpsFrames / fpsTime)} fps · ${LS.quality.pr.toFixed(2)}×`; fpsFrames = 0; fpsTime = 0; }
     }
+    governor(dt);
     const v = active;
     if (v && started.has(v.id) && !v.failed) {
       try {
@@ -137,6 +167,14 @@
     });
   });
   $('fps').hidden = !LS.settings.fps;
+  const qsel = $('set-quality');
+  qsel.value = LS.settings.quality;
+  qsel.addEventListener('change', () => {
+    LS.settings.quality = qsel.value;
+    LS.applySettings();
+    LS.applyQuality();
+    LS.governorPause(3);
+  });
 
   /* ---------------- report dialog ---------------- */
 
@@ -181,6 +219,7 @@
   });
 
   (async function start() {
+    LS.shell();
     // Every 3D view lights its scene from the Sun's real direction, which
     // needs the planet table, so it is loaded before anything is drawn.
     try {
@@ -189,17 +228,12 @@
       LS.status(e.message, 'error');
       return;
     }
-    await LS.setView('orbit');
-    requestAnimationFrame(frame);
-    // Solve the example straight away, so the first thing on screen is an orbit.
-    $('btn-solve').click();
-    // Opening the page as .../#near (etc.) goes straight to that view.
-    // A sub-mode can follow a slash, e.g. #mission/route.
+    // The start page opens first, unless the address names a view
+    // (.../#near, or .../#mission/route with a sub-mode after the slash).
     const [wanted, sub] = location.hash.slice(1).split('/');
-    if (wanted && LS.views[wanted]) {
-      await LS.setView(wanted);
-      const btn = sub && document.querySelector(`.ctl[data-for="${wanted}"] .seg button[data-m="${sub}"]`);
-      if (btn) btn.click();
-    }
+    await LS.setView(wanted && wanted !== 'landing' && LS.views[wanted] ? wanted : 'landing');
+    requestAnimationFrame(frame);
+    const btn = sub && document.querySelector(`.ctl[data-for="${wanted}"] .seg button[data-m="${sub}"]`);
+    if (btn) btn.click();
   })();
 })();

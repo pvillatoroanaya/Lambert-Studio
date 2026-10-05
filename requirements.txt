@@ -5,4 +5,3 @@ PySide6
 sgp4
 skyfield
 scipy
-pymsis

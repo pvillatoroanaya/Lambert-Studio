@@ -41,8 +41,8 @@
     sun = new THREE.DirectionalLight(0xffffff, 1.25);
     s3.scene.add(sun);
 
-    moon = new THREE.Mesh(new THREE.SphereGeometry(1737.4 / LS.R_EARTH, 64, 48),
-      new THREE.MeshPhongMaterial({ map: LS.texture('textures/moon.jpg'), shininess: 2 }));
+    moon = new THREE.Mesh(new THREE.SphereGeometry(1737.4 / LS.R_EARTH, 160, 112),
+      LS.planetMaterial('Moon', 'moon.jpg'));
     moonLabel = LS.label('Moon', 'dim');
     moon.add(moonLabel);
     s3.scene.add(moon);

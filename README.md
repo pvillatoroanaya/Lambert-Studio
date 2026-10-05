@@ -12,18 +12,17 @@ The project has two parts:
    HTML dashboard and a validation suite.
 2. **Lambert Studio**: an extended desktop application built on the
    same solver, with 3D visualisation, real satellite and asteroid data,
-   interplanetary mission design, an orbital manoeuvre planner and
-   perturbed-orbit prediction.
+   interplanetary mission design and an orbital manoeuvre planner.
 
 ---
 
 ## 1. Assignment deliverable
 
 ```
-python lambert_problem_solver.py              # GUI (pre-filled with the assignment data)
-python lambert_problem_solver.py --report     # text report for the assignment data
-python lambert_problem_solver.py --selftest   # validation suite
-python lambert_problem_solver.py --dashboard  # interactive HTML dashboard
+python course/lambert_problem_solver.py              # GUI (pre-filled with the assignment data)
+python course/lambert_problem_solver.py --report     # text report for the assignment data
+python course/lambert_problem_solver.py --selftest   # validation suite
+python course/lambert_problem_solver.py --dashboard  # interactive HTML dashboard
 ```
 
 **Requirements:** Python 3.10+ and `numpy`. Optional: `plotly` (dashboard)
@@ -31,7 +30,7 @@ and `customtkinter` (modern GUI styling). If an optional package is
 missing, only the feature that needs it is disabled.
 
 The single file is **generated** from the modules by
-`python build_single_file.py`. Edit the modules, not the generated file.
+`python tools/build_single_file.py`. Edit the modules, not the generated file.
 
 ### Method
 
@@ -111,21 +110,11 @@ extensions (136 in total; without them, those checks are listed as skipped):
   Venus and first Earth flybys come within 11 and 20 days;
 - launch vehicles: NASA planning curves, and Juno's real launch mass
   (3,625 kg at C₃ = 31.1 on an Atlas V 551) sits 0–15 % above its curve;
-- moon tours: every flyby within the moon's bending limit and above its
-  minimum altitude, v∞ conserved through resonant flybys, resonant periods
-  exact, and a JUICE-style tour saving more than 3 km/s;
-- ion-engine spirals: the integrated Δv agrees with Edelbaum's analytic
-  |v₁ − v₂| within 3 %, and the propellant obeys the rocket equation;
 - Juno's deep-space-burn route, re-optimised in its real launch period:
   Earth flyby within a month of the real date (9 Oct 2013), burn and launch
   energy of the right size;
 - orbit-determination uncertainty: no measurement error gives exactly the
   nominal orbit, and doubling the angle error doubles the spread;
-- the high-fidelity Earth-orbit force model (`forces.py`): the analytic
-  gradient agrees with finite differences of the potential, the geostationary
-  stable point falls at 75.07°E, a geostationary orbit tilts 0.7-1.0 deg in a
-  year, the eclipse lasts 36.1 min in the test case, and the NRLMSIS density at
-  solar maximum is more than 4x that at solar minimum;
 - full solar-system gravity (`nbody.py`): the simple-model Mars trip misses
   by over 10,000 km when flown uncorrected, yet after corrections arrives
   within 10 km of the planned altitude; Voyager needs under 50 m/s of
@@ -135,21 +124,18 @@ extensions (136 in total; without them, those checks are listed as skipped):
 
 ## 2. Lambert Studio (extended application)
 
-Double-click **`run_studio.bat`** (or run `python lambert_studio.py`).
+Double-click **`run_studio.bat`** (or run `python src/lambert_studio.py`).
 
 | Tab | Contents |
 |---|---|
 | Orbit | Lambert solution in 3D around a rotating, textured Earth; live altitude, speed and visibility from the station |
 | Track | Ground track on a world map and the station's sky view, on the same timeline |
 | Maneuver | Hohmann, bi-elliptic, plane change and circularisation: Δv per burn, propellant (rocket equation), animated transfer, comparison of options |
-| Perturb | Numerical integration with J2 and atmospheric drag (SciPy DOP853): drift of the node and perigee against the analytic J2 rates, orbital decay and re-entry |
 | Satellites | Real satellites from CelesTrak at their current positions; search, details and orbits |
 | Flybys | Upcoming asteroid close approaches (NASA/JPL CNEOS), with precise geocentric paths from JPL Horizons |
 | Solar | Planets from the JPL DE440s ephemeris, and potentially hazardous asteroids from the JPL Small-Body Database |
-| Learn | Ten short lessons (orbits, Kepler's laws, Hohmann transfers, the rocket equation, launch windows, Lambert's problem, gravity assists, capture and moon tours, ion engines, measurement uncertainty), each with an interactive diagram, a quiz with explanations and a *Try it in the app* button; a **flyby sandbox** (aim past a planet and watch the velocity triangle); and ten **challenges** checked automatically while you use the other tabs |
+| Learn | Eight short lessons (orbits, Kepler's laws, Hohmann transfers, the rocket equation, launch windows, Lambert's problem, gravity assists, measurement uncertainty), each with an interactive diagram, a quiz with explanations and a *Try it in the app* button; a **flyby sandbox** (aim past a planet and watch the velocity triangle); and nine **challenges** checked automatically while you use the other tabs |
 | Mission | **Direct transfer:** porkchop plot and a plain-language explanation of the route (Type I/II, how far ahead to aim, comparison with Hohmann, how often launch windows return). **Gravity-assist route:** routes with up to 4 flybys, optimised with patched conics (`flyby.py`), where a leg may loop around the Sun (multi-revolution Lambert), so the same planet can be used twice. Shown in 3D with a speed-gain chart and a step-by-step story. Examples: Voyager, Mariner 10, Galileo (VEEGA), Cassini (VVEJGA) and the Voyager 2 Grand Tour. **Suggest routes for me:** give only start, destination and goal; it compares the route families used by real missions over the next years, recommends launch windows and trip times, and explains why the recommended route is best, in plain language with real missions that flew the same way. **Which rocket?** For every launch, the capacity of each real rocket (NASA planning curves) and the smallest one that can do it. **Juno's trick:** a route with a burn in deep space followed by an Earth flyby (`dsm.py`) |
-| Arrival | Capture at a giant planet, a burn that raises the closest approach, then a **moon tour**: resonant flybys of Callisto, Ganymede, Europa, Titan… found by a beam search (`moontour.py`), shown in 3D and on a **Tisserand graph**. Examples: JUICE (orbit Ganymede), a Galileo-style tour, a Europa orbiter, a Cassini-style Titan tour, a Titan orbiter |
-| Ion | Low-thrust spirals integrated with thrust and mass loss (`lowthrust.py`), compared with a chemical Hohmann transfer and checked against Edelbaum's formula. Examples: Dawn, BepiColombo, an all-electric satellite raised to GEO |
 
 **How certain is this orbit?** (Orbit tab) re-solves the orbit 3,000 times
 with random measurement errors (`uncertainty.py`), draws the cloud of
@@ -215,21 +201,33 @@ Three.js (3D) and Plotly (charts).
 | Task | Command |
 |---|---|
 | Run the whole test suite (physics groups + server API) | `python -m pytest` |
-| Run the classic validation report | `python validation.py` |
-| Rebuild the single-file hand-in | `python build_single_file.py` |
-| Build the stand-alone Windows app (no Python needed) | `python build_exe.py` → `%USERPROFILE%\LambertStudioBuild` |
-| Start only the server (open the address yourself) | `python lambert_studio.py --no-window` |
+| Run the classic validation report | `python src/validation.py` |
+| Rebuild the single-file hand-in | `python tools/build_single_file.py` |
+| Build the stand-alone Windows app (no Python needed) | `python tools/build_exe.py` → `%USERPROFILE%\LambertStudioBuild` |
+| Start only the server (open the address yourself) | `python src/lambert_studio.py --no-window` |
 
 Each 3D view also has a 📷 button that saves the current view as a PNG.
 
 ### Project layout
 
+```
+run_studio.bat      double-click to start the app (run_studio_debug.bat shows output)
+src/                all Python modules (physics, server, window, course GUI)
+web/                the interface: HTML, CSS, JavaScript, NASA textures
+course/             the assignment hand-in: lambert_problem_solver.py (generated)
+tools/              build_exe.py (Windows app), build_single_file.py (hand-in)
+tests/              pytest suite
+report/             case-study report, carousel, LinkedIn post
+```
+
+Paths below are relative to `src/`.
+
 | Part | Files |
 |---|---|
 | Core astrodynamics | `constants.py`, `time_utils.py`, `coord_utils.py`, `lambert_solver.py`, `orbital_elements.py`, `frames.py` |
-| Planets & missions | `planets.py`, `ephemeris.py`, `interplanetary.py`, `flyby.py`, `dsm.py`, `moontour.py`, `lowthrust.py`, `launchers.py`, `maneuvers.py`, `perturb.py`, `forces.py`, `nbody.py`, `uncertainty.py` |
+| Planets & missions | `planets.py`, `ephemeris.py`, `interplanetary.py`, `flyby.py`, `dsm.py`, `launchers.py`, `maneuvers.py`, `nbody.py`, `uncertainty.py` |
 | Live data | `satellites.py`, `asteroids.py`, `netcache.py` |
 | Application | `studio_server.py` (JSON API), `lambert_studio.py` (window), `web/` (Three.js + Plotly interface) |
-| Course deliverable | `app.py`, `dashboard.py`, `viz.py`, `report.py`, `build_single_file.py` → `lambert_problem_solver.py` |
+| Course deliverable | `app.py`, `dashboard.py`, `viz.py`, `report.py`, `tools/build_single_file.py` → `course/lambert_problem_solver.py` |
 | Report & studies | `report/study_time.py` (how results change with time), `report/build_report.py`, `report/carousel.html`, `report/linkedin_post.md` |
-| Quality | `validation.py`, `tests/`, `pyproject.toml`, `build_exe.py` |
+| Quality | `validation.py`, `tests/`, `pyproject.toml`, `tools/build_exe.py` |
