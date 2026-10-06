@@ -373,6 +373,12 @@ class Scene3D {
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
     this.controls.rotateSpeed = 0.6;
+    // Zoom limits for every view (views tighten them to their own scale):
+    // never into the camera's near plane, never beyond the background sky.
+    this.controls.minDistance = near * 3;
+    this.controls.maxDistance = far * 0.2;
+    this._near = near;
+    this._far = far;
 
     // Glow ("bloom"): only the brightest pixels -- the Sun, satellites,
     // highlighted markers -- bleed light into their surroundings.
@@ -442,6 +448,7 @@ class Scene3D {
     if (!this.home) this._saveHome();
     this._stepCamera(dt);
     if (this.mode === 'orbit' && !this.anim) this.controls.update();
+    this._guardCamera();
     this.sky.position.copy(this.camera.position);      // the sky is always "at infinity"
     this.stars.position.copy(this.camera.position);
     if (this.composer && LS.settings.bloom) {
@@ -499,9 +506,11 @@ class Scene3D {
   /* Frame a point from the current viewing direction. Views call this
      after drawing something new; it also becomes the "Reset" view. */
   focusOn(target, distance) {
+    if (!target || !this._finite(target) || !Number.isFinite(distance) || distance <= 0) return;
+    distance = Math.min(Math.max(distance, this.controls.minDistance), this.controls.maxDistance);
     if (this.mode === 'fly') this.setMode('orbit');
     if (this.follow) this.setFollow(null);
-    const dir = this.camera.position.clone().sub(this.controls.target).normalize();
+    const dir = this._viewDir();
     this.controls.target.copy(target);
     this.camera.position.copy(target).add(dir.multiplyScalar(distance));
     this.anim = null;
@@ -532,7 +541,7 @@ class Scene3D {
     const typing = (e) => e.target.matches && e.target.matches('input, select, textarea');
     const FLY_KEYS = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
     window.addEventListener('keydown', (e) => {
-      if (!visible() || !this.active || typing(e)) return;
+      if (!visible() || !this.active || this.locked || typing(e)) return;
       if (e.code === 'Escape' && this.mode === 'fly') { this.setMode('orbit'); return; }
       if (e.code === 'KeyF' && !e.ctrlKey) { this.setMode(this.mode === 'fly' ? 'orbit' : 'fly'); return; }
       if (this.mode === 'fly' && FLY_KEYS.includes(e.code)) { this.keys.add(e.code); e.preventDefault(); }
@@ -561,10 +570,11 @@ class Scene3D {
       if (!this.active || this.mode !== 'fly') return;
       e.preventDefault();
       this.flySpeed *= e.deltaY > 0 ? 1 / 1.25 : 1.25;
+      this.flySpeed = Math.min(Math.max(this.flySpeed, this._near * 0.1), this._far * 0.01);
       this._showSpeed();
     }, { passive: false });
     // Double-click: fly to whatever is under the pointer.
-    el.addEventListener('dblclick', (e) => { if (this.active) this._flyToPointer(e); });
+    el.addEventListener('dblclick', (e) => { if (this.active && !this.locked) this._flyToPointer(e); });
   }
 
   _buildCameraBar() {
@@ -653,7 +663,8 @@ class Scene3D {
     if (mode === 'fly') {
       this.anim = null;
       this._euler.setFromQuaternion(this.camera.quaternion, 'YXZ');
-      this.flySpeed = Math.max(this.camera.position.distanceTo(this.controls.target) * 0.4, 1e-4);
+      this.flySpeed = Math.min(Math.max(this.camera.position.distanceTo(this.controls.target) * 0.4,
+        this._near * 0.1), this._far * 0.01);
       this.controls.enabled = false;
     } else {
       // Put the orbit centre straight ahead, so the view does not jump.
@@ -686,10 +697,18 @@ class Scene3D {
   /* Smooth camera move to look at `target` from `dist` away. If `obj`
      is given, the destination tracks it while the camera travels. */
   flyTo(target, dist, obj = null) {
+    if (!target || !this._finite(target) || !Number.isFinite(dist) || dist <= 0) return;
+    dist = Math.min(Math.max(dist, this.controls.minDistance), this.controls.maxDistance);
     if (this.mode === 'fly') this.setMode('orbit');
-    const dir = this.camera.position.clone().sub(this.controls.target).normalize();
+    const dir = this._viewDir();
     this.anim = { t: 0, dur: 1.2, fromT: this.controls.target.clone(), fromP: this.camera.position.clone(),
       toT: target.clone(), dir, dist, obj };
+  }
+
+  /* Direction from the target to the camera (a safe default when they coincide). */
+  _viewDir() {
+    const d = this.camera.position.clone().sub(this.controls.target);
+    return d.lengthSq() > 0 && this._finite(d) ? d.normalize() : new THREE.Vector3(0, 0.3, 1).normalize();
   }
 
   resetView() {
@@ -702,7 +721,39 @@ class Scene3D {
   }
 
   _saveHome() {
+    if (!this._finite(this.camera.position) || !this._finite(this.controls.target)) return;
     this.home = { t: this.controls.target.clone(), p: this.camera.position.clone() };
+  }
+
+  _finite(v) { return Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.z); }
+
+  /* Safety net: whatever happens (extreme zoom, flying off at full speed,
+     a bad value from a calculation), the camera never ends up at NaN,
+     inside its own target, or outside the world -- which would leave the
+     view black for good. A broken camera goes back to its last good view. */
+  _guardCamera() {
+    const cam = this.camera.position, tgt = this.controls.target;
+    if (!this._finite(cam) || !this._finite(tgt) || !this._finite(this.camera.quaternion)) {
+      this.anim = null;
+      this.follow = null;
+      if (this.mode === 'fly') { this.mode = 'orbit'; this.controls.enabled = this.active; this._showSpeed(); }
+      if (this.home) { tgt.copy(this.home.t); cam.copy(this.home.p); }
+      else { tgt.set(0, 0, 0); cam.set(0, 0, 10); }
+      this.camera.lookAt(tgt);
+      if (LS.report) LS.report('camera reset after an invalid position');
+      return;
+    }
+    const limit = this._far * 0.3;                 // stay inside the background sky
+    if (cam.length() > limit) {
+      const back = cam.clone().setLength(limit).sub(cam);
+      cam.add(back);
+      tgt.add(back);
+    }
+    if (cam.distanceTo(tgt) < this._near * 2) {    // never sit on the target point
+      const dir = new THREE.Vector3();
+      this.camera.getWorldDirection(dir);
+      tgt.copy(cam).add(dir.multiplyScalar(Math.max(this.controls.minDistance, this._near * 4)));
+    }
   }
 
   /* A comfortable distance to look at an object from. */
@@ -832,15 +883,12 @@ LS.texture = function (path) {
   return _tex[path];
 };
 
-/* Surface of a planet or moon. Rocky worlds also get relief shading (the
-   picture's brightness doubles as a bump map), so craters and mountain
-   ranges catch the light at the terminator instead of looking painted on. */
-const _RELIEF = { mercury: 0.9, moon: 0.7, mars: 0.6 };
+/* Surface of a planet or moon: the picture alone, lit by the Sun. (Using
+   the picture's brightness as a bump map made every bright or dark speck a
+   dimple -- the "golf ball" look -- so no bump map is used.) */
 LS.planetMaterial = function (name, file, extra = {}) {
   const map = LS.texture(`textures/${file || name.toLowerCase() + '.jpg'}`);
-  const relief = _RELIEF[name.toLowerCase()];
-  const params = Object.assign({ map, roughness: 1, metalness: 0 }, extra);
-  if (relief) { params.bumpMap = map; params.bumpScale = relief; }
+  const params = Object.assign({ map, roughness: 1, metalness: 0, color: 0xc8c8c8 }, extra);
   return new THREE.MeshStandardMaterial(params);
 };
 

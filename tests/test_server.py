@@ -174,3 +174,48 @@ def test_verify_route_mars(api):
 def test_verify_route_rejects_bad_input(api, body, message):
     js = api("/api/verify_route", body)
     assert not js["ok"] and message in js["error"]
+
+
+# ----------------------------------------------------------------------
+# robustness: rare values get a clear message, never an internal error
+# (found by tests/fuzz_api.py; the full sweep runs outside pytest)
+# ----------------------------------------------------------------------
+
+_OBS = {"station": ["1344.143", "6068.601", "1429.311"],
+        "obs1": {"date": "2023-04-02", "time": "00:30:00", "az": "132.67", "el": "32.44", "rng": "16945.450"},
+        "obs2": {"date": "2023-04-02", "time": "03:00:00", "az": "123.08", "el": "50.06", "rng": "37350.340"}}
+
+
+def _with(base, **changes):
+    import copy
+    req = copy.deepcopy(base)
+    req.update(changes)
+    return req
+
+
+@pytest.mark.parametrize("path, body", [
+    ("/api/solve", _with(_OBS, station=["nan", 6068, 1429])),
+    ("/api/solve", _with(_OBS, station=[1e9, 0, 0])),
+    ("/api/solve", _with(_OBS, station=None)),
+    ("/api/solve", _with(_OBS, obs1="")),
+    ("/api/solve", _with(_OBS, obs2={"date": "2023-02-30", "time": "99:99:99", "az": 1, "el": 1, "rng": 1})),
+    ("/api/solve", {"mode": "vectors", "r1": [5000, 10000, 2100], "r2": [-14600, 2500, 7000], "tof": 1e-12}),
+    ("/api/solve", {"mode": "vectors", "r1": "inf", "r2": [1, 2, 3], "tof": 10}),
+    ("/api/solve", {"mode": "vectors", "r1": [1e308, 0, 0], "r2": [1, 2, 3], "tof": 10}),
+    ("/api/uncertainty", _with(_OBS, sigma_angle=0.01, sigma_range=0.015, sigma_time=0.001, n=300,
+                               obs1={**_OBS["obs1"], "az": 1e9})),
+    ("/api/maneuver", {"kind": "circularize", "mass": 1000, "isp": 320, "r": [{}, 0, 0], "v": [0, 9, 0]}),
+    ("/api/maneuver", {"kind": "hohmann", "mass": "inf", "isp": 320, "alt1": 300, "alt2": 35786, "i1": 0, "i2": 0}),
+    ("/api/transfer", {"dep": [], "arr": "Mars", "dep_date": "2026-11-01", "arr_date": "2027-08-20"}),
+    ("/api/porkchop", {"dep": "Earth", "arr": "Mars", "dep_start": "2026-08-01", "dep_end": "2027-03-01",
+                       "arr_start": "2027-03-01", "arr_end": "2028-02-01", "n": None}),
+    ("/api/route", {"seq": 5, "from": "2026-06-01", "to": "2027-03-01", "max_years": 2}),
+    ("/api/verify_route", {"seq": ["Earth", "Mars"], "jds": [None, 2461637.5]}),
+    ("/api/ephemeris", {"start": "nan", "step": 1, "n": 10}),
+    ("/api/satellites", {"groups": None}),
+    ("/api/flyby", {"des": {}, "jd": "inf"}),
+])
+def test_rare_values_get_a_clear_message(api, path, body):
+    js = api(path, body)          # a result (e.g. an azimuth that wraps round) or a clear message
+    if not js["ok"]:
+        assert "Internal error" not in js["error"] and "could not be computed" not in js["error"]

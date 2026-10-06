@@ -90,8 +90,8 @@
   function ensureScene() {
     if (s3) return;
     s3 = new LS.Scene3D($('cv-fx'), { near: 1e-3, far: 1e5 });
-    s3.scene.add(new THREE.AmbientLight(0x3a4466, 0.35));
-    sunLight = new THREE.DirectionalLight(0xfff4e0, 1.05);
+    s3.scene.add(new THREE.AmbientLight(0x3a4466, 0.2));
+    sunLight = new THREE.DirectionalLight(0xfff4e0, 0.8);
     s3.scene.add(sunLight);
     s3.controls.addEventListener('start', () => { userCam = true; });
     $('fx-skip').addEventListener('click', () => finish());
@@ -216,7 +216,7 @@
     G.camDist = V * 2.6;
     s3.controls.target.set(0, 0, 0);
     s3.camera.position.copy(G.camDir).multiplyScalar(G.camDist * 1.6);
-    s3.controls.maxDistance = V * 60;
+    s3.controls.maxDistance = Number.isFinite(V) && V > 0 ? Math.min(V * 60, 3e4) : 3e4;
   }
 
   /* After the relative-frame animation: the path as seen from the Sun. */

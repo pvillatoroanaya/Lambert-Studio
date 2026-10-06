@@ -80,6 +80,8 @@ def monte_carlo(station, obs, sigma_angle_deg=0.01, sigma_range_km=0.015, sigma_
     rng = np.random.default_rng(seed)
     sig = {"angle": sigma_angle_deg, "range": sigma_range_km, "time": sigma_time_s}
     nominal_r, nominal_v = _solve(station, obs, {"angle": 0, "range": 0, "time": 0}, 1, rng, prograde)
+    if len(nominal_r) == 0:
+        raise ValueError("No orbit connects these two observations, so there is nothing to analyse.")
     r, v = _solve(station, obs, sig, n, rng, prograde)
     if len(r) < n * 0.9:
         raise ValueError("Many samples had no solution; the errors are too large for this geometry.")
@@ -88,6 +90,8 @@ def monte_carlo(station, obs, sigma_angle_deg=0.01, sigma_range_km=0.015, sigma_
 
     def stats(x):
         x = x[np.isfinite(x)]
+        if len(x) == 0:                     # e.g. the period of an escape orbit
+            return {"mean": None, "std": None, "p05": None, "p95": None}
         return {"mean": float(x.mean()), "std": float(x.std()), "p05": float(np.percentile(x, 5)),
                 "p95": float(np.percentile(x, 95))}
 

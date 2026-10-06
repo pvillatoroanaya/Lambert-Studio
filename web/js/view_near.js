@@ -37,8 +37,8 @@
     s3 = new LS.Scene3D($('cv-near'), { near: 0.001, far: 5e4 });
     earth = LS.earth();
     s3.scene.add(earth.group);
-    s3.scene.add(new THREE.AmbientLight(0x6070a0, 0.35));
-    sun = new THREE.DirectionalLight(0xffffff, 1.25);
+    s3.scene.add(new THREE.AmbientLight(0x6070a0, 0.2));
+    sun = new THREE.DirectionalLight(0xffffff, 0.9);
     s3.scene.add(sun);
 
     moon = new THREE.Mesh(new THREE.SphereGeometry(1737.4 / LS.R_EARTH, 160, 112),

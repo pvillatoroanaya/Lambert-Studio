@@ -5,3 +5,4 @@ rem messages. Useful if something goes wrong.
 echo.
 echo Lambert Studio has stopped. Log folder: %USERPROFILE%\.lambert_studio\logs
 pause
+

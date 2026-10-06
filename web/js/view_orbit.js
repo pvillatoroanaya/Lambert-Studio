@@ -26,8 +26,8 @@
     s3 = new LS.Scene3D($('cv-orbit'), { near: 0.001, far: 5e4 });
     earth = LS.earth();
     s3.scene.add(earth.group);
-    s3.scene.add(new THREE.AmbientLight(0x6070a0, 0.35));
-    sun = new THREE.DirectionalLight(0xffffff, 1.25);
+    s3.scene.add(new THREE.AmbientLight(0x6070a0, 0.2));
+    sun = new THREE.DirectionalLight(0xffffff, 0.9);
     s3.scene.add(sun);
 
     // Equatorial plane and the vernal-equinox direction (ECI +X).
@@ -171,8 +171,8 @@
     c.t = 0;
     c.loop = sol.track.closed;
     c.playing = true;
-    s3.focusOn(new THREE.Vector3(), rmax * 2.6);
-    s3.controls.maxDistance = rmax * 20;
+    s3.controls.maxDistance = Number.isFinite(rmax) ? Math.min(Math.max(rmax * 20, 400), 1.5e4) : 400;
+    s3.focusOn(new THREE.Vector3(), Number.isFinite(rmax) ? rmax * 2.6 : 10);
     renderHud(sol);
     LS.syncTimebar();
   }

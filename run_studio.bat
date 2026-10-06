@@ -1,3 +1,4 @@
+yeah
 @echo off
 rem Double-click this file to start Lambert Studio.
 rem It uses the project's own Python environment (created during setup) and
@@ -13,3 +14,4 @@ if exist "%VENV_DIR%\pythonw.exe" (
     python "%~dp0src\lambert_studio.py" %*
     if errorlevel 1 pause
 )
+

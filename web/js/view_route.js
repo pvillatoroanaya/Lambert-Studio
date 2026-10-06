@@ -197,8 +197,8 @@
   function ensureScene() {
     if (s3) return;
     s3 = new LS.Scene3D($('cv-route'), { near: 1e-4, far: 1e5 });
-    s3.scene.add(new THREE.AmbientLight(0x404a66, 0.3));
-    s3.scene.add(new THREE.PointLight(0xfff2dd, 1.7, 0, 0));
+    s3.scene.add(new THREE.AmbientLight(0x404a66, 0.2));
+    s3.scene.add(new THREE.PointLight(0xfff2dd, 1.05, 0, 0));
     const sun = LS.sun(0.05);
     sun.add(LS.glowSprite(0xffa040, 0.6));
     s3.scene.add(sun);

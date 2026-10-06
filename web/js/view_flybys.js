@@ -25,8 +25,8 @@
     s3 = new LS.Scene3D($('cv-flybys'), { near: 0.01, far: 1e6 });
     earth = LS.earth();
     s3.scene.add(earth.group);
-    s3.scene.add(new THREE.AmbientLight(0x6070a0, 0.35));
-    sun = new THREE.DirectionalLight(0xffffff, 1.25);
+    s3.scene.add(new THREE.AmbientLight(0x6070a0, 0.2));
+    sun = new THREE.DirectionalLight(0xffffff, 0.9);
     s3.scene.add(sun);
 
     // Screen-size markers, so Earth and the asteroid stay findable when

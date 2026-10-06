@@ -29,8 +29,8 @@
 
   view.init = async function () {
     s3 = new LS.Scene3D($('cv-solar'), { near: 1e-4, far: 1e5 });
-    s3.scene.add(new THREE.AmbientLight(0x404a66, 0.25));
-    s3.scene.add(new THREE.PointLight(0xfff2dd, 1.7, 0, 0));
+    s3.scene.add(new THREE.AmbientLight(0x404a66, 0.2));
+    s3.scene.add(new THREE.PointLight(0xfff2dd, 1.05, 0, 0));
 
     const sunMesh = LS.sun(0.035);
     sunMesh.add(LS.glowSprite(0xffa040, 0.45));

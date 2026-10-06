@@ -30,8 +30,8 @@
     s3 = new LS.Scene3D($('cv-maneuver'), { near: 0.001, far: 5e5 });
     earth = LS.earth();
     s3.scene.add(earth.group);
-    s3.scene.add(new THREE.AmbientLight(0x6070a0, 0.35));
-    sun = new THREE.DirectionalLight(0xffffff, 1.25);
+    s3.scene.add(new THREE.AmbientLight(0x6070a0, 0.2));
+    sun = new THREE.DirectionalLight(0xffffff, 0.9);
     s3.scene.add(sun);
     const grid = new THREE.PolarGridHelper(10, 12, 5, 96, 0x2a3b60, 0x1a2640);
     grid.material.transparent = true; grid.material.opacity = 0.3;
@@ -128,8 +128,8 @@
     const base = T / 40;                                   // a full run in ~40 s
     c.rates = [[base / 4, 'slow'], [base / 2, '½'], [base, 'normal'], [base * 2, '2×'], [base * 4, '4×']];
     c.rate = base;
-    s3.focusOn(new THREE.Vector3(), Math.max(rmax * 2.6, 4));
-    s3.controls.maxDistance = rmax * 30;
+    s3.controls.maxDistance = Number.isFinite(rmax) ? Math.min(Math.max(rmax * 30, 50), 1.5e5) : 5000;
+    s3.focusOn(new THREE.Vector3(), Number.isFinite(rmax) ? Math.max(rmax * 2.6, 4) : 10);
     renderHud();
     LS.syncTimebar();
   }

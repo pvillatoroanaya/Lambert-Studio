@@ -76,10 +76,47 @@ def _clean(x):
 
 
 def _num(value, label):
-    try:
-        return float(value)
-    except (TypeError, ValueError):
+    """A finite number. Text such as 'nan' or 'inf', True/False, lists and
+    absurdly large values are refused with a clear message."""
+    if isinstance(value, bool):
         raise ValueError(f"{label} must be a number (got '{value}').")
+    try:
+        x = float(value)
+    except (TypeError, ValueError, OverflowError):
+        raise ValueError(f"{label} must be a number (got '{value}').")
+    if not math.isfinite(x):
+        raise ValueError(f"{label} must be a finite number (got '{value}').")
+    if abs(x) > 1e12:
+        raise ValueError(f"{label} is far too large (got '{value}').")
+    return x
+
+
+def _vec3(value, label):
+    """Three numbers [x, y, z]."""
+    if not isinstance(value, (list, tuple)) or len(value) != 3:
+        raise ValueError(f"{label} must be three numbers (x, y, z).")
+    return np.array([_num(v, f"{label} {a}") for v, a in zip(value, "XYZ")])
+
+
+def _obj(req, key, label):
+    """A nested group of fields (one observation, for example)."""
+    o = req.get(key)
+    if not isinstance(o, dict):
+        raise ValueError(f"{label} is missing.")
+    return o
+
+
+def _planet_list(value, label="Route"):
+    """A route: a list of planet names (empty slots are skipped)."""
+    if not isinstance(value, (list, tuple)):
+        raise ValueError(f"{label}: give the planets as a list.")
+    return [_planet(p, f"{label} planet") for p in value if p]
+
+
+def _planet(name, label):
+    if not isinstance(name, str) or name not in planets.PLANET_ORDER:
+        raise ValueError(f"{label}: choose one of the eight planets.")
+    return name
 
 
 def _parse_date(text, label):
@@ -124,27 +161,36 @@ def jd_to_iso(jd):
 # API
 # ----------------------------------------------------------------------
 
+def _observations(req):
+    """Station + two observations, checked: [(jd, az, el, rng), ...]."""
+    station = _vec3(req.get("station"), "Station")
+    if not 6000 <= np.linalg.norm(station) <= 6600:
+        raise ValueError("The station must be on the Earth's surface: its distance from the "
+                         "Earth's centre must be about 6,378 km (6,000 to 6,600 km).")
+    obs = []
+    for k, key in enumerate(("obs1", "obs2"), 1):
+        label = f"Observation {k}"
+        o = _obj(req, key, label)
+        jd = _jd(o.get("date"), o.get("time"), label)
+        az = _num(o.get("az"), f"{label} azimuth") % 360.0
+        el = _num(o.get("el"), f"{label} elevation")
+        rng = _num(o.get("rng"), f"{label} range")
+        if not -90 <= el <= 90:
+            raise ValueError(f"{label} elevation must be between -90 and 90 deg.")
+        if not 0 < rng <= 1e7:
+            raise ValueError(f"{label} range must be between 0 and 10,000,000 km.")
+        obs.append((jd, az, el, rng))
+    if obs[1][0] <= obs[0][0]:
+        raise ValueError("Observation 2 must be later than Observation 1.")
+    return station, obs
+
+
 def api_solve(req):
     mode = req.get("mode", "observations")
     prograde = bool(req.get("prograde", True))
 
     if mode == "observations":
-        station = np.array([_num(v, f"Station {a}") for v, a in zip(req["station"], "XYZ")])
-        if np.linalg.norm(station) < 1.0:
-            raise ValueError("Station position cannot be the zero vector.")
-        obs = []
-        for k, key in enumerate(("obs1", "obs2"), 1):
-            o = req[key]
-            label = f"Observation {k}"
-            jd = _jd(o["date"], o["time"], label)
-            az = _num(o["az"], f"{label} azimuth")
-            el = _num(o["el"], f"{label} elevation")
-            rng = _num(o["rng"], f"{label} range")
-            if not -90 <= el <= 90:
-                raise ValueError(f"{label} elevation must be between -90 and 90 deg.")
-            if rng <= 0:
-                raise ValueError(f"{label} range must be positive.")
-            obs.append((jd, az, el, rng))
+        station, obs = _observations(req)
         (jd1, az1, el1, rg1), (jd2, az2, el2, rg2) = obs
         dt = time_of_flight(jd1, jd2)
         if dt <= 0:
@@ -153,14 +199,16 @@ def api_solve(req):
         r2 = topocentric_to_geocentric(az2, el2, rg2, station, gmst_from_jd(jd2))
         jd0 = jd1
     else:
-        r1 = np.array([_num(v, f"r1 {a}") for v, a in zip(req["r1"], "XYZ")])
-        r2 = np.array([_num(v, f"r2 {a}") for v, a in zip(req["r2"], "XYZ")])
+        r1 = _vec3(req.get("r1"), "r1")
+        r2 = _vec3(req.get("r2"), "r2")
         for v, n in ((r1, "r1"), (r2, "r2")):
             if np.linalg.norm(v) < 1e-6:
                 raise ValueError(f"{n} cannot be the zero vector.")
-        dt = _num(req["tof"], "Time of flight")
+        dt = _num(req.get("tof"), "Time of flight")
         if dt <= 0:
             raise ValueError("Time of flight must be positive.")
+        if not 1 <= dt <= 1e9:
+            raise ValueError("Time of flight must be between 1 s and 1,000,000,000 s (about 30 years).")
         station = None
         jd0 = JD_J2000       # no epoch in this mode; Earth drawn at J2000
 
@@ -262,7 +310,8 @@ def api_maneuver(req):
     if kind == "circularize":
         if not req.get("r") or not req.get("v"):
             raise ValueError("Solve an orbit in the Orbit tab first.")
-        plan = maneuvers.circularize(req["r"], req["v"], req.get("where", "apogee"), mass, isp)
+        plan = maneuvers.circularize(_vec3(req["r"], "Position"), _vec3(req["v"], "Velocity"),
+                                     req.get("where", "apogee"), mass, isp)
     else:
         alt1 = _num(req.get("alt1"), "Initial altitude")
         i1 = _float_arg(req, "i1", "Initial inclination", 0, 180)
@@ -288,7 +337,7 @@ def _jd_from_date(text, label):
 
 
 def api_transfer(req):
-    dep, arr = req["dep"], req["arr"]
+    dep, arr = _planet(req.get("dep"), "Departure"), _planet(req.get("arr"), "Arrival")
     if dep == arr:
         raise ValueError("Departure and arrival planets must be different.")
     jd_d = _jd_from_date(req["dep_date"], "Departure date")
@@ -312,7 +361,10 @@ def api_transfer(req):
 
 def api_suggest_window(req):
     after = _jd_from_date(req.get("after") or datetime.date.today().isoformat(), "Search start date")
-    s = interplanetary.suggest_window(req["dep"], req["arr"], after)
+    dep, arr = _planet(req.get("dep"), "Departure"), _planet(req.get("arr"), "Arrival")
+    if dep == arr:
+        raise ValueError("Departure and arrival planets must be different.")
+    s = interplanetary.suggest_window(dep, arr, after)
     for k in ("jd_departure", "jd_arrival"):
         s[k.replace("jd_", "") + "_iso"] = jd_to_iso(s[k])
     s["window_iso"] = {k: jd_to_iso(v)[:10] for k, v in s["window"].items()}
@@ -343,7 +395,7 @@ def api_route_presets(_req=None):
 
 
 def api_route(req):
-    seq = [p for p in req.get("seq", []) if p]
+    seq = _planet_list(req.get("seq", []))
     if len(seq) < 2:
         raise ValueError("Choose at least a start and a destination.")
     if len(seq) > 2 + flyby.MAX_FLYBYS:
@@ -367,7 +419,7 @@ def api_route(req):
 
 
 def api_porkchop(req):
-    dep, arr = req["dep"], req["arr"]
+    dep, arr = _planet(req.get("dep"), "Departure"), _planet(req.get("arr"), "Arrival")
     if dep == arr:
         raise ValueError("Departure and arrival planets must be different.")
     w_dep = (_jd_from_date(req["dep_start"], "Departure window start"),
@@ -376,7 +428,7 @@ def api_porkchop(req):
              _jd_from_date(req["arr_end"], "Arrival window end"))
     if w_dep[1] <= w_dep[0] or w_arr[1] <= w_arr[0]:
         raise ValueError("Each window must end after it starts.")
-    n = int(min(max(int(req.get("n", 60)), 10), 120))
+    n = int(min(max(_num(req.get("n", 60), "Grid size"), 10), 120))
     dg, ag, Z = interplanetary.porkchop(dep, arr, w_dep, w_arr, n_dep=n, n_arr=n)
     best = interplanetary.best_transfer(dg, ag, Z)
     if best:
@@ -387,8 +439,10 @@ def api_porkchop(req):
 
 
 def api_satellites(req):
-    groups = [g for g in req.get("groups", ",".join(satellites.DEFAULT_GROUPS)).split(",")
-              if g in satellites.GROUPS]
+    groups = req.get("groups", ",".join(satellites.DEFAULT_GROUPS))
+    if not isinstance(groups, str):
+        raise ValueError("Choose the satellite groups to show.")
+    groups = [g for g in groups.split(",") if g in satellites.GROUPS]
     return satellites.satellite_table(groups, refresh=req.get("refresh") == "1")
 
 
@@ -444,7 +498,11 @@ def api_neo(req):
 
 
 def api_flyby(req):
-    return asteroids.flyby_path(req["des"], float(req["jd"]))
+    des = req.get("des")
+    if not isinstance(des, str) or not des.strip() or len(des) > 40 or not all(c.isalnum() or c in " -_()/" for c in des):
+        raise ValueError("Choose an asteroid from the list.")
+    jd = _float_arg(req, "jd", "Close-approach date", 2396760, 2506340)
+    return asteroids.flyby_path(des.strip(), jd)
 
 
 # The page pings while it is open and says "bye" when it closes; the
@@ -501,17 +559,28 @@ def api_route_dsm(req):
 def api_verify_route(req):
     """Fly a designed route (or a direct transfer) in full solar-system
     gravity, with trajectory-correction manoeuvres (nbody.py)."""
-    seq = [p for p in req.get("seq", []) if p]
-    jds = [float(j) for j in req.get("jds", [])]
+    raw = req.get("seq", [])
+    if isinstance(raw, (list, tuple)):
+        for p_ in raw:
+            if p_ and (not isinstance(p_, str) or p_ not in planets.PLANET_ORDER):
+                raise ValueError(f"Unknown planet '{p_}'.")
+    seq = _planet_list(raw)
+    jds_raw = req.get("jds", [])
+    if not isinstance(jds_raw, (list, tuple)):
+        raise ValueError("Give the route's planets and one date per planet.")
+    jds = [_num(j, "Route date") for j in jds_raw]
     if len(seq) < 2 or len(jds) != len(seq):
         raise ValueError("Give the route's planets and one date per planet.")
-    for p_ in seq:
-        if p_ not in planets.PLANET_ORDER:
-            raise ValueError(f"Unknown planet '{p_}'.")
+    if not all(2396760 <= j <= 2506340 for j in jds):
+        raise ValueError("Route dates must be between 1850 and 2150.")
     if any(b <= a for a, b in zip(jds, jds[1:])):
         raise ValueError("The dates must increase along the route.")
     legs = req.get("legs") or [{"revs": 0, "branch": 0}] * (len(seq) - 1)
-    opts = [(int(L.get("revs", 0)), int(L.get("branch", 0))) for L in legs]
+    if not isinstance(legs, list) or len(legs) != len(seq) - 1 or not all(isinstance(L, dict) for L in legs):
+        raise ValueError("The route's legs do not match its planets.")
+    opts = [(int(_num(L.get("revs", 0), "Laps")), int(_num(L.get("branch", 0), "Branch"))) for L in legs]
+    if any(not 0 <= r <= 3 or b not in (0, 1) for r, b in opts):
+        raise ValueError("Each leg may loop the Sun 0 to 3 times, on branch 0 or 1.")
     capture = bool(req.get("capture", True))
     cost, det = flyby.evaluate(seq, jds, capture, flyby._StateCache(), opts, detail=True)
     if det is None:
@@ -528,17 +597,7 @@ def api_verify_route(req):
 
 
 def api_uncertainty(req):
-    station = np.array([_num(v, f"Station {a}") for v, a in zip(req["station"], "XYZ")])
-    if np.linalg.norm(station) < 1.0:
-        raise ValueError("Station position cannot be the zero vector.")
-    obs = []
-    for k, key in enumerate(("obs1", "obs2"), 1):
-        o = req[key]
-        label = f"Observation {k}"
-        obs.append((_jd(o["date"], o["time"], label), _num(o["az"], f"{label} azimuth"),
-                    _num(o["el"], f"{label} elevation"), _num(o["rng"], f"{label} range")))
-    if obs[1][0] <= obs[0][0]:
-        raise ValueError("Observation 2 must be later than Observation 1.")
+    station, obs = _observations(req)
     return uncertainty.monte_carlo(
         station, obs,
         sigma_angle_deg=_float_arg(req, "sigma_angle", "Angle error (deg)", 0, 5),
@@ -600,9 +659,14 @@ class _Handler(SimpleHTTPRequestHandler):
             # User-facing errors are normal, but log them so any unexpected
             # one can be traced afterwards.
             logging.getLogger("server").warning("%s -> %s (request: %s)", path, msg, str(req)[:300])
+        except ArithmeticError:                   # overflow / division by zero in the maths
+            logging.getLogger("server").warning("%s overflow:\n%s", path, traceback.format_exc())
+            payload, status = {"ok": False, "error": "These values are too extreme to compute. "
+                                                      "Try values closer to a real orbit or mission."}, 200
         except Exception as exc:                  # a bug, not a user error
             logging.getLogger("server").error("%s failed:\n%s", path, traceback.format_exc())
-            payload, status = {"ok": False, "error": f"Internal error: {exc}"}, 500
+            payload, status = {"ok": False, "error": "Something in these inputs could not be computed "
+                                                      f"({type(exc).__name__}). Check the values and try again."}, 500
         body = json.dumps(payload).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json")

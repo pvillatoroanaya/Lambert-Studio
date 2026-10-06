@@ -63,6 +63,7 @@
     setupPage();
     s3 = new LS.Scene3D($('cv-landing'), { near: 0.05, far: 2000 });
     s3.controls.enableRotate = s3.controls.enableZoom = s3.controls.enablePan = false;
+    s3.locked = true;            // the scroll story drives this camera: no fly mode or double-click
     s3.controls.autoRotate = false;
 
     // Everything sits in one group that the scroll moves and the pointer tilts;
@@ -75,9 +76,9 @@
     world.add(earth.group);
     grid = polarGrid(5);
     world.add(grid);
-    const light = new THREE.DirectionalLight(0xffffff, 1.25);
+    const light = new THREE.DirectionalLight(0xffffff, 0.9);
     light.position.copy(SUN).multiplyScalar(10);
-    s3.scene.add(light, new THREE.AmbientLight(0x6070a0, 0.35));
+    s3.scene.add(light, new THREE.AmbientLight(0x6070a0, 0.2));
 
     ringsGroup = new THREE.Group();
     world.add(ringsGroup);
