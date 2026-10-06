@@ -52,7 +52,7 @@ BASE = {
     "moon": {"start": 2461000, "step": 0.5, "n": 10},
     "satellites": {"groups": "stations"},
     "neo": {"group": "pha"},
-    "flyby": {"des": "99942", "jd": 2462240.4},
+    "flyby": {"des": "99942", "jd": 2462240.4},             # Apophis, 13 April 2029
     "log": {"message": "fuzz"},
 }
 ROUTE_OF = {k: "/api/" + k.split("_vectors")[0].split("_bi")[0].split("_plane")[0].split("_circ")[0]

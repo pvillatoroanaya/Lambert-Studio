@@ -449,6 +449,7 @@ class Scene3D {
     this._stepCamera(dt);
     if (this.mode === 'orbit' && !this.anim) this.controls.update();
     this._guardCamera();
+    this._lightPlanets();
     this.sky.position.copy(this.camera.position);      // the sky is always "at infinity"
     this.stars.position.copy(this.camera.position);
     if (this.composer && LS.settings.bloom) {
@@ -725,6 +726,29 @@ class Scene3D {
     this.home = { t: this.controls.target.clone(), p: this.camera.position.clone() };
   }
 
+  /* Planets drawn with their own shader (LS.planetMaterial) are told where
+     the Sun is: the scene's point light (the Sun itself) or directional
+     light (sunlight from far away). The scene is rescanned every 2 s, so
+     planets added later are picked up. */
+  _lightPlanets() {
+    if (!this._lit || (this._litScan = (this._litScan || 0) + 1) % 120 === 0) {
+      this._lit = [];
+      this._sunLight = null;
+      this.scene.traverse((o) => {
+        if (o.material && o.material.userData && o.material.userData.sunLit) this._lit.push(o.material);
+        if (!this._sunLight && (o.isPointLight || o.isDirectionalLight)) this._sunLight = o;
+      });
+    }
+    const L = this._sunLight;
+    if (!L || !this._lit.length) return;
+    const p = L.getWorldPosition(this._lp || (this._lp = new THREE.Vector3()));
+    if (L.isDirectionalLight) p.sub(L.target.getWorldPosition(this._lq || (this._lq = new THREE.Vector3())));
+    for (const m of this._lit) {
+      m.uniforms.sunPos.value.copy(p);
+      m.uniforms.sunPoint.value = L.isPointLight ? 1 : 0;
+    }
+  }
+
   _finite(v) { return Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.z); }
 
   /* Safety net: whatever happens (extreme zoom, flying off at full speed,
@@ -885,11 +909,68 @@ LS.texture = function (path) {
 
 /* Surface of a planet or moon: the picture alone, lit by the Sun. (Using
    the picture's brightness as a bump map made every bright or dark speck a
-   dimple -- the "golf ball" look -- so no bump map is used.) */
+   dimple -- the "golf ball" look -- so no bump map is used.)
+
+   Mars and Jupiter get their own shader, drawn with the same care as the
+   Earth: a crisp day/night line (soft on a gas giant), a truly dark night
+   side instead of a grey haze, limb darkening, and a thin glow of
+   atmosphere on the sunlit edge. The Sun is found in the scene by
+   Scene3D (a point light = the Sun's position, a directional light = its
+   direction), so the same material works in every view. */
+const SURFACES = {
+  // terminator: where the day fades into night (cos of the sun angle);
+  // limb: how much the edge darkens; haze: the sunlit rim's colour and strength
+  mars:    { terminator: [-0.03, 0.2], limb: 0.18, haze: [0.95, 0.6, 0.42], hazeK: 0.22, hazeP: 3.5, gain: 1.05 },
+  jupiter: { terminator: [-0.08, 0.3], limb: 0.42, haze: [0.95, 0.88, 0.75], hazeK: 0.04, hazeP: 5.0, gain: 1.02 },
+};
 LS.planetMaterial = function (name, file, extra = {}) {
   const map = LS.texture(`textures/${file || name.toLowerCase() + '.jpg'}`);
-  const params = Object.assign({ map, roughness: 1, metalness: 0, color: 0xc8c8c8 }, extra);
-  return new THREE.MeshStandardMaterial(params);
+  const surf = SURFACES[name.toLowerCase()];
+  if (!surf || Object.keys(extra).length) {
+    const params = Object.assign({ map, roughness: 1, metalness: 0, color: 0xc8c8c8 }, extra);
+    return new THREE.MeshStandardMaterial(params);
+  }
+  const mat = new THREE.ShaderMaterial({
+    uniforms: {
+      map: { value: map },
+      sunPos: { value: new THREE.Vector3() }, sunPoint: { value: 1 },
+      term: { value: new THREE.Vector2(...surf.terminator) }, limbK: { value: surf.limb },
+      haze: { value: new THREE.Color(...surf.haze) }, hazeK: { value: surf.hazeK }, hazeP: { value: surf.hazeP },
+      gain: { value: surf.gain },
+    },
+    vertexShader: `${LOGDEPTH_V}
+      varying vec2 vUv; varying vec3 vN; varying vec3 vP;
+      void main(){
+        vUv = uv;
+        vN = normalize(mat3(modelMatrix) * normal);
+        vec4 wp = modelMatrix * vec4(position, 1.0);
+        vP = wp.xyz;
+        gl_Position = projectionMatrix * viewMatrix * wp;
+        #include <logdepthbuf_vertex>
+      }`,
+    fragmentShader: `${LOGDEPTH_F}
+      uniform sampler2D map; uniform vec3 sunPos; uniform float sunPoint;
+      uniform vec2 term; uniform float limbK; uniform vec3 haze; uniform float hazeK; uniform float hazeP; uniform float gain;
+      varying vec2 vUv; varying vec3 vN; varying vec3 vP;
+      void main(){
+        #include <logdepthbuf_fragment>
+        vec3 n = normalize(vN);
+        vec3 v = normalize(cameraPosition - vP);
+        vec3 s = normalize(sunPoint > 0.5 ? sunPos - vP : sunPos);
+        float ndl = dot(n, s);
+        float day = smoothstep(term.x, term.y, ndl);
+        float mu = max(dot(n, v), 0.0);
+        float limb = 1.0 - limbK * (1.0 - pow(mu, 0.6));
+        vec3 col = texture2D(map, vUv).rgb * gain;
+        vec3 lit = col * (0.012 + day * (0.25 + 0.75 * max(ndl, 0.0)) * limb);
+        // thin atmosphere: a glow on the sunlit rim, strongest near the day/night line
+        float rim = pow(1.0 - mu, hazeP);
+        lit += haze * rim * hazeK * smoothstep(-0.15, 0.25, ndl);
+        gl_FragColor = vec4(lit, 1.0);
+      }`,
+  });
+  mat.userData.sunLit = true;
+  return mat;
 };
 
 LS.stars = function (radius, count = 6000) {
@@ -932,6 +1013,43 @@ LS.glow = function (radius, color, power = 3.0, strength = 1.0) {
   });
   const m = new THREE.Mesh(new THREE.SphereGeometry(radius, 96, 72), mat);
   m.userData.noPick = true;          // decoration: clicks go to the body underneath
+  return m;
+};
+
+/* An atmosphere seen from space: a glowing shell around a planet, like the
+   Earth's, but brightest on the sunlit side and fading into the night side
+   (a plain glow would ring the dark side too). The Sun is supplied by
+   Scene3D like the planet shaders (sunLit). */
+LS.atmosphere = function (radius, color, power = 3.0, strength = 1.0) {
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { c: { value: new THREE.Color(color) }, p: { value: power }, k: { value: strength },
+      sunPos: { value: new THREE.Vector3(1, 0, 0) }, sunPoint: { value: 0 } },
+    vertexShader: `${LOGDEPTH_V}
+      varying vec3 vN; varying vec3 vP;
+      void main(){
+        vN = normalize(mat3(modelMatrix) * normal);
+        vec4 wp = modelMatrix * vec4(position, 1.0);
+        vP = wp.xyz;
+        gl_Position = projectionMatrix * viewMatrix * wp;
+        #include <logdepthbuf_vertex>
+      }`,
+    fragmentShader: `${LOGDEPTH_F}
+      uniform vec3 c; uniform float p; uniform float k; uniform vec3 sunPos; uniform float sunPoint;
+      varying vec3 vN; varying vec3 vP;
+      void main(){
+        #include <logdepthbuf_fragment>
+        vec3 n = normalize(vN);
+        vec3 v = normalize(cameraPosition - vP);
+        vec3 s = normalize(sunPoint > 0.5 ? sunPos - vP : sunPos);
+        float fres = pow(1.0 - abs(dot(n, v)), p);
+        float lit = smoothstep(-0.35, 0.5, dot(n, s));
+        gl_FragColor = vec4(c, fres * k * (0.06 + 0.94 * lit));
+      }`,
+    side: THREE.FrontSide, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
+  });
+  mat.userData.sunLit = true;
+  const m = new THREE.Mesh(new THREE.SphereGeometry(radius, 128, 96), mat);
+  m.userData.noPick = true;
   return m;
 };
 
@@ -994,6 +1112,126 @@ LS.earth = function () {
   group.add(LS.glow(1.07, 0x6fb4ff, 4.2, 0.55));              // thin outer haze of the atmosphere
   const setSun = (dir) => uniforms.sunDir.value.copy(dir).normalize();
   return { group, spin, clouds, surface, setSun };
+};
+
+/* Saturn, drawn with the same care as the Earth: an oblate, tilted planet
+   whose rings cast their shadow on its clouds, and whose body casts its
+   shadow across the rings. Proportions are real: radius R (equatorial),
+   polar radius 0.902 R, rings from 1.24 R to 2.33 R (C ring to A ring),
+   axial tilt 26.7 deg. Call setSun(direction) with the Sun's world direction;
+   the shadows follow the planet wherever it is placed. */
+LS.saturn = function (R = 1) {
+  const group = new THREE.Group();
+  const tilt = new THREE.Group();
+  tilt.rotation.z = 26.7 * LS.DEG;
+  group.add(tilt);
+  const R_IN = 1.24 * R, R_OUT = 2.33 * R;
+  const shared = {
+    sunDir: { value: new THREE.Vector3(1, 0, 0) },
+    center: { value: new THREE.Vector3() },
+    ringNormal: { value: new THREE.Vector3(0, 1, 0) },
+    ringMap: { value: LS.texture('textures/saturn_ring.png') },
+    rIn: { value: R_IN }, rOut: { value: R_OUT }, radius: { value: R },
+  };
+
+  // The planet: the cloud bands, lit by the Sun with a soft terminator,
+  // a touch of limb darkening, and the rings' shadow.
+  const planet = new THREE.Mesh(new THREE.SphereGeometry(R, 192, 128), new THREE.ShaderMaterial({
+    uniforms: Object.assign({ map: { value: LS.texture('textures/saturn.jpg') } }, shared),
+    vertexShader: `${LOGDEPTH_V}
+      varying vec2 vUv; varying vec3 vN; varying vec3 vP;
+      void main(){
+        vUv = uv;
+        vN = normalize(mat3(modelMatrix) * normal);
+        vec4 wp = modelMatrix * vec4(position, 1.0);
+        vP = wp.xyz;
+        gl_Position = projectionMatrix * viewMatrix * wp;
+        #include <logdepthbuf_vertex>
+      }`,
+    fragmentShader: `${LOGDEPTH_F}
+      uniform sampler2D map; uniform sampler2D ringMap;
+      uniform vec3 sunDir; uniform vec3 center; uniform vec3 ringNormal;
+      uniform float rIn; uniform float rOut;
+      varying vec2 vUv; varying vec3 vN; varying vec3 vP;
+      void main(){
+        #include <logdepthbuf_fragment>
+        vec3 n = normalize(vN);
+        vec3 v = normalize(cameraPosition - vP);
+        float ndl = dot(n, sunDir);
+        float day = smoothstep(-0.06, 0.28, ndl);
+        // ring shadow: follow the ray towards the Sun to the ring plane
+        float shade = 1.0;
+        float dn = dot(sunDir, ringNormal);
+        if (abs(dn) > 1e-4) {
+          float t = dot(center - vP, ringNormal) / dn;
+          if (t > 0.0) {
+            float r = length(vP + sunDir * t - center);
+            if (r > rIn && r < rOut) shade = 1.0 - 0.82 * texture2D(ringMap, vec2((r - rIn) / (rOut - rIn), 0.5)).a;
+          }
+        }
+        vec3 col = texture2D(map, vUv).rgb * 0.84;
+        float limb = mix(0.6, 1.0, pow(max(dot(n, v), 0.0), 0.45));
+        vec3 lit = col * (0.03 + 0.97 * day * shade) * limb;
+        // faint warm haze on the lit limb
+        lit += vec3(0.9, 0.78, 0.55) * pow(1.0 - max(dot(n, v), 0.0), 4.0) * day * 0.05;
+        gl_FragColor = vec4(lit, 1.0);
+      }`,
+  }));
+  planet.scale.y = 0.902;
+  tilt.add(planet);
+
+  // The rings: colour and transparency from the radial ring picture,
+  // brighter on the side the Sun shines on, dark in the planet's shadow.
+  const ringGeo = new THREE.RingGeometry(R_IN, R_OUT, 384, 6);
+  const ring = new THREE.Mesh(ringGeo, new THREE.ShaderMaterial({
+    uniforms: shared,
+    vertexShader: `${LOGDEPTH_V}
+      varying vec3 vP;
+      void main(){
+        vec4 wp = modelMatrix * vec4(position, 1.0);
+        vP = wp.xyz;
+        gl_Position = projectionMatrix * viewMatrix * wp;
+        #include <logdepthbuf_vertex>
+      }`,
+    fragmentShader: `${LOGDEPTH_F}
+      uniform sampler2D ringMap; uniform vec3 sunDir; uniform vec3 center; uniform vec3 ringNormal;
+      uniform float rIn; uniform float rOut; uniform float radius;
+      varying vec3 vP;
+      void main(){
+        #include <logdepthbuf_fragment>
+        float r = length(vP - center);
+        vec4 tex = texture2D(ringMap, vec2((r - rIn) / (rOut - rIn), 0.5));
+        if (tex.a < 0.01) discard;
+        // planet shadow: does the ray towards the Sun hit the (oblate) planet?
+        vec3 d = vP - center;
+        float b = dot(d, sunDir);
+        float c = dot(d, d) - radius * radius * 0.95;
+        float shadow = (b < 0.0 && b * b - c > 0.0) ? 0.06 : 1.0;
+        // the lit face is bright; seen from the unlit face the rings glow faintly
+        vec3 v = normalize(cameraPosition - vP);
+        float sameSide = sign(dot(sunDir, ringNormal)) * sign(dot(v, ringNormal));
+        float light = sameSide > 0.0 ? 0.35 + 0.65 * abs(dot(sunDir, ringNormal)) + 0.25 : 0.28 * (1.0 - tex.a) + 0.1;
+        gl_FragColor = vec4(tex.rgb * 1.08 * light * shadow, tex.a * 0.96);
+      }`,
+    side: THREE.DoubleSide, transparent: true, depthWrite: false,
+  }));
+  ring.rotation.x = -Math.PI / 2;
+  tilt.add(ring);
+  // its atmosphere: a thin bright limb and a wider soft haze, like the Earth's
+  [LS.atmosphere(R * 1.02, 0xf2d9a4, 3.4, 0.42), LS.atmosphere(R * 1.06, 0xffe6b8, 5.0, 0.3)].forEach((a) => {
+    a.scale.y = 0.902;
+    tilt.add(a);
+  });
+
+  const n = new THREE.Vector3(), q = new THREE.Quaternion();
+  const setSun = (dir) => {
+    shared.sunDir.value.copy(dir).normalize();
+    group.updateMatrixWorld(true);
+    tilt.getWorldPosition(shared.center.value);
+    tilt.getWorldQuaternion(q);
+    shared.ringNormal.value.copy(n.set(0, 1, 0).applyQuaternion(q)).normalize();
+  };
+  return { group, tilt, planet, ring, setSun, radius: R, ringRadius: R_OUT };
 };
 
 /* The Sun: animated plasma surface (procedural noise) with limb

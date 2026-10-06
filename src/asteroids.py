@@ -118,7 +118,9 @@ def flyby_path(des, jd_ca, half_width_days=3.0, step_min=30, refresh=False):
     """
     params = {
         "format": "json",
-        "COMMAND": f"'DES={des};'",
+        # Numbered asteroids are looked up by number ("99942;"); DES= only
+        # matches designations such as "2017 TE2".
+        "COMMAND": f"'{des};'" if des.strip().isdigit() else f"'DES={des};'",
         "EPHEM_TYPE": "VECTORS",
         "CENTER": "'500@399'",
         "START_TIME": f"'{_jd_to_str(jd_ca - half_width_days)}'",

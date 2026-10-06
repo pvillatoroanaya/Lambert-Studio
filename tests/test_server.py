@@ -219,3 +219,16 @@ def test_rare_values_get_a_clear_message(api, path, body):
     js = api(path, body)          # a result (e.g. an azimuth that wraps round) or a clear message
     if not js["ok"]:
         assert "Internal error" not in js["error"] and "could not be computed" not in js["error"]
+
+
+@pytest.mark.parametrize("des, jd", [("99942", 2462240.4), ("2017 TE2", 2461312.869431261)])
+def test_flyby_path_numbered_and_provisional(api, des, jd):
+    """Horizons needs '99942;' for a numbered asteroid and 'DES=2017 TE2;'
+    for a provisional one; both must give the close-approach path."""
+    js = api(f"/api/flyby?des={urllib.request.quote(des)}&jd={jd}")
+    if not js["ok"] and ("offline" in js["error"] or "download" in js["error"]):
+        pytest.skip("no network and no saved copy")
+    assert js["ok"] and len(js["data"]["r"]) > 100
+    if des == "99942":                     # Apophis, 13 April 2029: about 38,000 km from the Earth's centre
+        closest = min(sum(c * c for c in p) ** 0.5 for p in js["data"]["r"])
+        assert 37000 < closest < 39500

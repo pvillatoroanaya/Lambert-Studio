@@ -114,7 +114,7 @@ html[data-theme="dark"] .panel .ctl > button.primary { box-shadow: 0 6px 22px rg
    Start page: the scrolling story
    ===================================================================== */
 :root:not(#_) #landing { position: fixed; inset: 0; z-index: 40; overflow-x: hidden; overflow-y: auto; color: #eef4ff;
-  background: #03050b; scroll-snap-type: y proximity; scrollbar-width: none; }
+  background: #03050b; scrollbar-width: none; }
 #landing::-webkit-scrollbar { display: none; }
 :root:not(#_) #cv-landing, .st-canvas { position: fixed; inset: 0; z-index: 0; }
 .st-canvas canvas { display: block; outline: none; pointer-events: none; }
@@ -152,8 +152,10 @@ html[data-theme="dark"] .panel .ctl > button.primary { box-shadow: 0 6px 22px rg
   background: linear-gradient(90deg, #38d6ff, #8b7bff); box-shadow: 0 0 12px #38d6ff; }
 
 /* sections */
-.st-sec { position: relative; z-index: 2; min-height: 100vh; display: flex; align-items: center; padding: 90px 9vw 70px; overflow: hidden;
-  scroll-snap-align: start; }
+.st-sec { position: relative; z-index: 2; min-height: 100vh; display: flex; align-items: center; padding: 90px 9vw 70px; overflow: hidden; }
+/* the text drifts and fades with the scroll position (--off: -1 .. 1 around the
+   section, --vis: 0 .. 1), set every frame by the start page */
+.st-sec > .st-col { opacity: var(--vis, 1); transform: translate3d(0, calc(var(--off, 0) * -70px), 0); will-change: transform, opacity; }
 .st-sec::before { content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none; }
 .st-l::before { background: linear-gradient(90deg, rgba(3, 6, 14, .82) 0%, rgba(3, 6, 14, .45) 42%, transparent 68%); }
 .st-r::before { background: linear-gradient(270deg, rgba(3, 6, 14, .82) 0%, rgba(3, 6, 14, .45) 42%, transparent 68%); }
@@ -240,7 +242,7 @@ html[data-theme="dark"] .panel .ctl > button.primary { box-shadow: 0 6px 22px rg
 body.no-fx .st-rv, body.no-fx .ln > span, body.no-fx .st-tag i { opacity: 1; transform: none; filter: none; transition: none; }
 body.no-fx .st-glow, body.no-fx .st-scrollcue i { display: none; }
 body.no-fx #curtain { display: none; }
-:root:not(#_) body.no-fx #landing { scroll-snap-type: none; }
+:root:not(#_) body.no-fx .st-sec > .st-col { opacity: 1; transform: none; }
 @media (prefers-reduced-motion: reduce) {
   .st-rv, .ln > span, .st-tag i { opacity: 1; transform: none; filter: none; transition: none; }
 }

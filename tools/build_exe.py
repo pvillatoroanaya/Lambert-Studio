@@ -56,6 +56,9 @@ def main():
     pyinstaller.run(args)
 
     folder = OUT / "dist" / "LambertStudio"
+    # The desktop shortcut takes its icon from this file; PyInstaller empties
+    # the folder on every build, so put it back each time.
+    shutil.copyfile(ROOT / "tools" / "icon.ico", folder / "LambertStudio-icon.ico")
     archive = shutil.make_archive(str(OUT / "LambertStudio-windows"), "zip", folder)
     size = sum(f.stat().st_size for f in folder.rglob("*") if f.is_file()) / 1e6
     print(f"\nBuilt {folder / 'LambertStudio.exe'}  ({size:.0f} MB)\nZip:  {archive}")

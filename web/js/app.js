@@ -92,23 +92,26 @@
   /* ---------------- frame-rate governor ---------------- */
 
   // In 'auto' quality the drawing resolution follows the frame rate: if the
-  // last second averaged under ~40 fps, draw fewer pixels; after several
-  // smooth seconds, try a little sharper again. Pauses right after a view
-  // opens (shaders and textures are still being prepared then).
-  let govFrames = 0, govTime = 0, govHold = 3, calm = 0;
+  // TYPICAL frame of the last second was slow (under ~40 fps for 3 frames in
+  // 4), draw fewer pixels; after several smooth seconds, try a little sharper
+  // again. A single hitch (a texture upload, a window resize) is ignored, so
+  // the picture does not go soft because of one bad moment. Pauses right
+  // after a view opens (shaders and textures are still being prepared then).
+  let govDts = [], govTime = 0, govHold = 3, calm = 0;
   function governor(dt) {
     if (LS.settings.quality !== 'auto' || document.hidden) return;
-    govFrames++; govTime += dt;
+    govDts.push(dt); govTime += dt;
     if (govTime < 1) return;
-    const fps = govFrames / govTime;
-    govFrames = 0; govTime = 0;
+    const sorted = govDts.sort((a, b) => a - b);
+    const fps = 1 / sorted[Math.floor(sorted.length * 0.75)];     // 3 frames in 4 are at least this fast
+    govDts = []; govTime = 0;
     if (govHold > 0) { govHold -= 1; return; }
     const q = LS.quality;
     if (fps < 40 && q.pr > q.min) {
-      LS.setPixelRatio(Math.max(q.min, q.pr * (fps < 25 ? 0.75 : 0.88)));
+      LS.setPixelRatio(Math.max(q.min, q.pr * (fps < 25 ? 0.8 : 0.9)));
       calm = 0;
     } else if (fps > 56) {
-      if (++calm >= 6 && q.pr < q.max) { LS.setPixelRatio(q.pr * 1.1); calm = 0; govHold = 2; }
+      if (++calm >= 3 && q.pr < q.max) { LS.setPixelRatio(q.pr * 1.15); calm = 0; govHold = 1; }
     } else {
       calm = 0;
     }
